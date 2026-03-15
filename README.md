@@ -117,6 +117,32 @@ kube-context. If omitted, the configured default context is used.
 }
 ```
 
+### GitHub Copilot CLI (stdio)
+
+Add to `.copilot/config.yml` in your project or `~/.copilot/config.yml` globally:
+
+```yaml
+mcpServers:
+  kubectl:
+    command: kubectl-mcp
+    args:
+      - serve
+```
+
+### GitHub Copilot CLI (SSE)
+
+Start the server in the background, then configure the SSE endpoint:
+
+```bash
+kubectl-mcp serve --transport sse &
+```
+
+```yaml
+mcpServers:
+  kubectl:
+    url: http://localhost:8080/sse
+```
+
 ## License
 
 MIT
