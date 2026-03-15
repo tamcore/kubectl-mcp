@@ -7,6 +7,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/server"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
@@ -342,4 +343,41 @@ func buildWritePool(cfg *config.Config, dynClient *fakedynamic.FakeDynamicClient
 			Discovery: disc,
 		},
 	})
+}
+
+// testDaemonSet returns an unstructured DaemonSet object.
+func testDaemonSet(name, ns string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "apps/v1",
+		"kind":       "DaemonSet",
+		"metadata": map[string]interface{}{
+			"name":              name,
+			"namespace":         ns,
+			"creationTimestamp": "2024-01-01T00:00:00Z",
+		},
+		"spec": map[string]interface{}{
+			"template": map[string]interface{}{
+				"metadata": map[string]interface{}{},
+			},
+		},
+	}}
+}
+
+// testStatefulSet returns an unstructured StatefulSet object.
+func testStatefulSet(name, ns string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "apps/v1",
+		"kind":       "StatefulSet",
+		"metadata": map[string]interface{}{
+			"name":              name,
+			"namespace":         ns,
+			"creationTimestamp": "2024-01-01T00:00:00Z",
+		},
+		"spec": map[string]interface{}{
+			"replicas": int64(3),
+			"template": map[string]interface{}{
+				"metadata": map[string]interface{}{},
+			},
+		},
+	}}
 }
