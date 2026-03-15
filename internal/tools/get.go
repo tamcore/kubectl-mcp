@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -10,7 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/yaml"
 
 	"github.com/tamcore/kubectl-mcp/internal/config"
 	"github.com/tamcore/kubectl-mcp/internal/kube"
@@ -18,7 +18,7 @@ import (
 
 func registerGetResource(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config) {
 	tool := mcp.NewTool("get_resource",
-		mcp.WithDescription("Get a single Kubernetes resource by kind and name, returned as YAML"),
+		mcp.WithDescription("Get a single Kubernetes resource by kind and name, returned as JSON"),
 		mcp.WithString("context",
 			mcp.Description("Kubernetes context to use (defaults to current context)"),
 		),
@@ -73,7 +73,10 @@ func registerGetResource(s *server.MCPServer, pool *kube.ClientPool, cfg *config
 			kube.RedactSecrets(obj)
 		}
 
-		out, err := yaml.Marshal(obj.Object)
+		// Strip managedFields to reduce noise.
+		delete(obj.Object["metadata"].(map[string]interface{}), "managedFields")
+
+		out, err := json.MarshalIndent(obj.Object, "", "  ")
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to marshal resource: %v", err)), nil
 		}
