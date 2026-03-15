@@ -32,10 +32,13 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 			mcp.Description("Namespace to list in (omit for cluster-scoped or all namespaces)"),
 		),
 		mcp.WithString("labelSelector",
-			mcp.Description("Label selector (e.g. app=nginx). Preferred way to filter resources."),
+			mcp.Description("Label selector (e.g. app=nginx). Preferred way to filter by labels."),
 		),
-		mcp.WithString("fieldSelector",
-			mcp.Description("Field selector. Only metadata.name and metadata.namespace are universally supported. Most status fields are NOT valid field selectors. Use labelSelector instead when possible."),
+		mcp.WithString("filter",
+			mcp.Description("Client-side filter on any resource field using dot-notation. "+
+				"Supports any field path (e.g. status.phase=Running, spec.replicas=3, "+
+				"status.containerStatuses.0.ready=true). Multiple filters comma-separated. "+
+				"Use this instead of fieldSelector for non-metadata fields."),
 		),
 	)
 
@@ -54,7 +57,7 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 		namespace := req.GetString("namespace", "")
 		apiVersion := req.GetString("apiVersion", "")
 		labelSelector := req.GetString("labelSelector", "")
-		fieldSelector := req.GetString("fieldSelector", "")
+		filter := req.GetString("filter", "")
 
 		gvr, err := resolveGVR(cc, kind, apiVersion)
 		if err != nil {
@@ -63,7 +66,6 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 
 		opts := metav1.ListOptions{
 			LabelSelector: labelSelector,
-			FieldSelector: fieldSelector,
 		}
 
 		var list *unstructured.UnstructuredList
@@ -80,13 +82,20 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 			kube.RedactSecretsList(list)
 		}
 
-		if len(list.Items) == 0 {
+		// Apply client-side filters.
+		filters, err := parseFilters(filter)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("invalid filter: %v", err)), nil
+		}
+		items := applyFilters(list.Items, filters)
+
+		if len(items) == 0 {
 			return mcp.NewToolResultText(fmt.Sprintf("No %s found", kind)), nil
 		}
 
 		var sb strings.Builder
 		fmt.Fprintf(&sb, "%-50s %-20s %s\n", "NAME", "NAMESPACE", "AGE")
-		for _, item := range list.Items {
+		for _, item := range items {
 			name := item.GetName()
 			ns := item.GetNamespace()
 			age := "<unknown>"
@@ -97,4 +106,109 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 		}
 		return mcp.NewToolResultText(sb.String()), nil
 	})
+}
+
+// filterExpr represents a single field=value filter.
+type filterExpr struct {
+	path   []string
+	value  string
+	negate bool
+}
+
+// parseFilters parses a comma-separated list of field=value or field!=value expressions.
+func parseFilters(raw string) ([]filterExpr, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, nil
+	}
+
+	var filters []filterExpr
+	for _, part := range strings.Split(raw, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+
+		var key, val string
+		var negate bool
+
+		if idx := strings.Index(part, "!="); idx > 0 {
+			key = part[:idx]
+			val = part[idx+2:]
+			negate = true
+		} else if idx := strings.Index(part, "="); idx > 0 {
+			key = part[:idx]
+			val = part[idx+1:]
+		} else {
+			return nil, fmt.Errorf("invalid filter expression %q: expected field=value or field!=value", part)
+		}
+
+		filters = append(filters, filterExpr{
+			path:   strings.Split(key, "."),
+			value:  val,
+			negate: negate,
+		})
+	}
+	return filters, nil
+}
+
+// applyFilters returns only the items that match all filter expressions.
+func applyFilters(items []unstructured.Unstructured, filters []filterExpr) []unstructured.Unstructured {
+	if len(filters) == 0 {
+		return items
+	}
+
+	var result []unstructured.Unstructured
+	for _, item := range items {
+		if matchesAllFilters(item.Object, filters) {
+			result = append(result, item)
+		}
+	}
+	return result
+}
+
+func matchesAllFilters(obj map[string]interface{}, filters []filterExpr) bool {
+	for _, f := range filters {
+		actual := nestedFieldAsString(obj, f.path)
+		matches := actual == f.value
+		if f.negate {
+			matches = !matches
+		}
+		if !matches {
+			return false
+		}
+	}
+	return true
+}
+
+// nestedFieldAsString traverses the object using the dot-path and returns
+// the value as a string. Supports map and slice (numeric index) traversal.
+func nestedFieldAsString(obj interface{}, path []string) string {
+	current := obj
+	for _, key := range path {
+		switch v := current.(type) {
+		case map[string]interface{}:
+			val, ok := v[key]
+			if !ok {
+				return ""
+			}
+			current = val
+		case []interface{}:
+			idx := 0
+			for i, c := range key {
+				if c < '0' || c > '9' {
+					return ""
+				}
+				idx = idx*10 + int(c-'0')
+				_ = i
+			}
+			if idx >= len(v) {
+				return ""
+			}
+			current = v[idx]
+		default:
+			return ""
+		}
+	}
+	return fmt.Sprintf("%v", current)
 }
