@@ -82,8 +82,15 @@ func registerGetResource(s *server.MCPServer, pool *kube.ClientPool, cfg *config
 	})
 }
 
+// gvrCandidate is a candidate GVR match during kind resolution.
+type gvrCandidate struct {
+	gvr     schema.GroupVersionResource
+	exact   bool // exact kind match (case-insensitive)
+	coreAPI bool // belongs to core API group ("")
+}
+
 // resolveGVR resolves a kind (and optional apiVersion) to a GroupVersionResource
-// using the discovery client.
+// using the discovery client. Prefers core API group and exact kind matches.
 func resolveGVR(cc *kube.ContextClient, kind, apiVersion string) (schema.GroupVersionResource, error) {
 	_, apiLists, err := cc.Discovery.ServerGroupsAndResources()
 	if err != nil {
@@ -91,6 +98,8 @@ func resolveGVR(cc *kube.ContextClient, kind, apiVersion string) (schema.GroupVe
 	}
 
 	lowerKind := strings.ToLower(kind)
+
+	var candidates []gvrCandidate
 
 	for _, list := range apiLists {
 		if apiVersion != "" && list.GroupVersion != apiVersion {
@@ -104,17 +113,48 @@ func resolveGVR(cc *kube.ContextClient, kind, apiVersion string) (schema.GroupVe
 			if strings.Contains(r.Name, "/") {
 				continue
 			}
-			if strings.EqualFold(r.Kind, kind) || strings.ToLower(r.Name) == lowerKind || matchesPlural(r.Name, lowerKind) {
-				return schema.GroupVersionResource{
-					Group:    gv.Group,
-					Version:  gv.Version,
-					Resource: r.Name,
-				}, nil
+			exact := strings.EqualFold(r.Kind, kind)
+			nameMatch := strings.ToLower(r.Name) == lowerKind
+			pluralMatch := matchesPlural(r.Name, lowerKind)
+
+			if exact || nameMatch || pluralMatch {
+				candidates = append(candidates, gvrCandidate{
+					gvr: schema.GroupVersionResource{
+						Group:    gv.Group,
+						Version:  gv.Version,
+						Resource: r.Name,
+					},
+					exact:   exact,
+					coreAPI: gv.Group == "",
+				})
 			}
 		}
 	}
 
-	return schema.GroupVersionResource{}, fmt.Errorf("could not resolve resource for kind %q (apiVersion=%q)", kind, apiVersion)
+	if len(candidates) == 0 {
+		return schema.GroupVersionResource{}, fmt.Errorf("could not resolve resource for kind %q (apiVersion=%q)", kind, apiVersion)
+	}
+
+	// Pick best candidate: prefer exact+core > exact > core > first.
+	best := candidates[0]
+	for _, c := range candidates[1:] {
+		if betterGVRCandidate(c, best) {
+			best = c
+		}
+	}
+	return best.gvr, nil
+}
+
+func betterGVRCandidate(a, b gvrCandidate) bool {
+	// Exact match beats non-exact.
+	if a.exact != b.exact {
+		return a.exact
+	}
+	// Core API group beats extensions.
+	if a.coreAPI != b.coreAPI {
+		return a.coreAPI
+	}
+	return false
 }
 
 func matchesPlural(resourceName, input string) bool {
