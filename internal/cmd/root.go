@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -42,10 +43,7 @@ func initConfig() {
 
 	// KUBECONFIG is a special case: honour the standard env var directly.
 	if cfg.Kubeconfig == "" {
-		cfg.Kubeconfig = v.GetString("kubeconfig")
-	}
-	if cfg.Kubeconfig == "" {
-		cfg.Kubeconfig = viper.GetString("KUBECONFIG")
+		cfg.Kubeconfig = os.Getenv("KUBECONFIG")
 	}
 }
 
