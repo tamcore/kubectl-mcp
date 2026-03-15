@@ -9,7 +9,6 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/tamcore/kubectl-mcp/internal/config"
 	"github.com/tamcore/kubectl-mcp/internal/kube"
@@ -100,16 +99,7 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 		if len(filters) > 0 {
 			fmt.Fprintf(&sb, "Matched %d of %d %s\n\n", len(items), len(list.Items), kind)
 		}
-		fmt.Fprintf(&sb, "%-50s %-20s %s\n", "NAME", "NAMESPACE", "AGE")
-		for _, item := range items {
-			name := item.GetName()
-			ns := item.GetNamespace()
-			age := "<unknown>"
-			if ts := item.GetCreationTimestamp(); !ts.IsZero() {
-				age = duration.HumanDuration(metav1.Now().Sub(ts.Time))
-			}
-			fmt.Fprintf(&sb, "%-50s %-20s %s\n", name, ns, age)
-		}
+		formatResourceTable(&sb, items)
 		return mcp.NewToolResultText(sb.String()), nil
 	})
 }
