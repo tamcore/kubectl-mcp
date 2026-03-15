@@ -58,7 +58,9 @@ func startSSEServer(t *testing.T) string {
 	addr := ln.Addr().String()
 	_ = ln.Close()
 
-	sseServer := server.NewSSEServer(s)
+	sseServer := server.NewSSEServer(s,
+		server.WithBaseURL(fmt.Sprintf("http://%s", addr)),
+	)
 
 	go func() {
 		if err := sseServer.Start(addr); err != nil {
@@ -115,10 +117,26 @@ func resultText(r *mcp.CallToolResult) string {
 	return ""
 }
 
-func initRequest() mcp.InitializeRequest {
-	return mcp.InitializeRequest{
+func newClient(t *testing.T, base string) *mcpclient.Client {
+	t.Helper()
+	c, err := mcpclient.NewSSEMCPClient(base + "/sse")
+	if err != nil {
+		t.Fatalf("NewSSEMCPClient: %v", err)
+	}
+	t.Cleanup(func() { _ = c.Close() })
+
+	// Use background context for the SSE stream — the stream must stay alive
+	// for the lifetime of the client, not just this function.
+	if err := c.Start(context.Background()); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	initReq := mcp.InitializeRequest{
 		Params: struct {
-			ProtocolVersion string               `json:"protocolVersion"`
+			ProtocolVersion string                 `json:"protocolVersion"`
 			Capabilities    mcp.ClientCapabilities `json:"capabilities"`
 			ClientInfo      mcp.Implementation     `json:"clientInfo"`
 		}{
@@ -129,21 +147,16 @@ func initRequest() mcp.InitializeRequest {
 			},
 		},
 	}
+
+	if _, err := c.Initialize(ctx, initReq); err != nil {
+		t.Fatalf("Initialize: %v", err)
+	}
+	return c
 }
 
 func TestListContexts(t *testing.T) {
 	base := startSSEServer(t)
-	c, err := mcpclient.NewSSEMCPClient(base + "/sse")
-	if err != nil {
-		t.Fatalf("NewSSEMCPClient: %v", err)
-	}
-	defer func() { _ = c.Close() }()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if _, err := c.Initialize(ctx, initRequest()); err != nil {
-		t.Fatalf("Initialize: %v", err)
-	}
+	c := newClient(t, base)
 
 	result := callTool(t, c, "list_contexts", nil)
 	text := resultText(result)
@@ -160,17 +173,7 @@ func TestListContexts(t *testing.T) {
 
 func TestListNamespaces(t *testing.T) {
 	base := startSSEServer(t)
-	c, err := mcpclient.NewSSEMCPClient(base + "/sse")
-	if err != nil {
-		t.Fatalf("NewSSEMCPClient: %v", err)
-	}
-	defer func() { _ = c.Close() }()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if _, err := c.Initialize(ctx, initRequest()); err != nil {
-		t.Fatalf("Initialize: %v", err)
-	}
+	c := newClient(t, base)
 
 	result := callTool(t, c, "list_namespaces", map[string]any{
 		"context": "kind-e2e",
@@ -184,17 +187,7 @@ func TestListNamespaces(t *testing.T) {
 
 func TestListResources(t *testing.T) {
 	base := startSSEServer(t)
-	c, err := mcpclient.NewSSEMCPClient(base + "/sse")
-	if err != nil {
-		t.Fatalf("NewSSEMCPClient: %v", err)
-	}
-	defer func() { _ = c.Close() }()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if _, err := c.Initialize(ctx, initRequest()); err != nil {
-		t.Fatalf("Initialize: %v", err)
-	}
+	c := newClient(t, base)
 
 	result := callTool(t, c, "list_resources", map[string]any{
 		"context":   "kind-e2e",
@@ -219,22 +212,12 @@ func TestListResources(t *testing.T) {
 
 func TestGetResource(t *testing.T) {
 	base := startSSEServer(t)
-	c, err := mcpclient.NewSSEMCPClient(base + "/sse")
-	if err != nil {
-		t.Fatalf("NewSSEMCPClient: %v", err)
-	}
-	defer func() { _ = c.Close() }()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if _, err := c.Initialize(ctx, initRequest()); err != nil {
-		t.Fatalf("Initialize: %v", err)
-	}
+	c := newClient(t, base)
 
 	result := callTool(t, c, "get_resource", map[string]any{
-		"context":   "kind-e2e",
-		"kind":      "Namespace",
-		"name":      "default",
+		"context": "kind-e2e",
+		"kind":    "Namespace",
+		"name":    "default",
 	})
 	text := resultText(result)
 
@@ -254,17 +237,7 @@ func TestGetResource(t *testing.T) {
 
 func TestGetEvents(t *testing.T) {
 	base := startSSEServer(t)
-	c, err := mcpclient.NewSSEMCPClient(base + "/sse")
-	if err != nil {
-		t.Fatalf("NewSSEMCPClient: %v", err)
-	}
-	defer func() { _ = c.Close() }()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if _, err := c.Initialize(ctx, initRequest()); err != nil {
-		t.Fatalf("Initialize: %v", err)
-	}
+	c := newClient(t, base)
 
 	result := callTool(t, c, "get_events", map[string]any{
 		"context":   "kind-e2e",
@@ -287,24 +260,13 @@ func TestGetEvents(t *testing.T) {
 
 func TestSecretRedaction(t *testing.T) {
 	base := startSSEServer(t)
-	c, err := mcpclient.NewSSEMCPClient(base + "/sse")
-	if err != nil {
-		t.Fatalf("NewSSEMCPClient: %v", err)
-	}
-	defer func() { _ = c.Close() }()
+	c := newClient(t, base)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if _, err := c.Initialize(ctx, initRequest()); err != nil {
-		t.Fatalf("Initialize: %v", err)
-	}
-
-	// The default ServiceAccount token secret should exist in kube-system or
-	// we can list secrets in any namespace — they should be redacted.
+	// kube-system always has SA token secrets on kind clusters.
 	result := callTool(t, c, "list_resources", map[string]any{
 		"context":   "kind-e2e",
 		"kind":      "Secret",
-		"namespace": "default",
+		"namespace": "kube-system",
 	})
 	text := resultText(result)
 
@@ -312,26 +274,18 @@ func TestSecretRedaction(t *testing.T) {
 		t.Fatalf("list_resources Secret error: %s", text)
 	}
 
-	// Verify we get results (even if empty, the format should be valid JSON).
 	var items []map[string]any
-	if err := json.Unmarshal([]byte(text), &items); err != nil && text != "[]" {
+	if err := json.Unmarshal([]byte(text), &items); err != nil {
 		t.Fatalf("expected JSON array, got: %s", text)
+	}
+	if len(items) == 0 {
+		t.Fatal("expected at least one secret in kube-system")
 	}
 }
 
 func TestListResourcesWithFilter(t *testing.T) {
 	base := startSSEServer(t)
-	c, err := mcpclient.NewSSEMCPClient(base + "/sse")
-	if err != nil {
-		t.Fatalf("NewSSEMCPClient: %v", err)
-	}
-	defer func() { _ = c.Close() }()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if _, err := c.Initialize(ctx, initRequest()); err != nil {
-		t.Fatalf("Initialize: %v", err)
-	}
+	c := newClient(t, base)
 
 	result := callTool(t, c, "list_resources", map[string]any{
 		"context":   "kind-e2e",
@@ -345,8 +299,15 @@ func TestListResourcesWithFilter(t *testing.T) {
 		t.Fatalf("list_resources with filter error: %s", text)
 	}
 
+	// When a filter is active, the response has a "Matched N of M Kind\n\n" header
+	// before the JSON array. Strip it.
+	jsonStart := strings.Index(text, "[")
+	if jsonStart < 0 {
+		t.Fatalf("expected JSON array in response, got: %s", text)
+	}
+
 	var items []map[string]any
-	if err := json.Unmarshal([]byte(text), &items); err != nil {
+	if err := json.Unmarshal([]byte(text[jsonStart:]), &items); err != nil {
 		t.Fatalf("expected JSON array, got: %s", text)
 	}
 
