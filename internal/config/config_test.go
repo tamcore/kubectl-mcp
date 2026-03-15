@@ -39,7 +39,8 @@ func TestValidate_Transport(t *testing.T) {
 	}
 }
 
-func TestValidate_AllowWriteWarning(t *testing.T) {
+func TestValidate_AllowWriteNoWarning(t *testing.T) {
+	// AllowWrite should no longer emit a warning (write ops are implemented).
 	origStderr := os.Stderr
 	r, w, err := os.Pipe()
 	if err != nil {
@@ -59,8 +60,28 @@ func TestValidate_AllowWriteWarning(t *testing.T) {
 	if _, err := buf.ReadFrom(r); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(buf.String(), "WARNING: --allow-write") {
-		t.Fatalf("expected warning on stderr, got %q", buf.String())
+	if strings.Contains(buf.String(), "WARNING") {
+		t.Fatalf("expected no warning on stderr, got %q", buf.String())
+	}
+}
+
+func TestValidate_AllowDestructiveImpliesAllowWrite(t *testing.T) {
+	c := &Config{Transport: "stdio", AllowDestructive: true}
+	if err := c.Validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !c.AllowWrite {
+		t.Fatal("AllowDestructive should imply AllowWrite")
+	}
+}
+
+func TestValidate_AllowDestructiveWithoutAllowWrite(t *testing.T) {
+	c := &Config{Transport: "stdio", AllowDestructive: true, AllowWrite: false}
+	if err := c.Validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !c.AllowWrite {
+		t.Fatal("AllowDestructive should force AllowWrite to true")
 	}
 }
 

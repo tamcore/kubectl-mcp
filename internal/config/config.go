@@ -10,14 +10,15 @@ import (
 
 // Config holds all runtime configuration for the MCP server.
 type Config struct {
-	Transport       string
-	SSEAddress      string
-	Kubeconfig      string
-	Context         string
-	AllowedContexts []string
-	DeniedContexts  []string
-	AllowWrite      bool
-	AllowSecrets    bool
+	Transport        string
+	SSEAddress       string
+	Kubeconfig       string
+	Context          string
+	AllowedContexts  []string
+	DeniedContexts   []string
+	AllowWrite       bool
+	AllowDestructive bool
+	AllowSecrets     bool
 }
 
 // Validate checks the configuration for consistency.
@@ -27,8 +28,8 @@ func (c *Config) Validate() error {
 	default:
 		return fmt.Errorf("invalid transport %q: must be stdio or sse", c.Transport)
 	}
-	if c.AllowWrite {
-		fmt.Fprintln(os.Stderr, "WARNING: --allow-write is accepted but write operations are not yet implemented")
+	if c.AllowDestructive {
+		c.AllowWrite = true
 	}
 	for _, p := range c.DeniedContexts {
 		if isRegex(p) {

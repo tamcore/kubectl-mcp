@@ -26,7 +26,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfg.Context, "context", "", "Default kube-context override")
 	rootCmd.PersistentFlags().StringSliceVar(&cfg.AllowedContexts, "allowed-contexts", []string{"*"}, "Comma-separated glob/regex patterns for allowed contexts")
 	rootCmd.PersistentFlags().StringSliceVar(&cfg.DeniedContexts, "denied-contexts", nil, "Comma-separated glob/regex patterns for denied contexts")
-	rootCmd.PersistentFlags().BoolVar(&cfg.AllowWrite, "allow-write", false, "Enable write operations (reserved for future use)")
+	rootCmd.PersistentFlags().BoolVar(&cfg.AllowWrite, "allow-write", false, "Enable write operations")
+	rootCmd.PersistentFlags().BoolVar(&cfg.AllowDestructive, "allow-destructive", false, "Enable destructive operations (delete, drain); implies --allow-write")
 	rootCmd.PersistentFlags().BoolVar(&cfg.AllowSecrets, "allow-secrets", false, "Allow reading Secret data")
 
 	rootCmd.AddCommand(serveCmd)
