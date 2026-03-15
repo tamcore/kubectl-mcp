@@ -90,10 +90,16 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 		items := applyFilters(list.Items, filters)
 
 		if len(items) == 0 {
+			if len(filters) > 0 {
+				return mcp.NewToolResultText(fmt.Sprintf("No %s matched filter (checked %d resources)", kind, len(list.Items))), nil
+			}
 			return mcp.NewToolResultText(fmt.Sprintf("No %s found", kind)), nil
 		}
 
 		var sb strings.Builder
+		if len(filters) > 0 {
+			fmt.Fprintf(&sb, "Matched %d of %d %s\n\n", len(items), len(list.Items), kind)
+		}
 		fmt.Fprintf(&sb, "%-50s %-20s %s\n", "NAME", "NAMESPACE", "AGE")
 		for _, item := range items {
 			name := item.GetName()
@@ -133,12 +139,12 @@ func parseFilters(raw string) ([]filterExpr, error) {
 		var negate bool
 
 		if idx := strings.Index(part, "!="); idx > 0 {
-			key = part[:idx]
-			val = part[idx+2:]
+			key = strings.TrimSpace(part[:idx])
+			val = strings.TrimSpace(part[idx+2:])
 			negate = true
 		} else if idx := strings.Index(part, "="); idx > 0 {
-			key = part[:idx]
-			val = part[idx+1:]
+			key = strings.TrimSpace(part[:idx])
+			val = strings.TrimSpace(part[idx+1:])
 		} else {
 			return nil, fmt.Errorf("invalid filter expression %q: expected field=value or field!=value", part)
 		}
@@ -169,7 +175,12 @@ func applyFilters(items []unstructured.Unstructured, filters []filterExpr) []uns
 
 func matchesAllFilters(obj map[string]interface{}, filters []filterExpr) bool {
 	for _, f := range filters {
-		actual := nestedFieldAsString(obj, f.path)
+		actual, found := nestedFieldValue(obj, f.path)
+		if !found {
+			// Field doesn't exist: equality fails, negation also fails
+			// (can't assert != on a missing field).
+			return false
+		}
 		matches := actual == f.value
 		if f.negate {
 			matches = !matches
@@ -181,34 +192,33 @@ func matchesAllFilters(obj map[string]interface{}, filters []filterExpr) bool {
 	return true
 }
 
-// nestedFieldAsString traverses the object using the dot-path and returns
-// the value as a string. Supports map and slice (numeric index) traversal.
-func nestedFieldAsString(obj interface{}, path []string) string {
+// nestedFieldValue traverses the object using the dot-path and returns
+// the value as a string plus whether the field was found.
+func nestedFieldValue(obj interface{}, path []string) (string, bool) {
 	current := obj
 	for _, key := range path {
 		switch v := current.(type) {
 		case map[string]interface{}:
 			val, ok := v[key]
 			if !ok {
-				return ""
+				return "", false
 			}
 			current = val
 		case []interface{}:
 			idx := 0
-			for i, c := range key {
+			for _, c := range key {
 				if c < '0' || c > '9' {
-					return ""
+					return "", false
 				}
 				idx = idx*10 + int(c-'0')
-				_ = i
 			}
 			if idx >= len(v) {
-				return ""
+				return "", false
 			}
 			current = v[idx]
 		default:
-			return ""
+			return "", false
 		}
 	}
-	return fmt.Sprintf("%v", current)
+	return fmt.Sprintf("%v", current), true
 }
