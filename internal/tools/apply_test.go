@@ -362,22 +362,3 @@ func testDaemonSet(name, ns string) *unstructured.Unstructured {
 		},
 	}}
 }
-
-// testStatefulSet returns an unstructured StatefulSet object.
-func testStatefulSet(name, ns string) *unstructured.Unstructured {
-	return &unstructured.Unstructured{Object: map[string]interface{}{
-		"apiVersion": "apps/v1",
-		"kind":       "StatefulSet",
-		"metadata": map[string]interface{}{
-			"name":              name,
-			"namespace":         ns,
-			"creationTimestamp": "2024-01-01T00:00:00Z",
-		},
-		"spec": map[string]interface{}{
-			"replicas": int64(3),
-			"template": map[string]interface{}{
-				"metadata": map[string]interface{}{},
-			},
-		},
-	}}
-}

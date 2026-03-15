@@ -1,7 +1,7 @@
 # kubectl-mcp
 
-A minimalistic, read-only Kubernetes MCP (Model Context Protocol) server that
-lets LLMs query your clusters safely.
+A minimalistic Kubernetes MCP (Model Context Protocol) server that
+lets LLMs query and manage your clusters safely.
 
 ## Features
 
@@ -10,7 +10,9 @@ lets LLMs query your clusters safely.
 - **Multi-kubeconfig** — honours `KUBECONFIG` with colon-separated paths
 - **Context filtering** — allow/deny contexts via glob (`prod-*`) or regex (`/^staging-.+$/`)
 - **Two transports** — stdio (default) and SSE
-- **8 MCP tools** — list_contexts, list_namespaces, list_api_resources, get_resource, list_resources, describe_resource, get_logs, get_events
+- **Write operations** — opt-in via `--allow-write` for apply, patch, scale, restart, cordon, uncordon
+- **Destructive operations** — opt-in via `--allow-destructive` for delete and drain
+- **16 MCP tools** — 8 read-only + 6 write + 2 destructive
 
 ## Installation
 
@@ -35,6 +37,12 @@ kubectl-mcp serve --allow-secrets --allowed-contexts "dev-*,staging-*"
 
 # Deny production contexts
 kubectl-mcp serve --denied-contexts "/^prod-/"
+
+# Enable write operations
+kubectl-mcp serve --allow-write
+
+# Enable all operations including delete and drain
+kubectl-mcp serve --allow-write --allow-destructive
 ```
 
 ## Configuration
@@ -50,7 +58,8 @@ All flags can also be set via environment variables with a `KUBECTL_MCP_` prefix
 | `--context` | `KUBECTL_MCP_CONTEXT` | *(current-context)* | Default kube-context override |
 | `--allowed-contexts` | `KUBECTL_MCP_ALLOWED_CONTEXTS` | `*` | Comma-separated glob/regex allow patterns |
 | `--denied-contexts` | `KUBECTL_MCP_DENIED_CONTEXTS` | *(none)* | Comma-separated glob/regex deny patterns |
-| `--allow-write` | `KUBECTL_MCP_ALLOW_WRITE` | `false` | Reserved for future write operations |
+| `--allow-write` | `KUBECTL_MCP_ALLOW_WRITE` | `false` | Enable write operations (apply, patch, scale, restart, cordon, uncordon) |
+| `--allow-destructive` | `KUBECTL_MCP_ALLOW_DESTRUCTIVE` | `false` | Enable destructive operations (delete, drain); implies `--allow-write` |
 | `--allow-secrets` | `KUBECTL_MCP_ALLOW_SECRETS` | `false` | Allow reading Secret data |
 
 ### Context Filtering
@@ -66,16 +75,36 @@ Contexts are allowed if they match at least one `--allowed-contexts` pattern
 All tools accept an optional `context` parameter to target a specific
 kube-context. If omitted, the configured default context is used.
 
+### Read-only tools (always available)
+
 | Tool | Description |
 |------|-------------|
 | `list_contexts` | List available (allowed) kube-contexts |
 | `list_namespaces` | List namespaces |
 | `list_api_resources` | List API resources (kind, apiVersion, namespaced, verbs) |
-| `get_resource` | Get a single resource as YAML |
+| `get_resource` | Get a single resource as JSON |
 | `list_resources` | List resources with label/field selectors |
 | `describe_resource` | Rich describe output with conditions, spec, and events |
 | `get_logs` | Get pod/container logs |
 | `get_events` | Get cluster events |
+
+### Write tools (require `--allow-write`)
+
+| Tool | Description |
+|------|-------------|
+| `apply_resource` | Apply a JSON/YAML manifest (create or update) |
+| `patch_resource` | Patch a resource (json, merge, or strategic merge patch) |
+| `scale_resource` | Scale a Deployment, StatefulSet, or ReplicaSet |
+| `restart_rollout` | Restart a Deployment, StatefulSet, or DaemonSet rollout |
+| `cordon_node` | Mark a node as unschedulable |
+| `uncordon_node` | Mark a node as schedulable |
+
+### Destructive tools (require `--allow-destructive`)
+
+| Tool | Description |
+|------|-------------|
+| `delete_resource` | Delete a resource by kind, name, and namespace |
+| `drain_node` | Cordon a node and evict all eligible pods |
 
 ## MCP Client Configuration
 
@@ -148,6 +177,7 @@ To run directly from source (e.g. during development):
         "./cmd/kubectl-mcp",
         "serve",
         "--allow-write",
+        "--allow-destructive",
         "--allow-secrets"
       ],
       "tools": ["*"]

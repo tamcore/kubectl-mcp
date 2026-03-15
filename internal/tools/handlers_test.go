@@ -223,24 +223,84 @@ func getHandler(t *testing.T, name string, register func(s *server.MCPServer)) s
 // ---------------------------------------------------------------------------
 
 func TestRegisterAll(t *testing.T) {
-	cfg := defaultCfg()
-	pool := buildPool(cfg, defaultRawConfig(), newFakeDynClient(), fake.NewClientset())
-	s := server.NewMCPServer("test", "0.1.0", server.WithToolCapabilities(false))
-
-	// Must not panic.
-	RegisterAll(s, pool, cfg)
-
-	expected := []string{
+	readOnlyTools := []string{
 		"list_contexts", "list_namespaces", "list_api_resources",
 		"get_resource", "list_resources", "describe_resource",
 		"get_logs", "get_events",
 	}
-	tools := s.ListTools()
-	for _, name := range expected {
-		if _, ok := tools[name]; !ok {
-			t.Errorf("expected tool %q to be registered", name)
-		}
+	writeTools := []string{
+		"apply_resource", "patch_resource", "scale_resource",
+		"restart_rollout", "cordon_node", "uncordon_node",
 	}
+	destructiveTools := []string{
+		"delete_resource", "drain_node",
+	}
+
+	t.Run("read-only mode", func(t *testing.T) {
+		cfg := defaultCfg()
+		pool := buildPool(cfg, defaultRawConfig(), newFakeDynClient(), fake.NewClientset())
+		s := server.NewMCPServer("test", "0.1.0", server.WithToolCapabilities(false))
+		RegisterAll(s, pool, cfg)
+
+		tools := s.ListTools()
+		for _, name := range readOnlyTools {
+			if _, ok := tools[name]; !ok {
+				t.Errorf("expected tool %q to be registered", name)
+			}
+		}
+		for _, name := range writeTools {
+			if _, ok := tools[name]; ok {
+				t.Errorf("tool %q should NOT be registered in read-only mode", name)
+			}
+		}
+		for _, name := range destructiveTools {
+			if _, ok := tools[name]; ok {
+				t.Errorf("tool %q should NOT be registered in read-only mode", name)
+			}
+		}
+	})
+
+	t.Run("write mode", func(t *testing.T) {
+		cfg := defaultCfg()
+		cfg.AllowWrite = true
+		pool := buildPool(cfg, defaultRawConfig(), newFakeDynClient(), fake.NewClientset())
+		s := server.NewMCPServer("test", "0.1.0", server.WithToolCapabilities(false))
+		RegisterAll(s, pool, cfg)
+
+		tools := s.ListTools()
+		for _, name := range readOnlyTools {
+			if _, ok := tools[name]; !ok {
+				t.Errorf("expected tool %q to be registered", name)
+			}
+		}
+		for _, name := range writeTools {
+			if _, ok := tools[name]; !ok {
+				t.Errorf("expected tool %q to be registered in write mode", name)
+			}
+		}
+		for _, name := range destructiveTools {
+			if _, ok := tools[name]; ok {
+				t.Errorf("tool %q should NOT be registered without --allow-destructive", name)
+			}
+		}
+	})
+
+	t.Run("destructive mode", func(t *testing.T) {
+		cfg := defaultCfg()
+		cfg.AllowWrite = true
+		cfg.AllowDestructive = true
+		pool := buildPool(cfg, defaultRawConfig(), newFakeDynClient(), fake.NewClientset())
+		s := server.NewMCPServer("test", "0.1.0", server.WithToolCapabilities(false))
+		RegisterAll(s, pool, cfg)
+
+		tools := s.ListTools()
+		all := append(append(readOnlyTools, writeTools...), destructiveTools...)
+		for _, name := range all {
+			if _, ok := tools[name]; !ok {
+				t.Errorf("expected tool %q to be registered in destructive mode", name)
+			}
+		}
+	})
 }
 
 // --- list_contexts ---
