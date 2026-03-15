@@ -134,6 +134,30 @@ Add to `~/.copilot/mcp-config.json`:
 }
 ```
 
+To run directly from source (e.g. during development):
+
+```json
+{
+  "mcpServers": {
+    "kubectl": {
+      "type": "stdio",
+      "command": "go",
+      "args": [
+        "run",
+        "-C", "/path/to/kubectl-mcp",
+        "./cmd/kubectl-mcp",
+        "serve",
+        "--allow-write",
+        "--allow-secrets"
+      ],
+      "tools": ["*"]
+    }
+  }
+}
+```
+
+> **Note:** Use absolute paths — `~` is not expanded in JSON config.
+
 ### GitHub Copilot CLI (SSE)
 
 Start the server in the background, then add to `~/.copilot/mcp-config.json`:
