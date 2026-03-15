@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -9,139 +10,108 @@ import (
 	"k8s.io/apimachinery/pkg/util/duration"
 )
 
-// formatResourceTable writes a kubectl-like table for the given items.
-// It detects the resource kind and adds appropriate status columns.
-func formatResourceTable(sb *strings.Builder, items []unstructured.Unstructured) {
+// formatResourceList returns a JSON array of resource summaries.
+// Each resource kind gets tailored fields so the LLM can reason
+// over them without text parsing.
+func formatResourceList(items []unstructured.Unstructured) (string, error) {
 	if len(items) == 0 {
-		return
+		return "[]", nil
 	}
 
 	kind := items[0].GetKind()
-	switch kind {
-	case "Pod":
-		formatPodTable(sb, items)
-	case "Deployment":
-		formatDeploymentTable(sb, items)
-	case "StatefulSet":
-		formatStatefulSetTable(sb, items)
-	case "DaemonSet":
-		formatDaemonSetTable(sb, items)
-	case "Job":
-		formatJobTable(sb, items)
-	case "Node":
-		formatNodeTable(sb, items)
-	case "Service":
-		formatServiceTable(sb, items)
-	default:
-		formatGenericTable(sb, items)
-	}
-}
+	summaries := make([]map[string]interface{}, 0, len(items))
 
-func formatPodTable(sb *strings.Builder, items []unstructured.Unstructured) {
-	fmt.Fprintf(sb, "%-50s %-20s %-10s %-10s %-10s %s\n",
-		"NAME", "NAMESPACE", "STATUS", "READY", "RESTARTS", "AGE")
 	for _, item := range items {
-		status := podStatus(item.Object)
-		ready := podReady(item.Object)
-		restarts := podRestarts(item.Object)
-		fmt.Fprintf(sb, "%-50s %-20s %-10s %-10s %-10s %s\n",
-			item.GetName(), item.GetNamespace(), status, ready, restarts, resourceAge(item))
-	}
-}
-
-func formatDeploymentTable(sb *strings.Builder, items []unstructured.Unstructured) {
-	fmt.Fprintf(sb, "%-50s %-20s %-12s %-12s %-12s %s\n",
-		"NAME", "NAMESPACE", "READY", "UP-TO-DATE", "AVAILABLE", "AGE")
-	for _, item := range items {
-		replicas := getIntField(item.Object, "spec", "replicas")
-		ready := getIntField(item.Object, "status", "readyReplicas")
-		upToDate := getIntField(item.Object, "status", "updatedReplicas")
-		available := getIntField(item.Object, "status", "availableReplicas")
-		fmt.Fprintf(sb, "%-50s %-20s %-12s %-12s %-12s %s\n",
-			item.GetName(), item.GetNamespace(),
-			fmt.Sprintf("%d/%d", ready, replicas),
-			fmt.Sprintf("%d", upToDate),
-			fmt.Sprintf("%d", available),
-			resourceAge(item))
-	}
-}
-
-func formatStatefulSetTable(sb *strings.Builder, items []unstructured.Unstructured) {
-	fmt.Fprintf(sb, "%-50s %-20s %-12s %s\n",
-		"NAME", "NAMESPACE", "READY", "AGE")
-	for _, item := range items {
-		replicas := getIntField(item.Object, "spec", "replicas")
-		ready := getIntField(item.Object, "status", "readyReplicas")
-		fmt.Fprintf(sb, "%-50s %-20s %-12s %s\n",
-			item.GetName(), item.GetNamespace(),
-			fmt.Sprintf("%d/%d", ready, replicas),
-			resourceAge(item))
-	}
-}
-
-func formatDaemonSetTable(sb *strings.Builder, items []unstructured.Unstructured) {
-	fmt.Fprintf(sb, "%-50s %-20s %-10s %-10s %-10s %s\n",
-		"NAME", "NAMESPACE", "DESIRED", "READY", "AVAILABLE", "AGE")
-	for _, item := range items {
-		desired := getIntField(item.Object, "status", "desiredNumberScheduled")
-		ready := getIntField(item.Object, "status", "numberReady")
-		available := getIntField(item.Object, "status", "numberAvailable")
-		fmt.Fprintf(sb, "%-50s %-20s %-10d %-10d %-10d %s\n",
-			item.GetName(), item.GetNamespace(),
-			desired, ready, available, resourceAge(item))
-	}
-}
-
-func formatJobTable(sb *strings.Builder, items []unstructured.Unstructured) {
-	fmt.Fprintf(sb, "%-50s %-20s %-12s %-12s %s\n",
-		"NAME", "NAMESPACE", "COMPLETIONS", "STATUS", "AGE")
-	for _, item := range items {
-		succeeded := getIntField(item.Object, "status", "succeeded")
-		completions := getIntField(item.Object, "spec", "completions")
-		status := "Running"
-		if conditionIsTrue(item.Object, "Complete") {
-			status = "Complete"
-		} else if conditionIsTrue(item.Object, "Failed") {
-			status = "Failed"
+		s := baseFields(item)
+		switch kind {
+		case "Pod":
+			enrichPod(s, item.Object)
+		case "Deployment":
+			enrichDeployment(s, item.Object)
+		case "StatefulSet":
+			enrichStatefulSet(s, item.Object)
+		case "DaemonSet":
+			enrichDaemonSet(s, item.Object)
+		case "Job":
+			enrichJob(s, item.Object)
+		case "Node":
+			enrichNode(s, item)
+		case "Service":
+			enrichService(s, item.Object)
 		}
-		fmt.Fprintf(sb, "%-50s %-20s %-12s %-12s %s\n",
-			item.GetName(), item.GetNamespace(),
-			fmt.Sprintf("%d/%d", succeeded, completions),
-			status, resourceAge(item))
+		summaries = append(summaries, s)
 	}
+
+	out, err := json.MarshalIndent(summaries, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
 }
 
-func formatNodeTable(sb *strings.Builder, items []unstructured.Unstructured) {
-	fmt.Fprintf(sb, "%-50s %-10s %-30s %s\n",
-		"NAME", "STATUS", "ROLES", "AGE")
-	for _, item := range items {
-		status := "NotReady"
-		if conditionIsTrue(item.Object, "Ready") {
-			status = "Ready"
-		}
-		roles := nodeRoles(item.GetLabels())
-		fmt.Fprintf(sb, "%-50s %-10s %-30s %s\n",
-			item.GetName(), status, roles, resourceAge(item))
+func baseFields(item unstructured.Unstructured) map[string]interface{} {
+	m := map[string]interface{}{
+		"name": item.GetName(),
+		"age":  resourceAge(item),
 	}
+	if ns := item.GetNamespace(); ns != "" {
+		m["namespace"] = ns
+	}
+	return m
 }
 
-func formatServiceTable(sb *strings.Builder, items []unstructured.Unstructured) {
-	fmt.Fprintf(sb, "%-50s %-20s %-12s %-25s %s\n",
-		"NAME", "NAMESPACE", "TYPE", "CLUSTER-IP", "AGE")
-	for _, item := range items {
-		svcType := getStrField(item.Object, "spec", "type")
-		clusterIP := getStrField(item.Object, "spec", "clusterIP")
-		fmt.Fprintf(sb, "%-50s %-20s %-12s %-25s %s\n",
-			item.GetName(), item.GetNamespace(), svcType, clusterIP, resourceAge(item))
-	}
+func enrichPod(s map[string]interface{}, obj map[string]interface{}) {
+	s["status"] = podStatus(obj)
+	s["ready"] = podReady(obj)
+	s["restarts"] = podRestarts(obj)
+	s["node"] = getStrField(obj, "spec", "nodeName")
 }
 
-func formatGenericTable(sb *strings.Builder, items []unstructured.Unstructured) {
-	fmt.Fprintf(sb, "%-50s %-20s %s\n", "NAME", "NAMESPACE", "AGE")
-	for _, item := range items {
-		fmt.Fprintf(sb, "%-50s %-20s %s\n",
-			item.GetName(), item.GetNamespace(), resourceAge(item))
+func enrichDeployment(s map[string]interface{}, obj map[string]interface{}) {
+	replicas := getIntField(obj, "spec", "replicas")
+	ready := getIntField(obj, "status", "readyReplicas")
+	s["ready"] = fmt.Sprintf("%d/%d", ready, replicas)
+	s["upToDate"] = getIntField(obj, "status", "updatedReplicas")
+	s["available"] = getIntField(obj, "status", "availableReplicas")
+}
+
+func enrichStatefulSet(s map[string]interface{}, obj map[string]interface{}) {
+	replicas := getIntField(obj, "spec", "replicas")
+	ready := getIntField(obj, "status", "readyReplicas")
+	s["ready"] = fmt.Sprintf("%d/%d", ready, replicas)
+}
+
+func enrichDaemonSet(s map[string]interface{}, obj map[string]interface{}) {
+	s["desired"] = getIntField(obj, "status", "desiredNumberScheduled")
+	s["ready"] = getIntField(obj, "status", "numberReady")
+	s["available"] = getIntField(obj, "status", "numberAvailable")
+}
+
+func enrichJob(s map[string]interface{}, obj map[string]interface{}) {
+	succeeded := getIntField(obj, "status", "succeeded")
+	completions := getIntField(obj, "spec", "completions")
+	s["completions"] = fmt.Sprintf("%d/%d", succeeded, completions)
+	status := "Running"
+	if conditionIsTrue(obj, "Complete") {
+		status = "Complete"
+	} else if conditionIsTrue(obj, "Failed") {
+		status = "Failed"
 	}
+	s["status"] = status
+}
+
+func enrichNode(s map[string]interface{}, item unstructured.Unstructured) {
+	status := "NotReady"
+	if conditionIsTrue(item.Object, "Ready") {
+		status = "Ready"
+	}
+	s["status"] = status
+	s["roles"] = nodeRoles(item.GetLabels())
+}
+
+func enrichService(s map[string]interface{}, obj map[string]interface{}) {
+	s["type"] = getStrField(obj, "spec", "type")
+	s["clusterIP"] = getStrField(obj, "spec", "clusterIP")
 }
 
 // --- Pod helpers ---

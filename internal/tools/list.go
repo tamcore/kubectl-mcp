@@ -95,12 +95,16 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 			return mcp.NewToolResultText(fmt.Sprintf("No %s found", kind)), nil
 		}
 
-		var sb strings.Builder
-		if len(filters) > 0 {
-			fmt.Fprintf(&sb, "Matched %d of %d %s\n\n", len(items), len(list.Items), kind)
+		jsonOut, err := formatResourceList(items)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to format results: %v", err)), nil
 		}
-		formatResourceTable(&sb, items)
-		return mcp.NewToolResultText(sb.String()), nil
+
+		if len(filters) > 0 {
+			header := fmt.Sprintf("Matched %d of %d %s\n\n", len(items), len(list.Items), kind)
+			return mcp.NewToolResultText(header + jsonOut), nil
+		}
+		return mcp.NewToolResultText(jsonOut), nil
 	})
 }
 
