@@ -80,7 +80,7 @@ func registerGetLogs(s *server.MCPServer, pool *kube.ClientPool) {
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to get logs: %v", err)), nil
 		}
-		defer stream.Close()
+		defer func() { _ = stream.Close() }()
 
 		data, err := io.ReadAll(stream)
 		if err != nil {
