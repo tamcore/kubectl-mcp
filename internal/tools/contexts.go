@@ -2,9 +2,8 @@ package tools
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"sort"
-	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -22,17 +21,23 @@ func registerListContexts(s *server.MCPServer, pool *kube.ClientPool) {
 		sort.Strings(contexts)
 		defaultCtx := pool.DefaultContext()
 
-		var sb strings.Builder
+		type ctxInfo struct {
+			Name      string `json:"name"`
+			IsDefault bool   `json:"isDefault,omitempty"`
+		}
+
+		items := make([]ctxInfo, 0, len(contexts))
 		for _, name := range contexts {
-			marker := "  "
-			if name == defaultCtx {
-				marker = "* "
-			}
-			fmt.Fprintf(&sb, "%s%s\n", marker, name)
+			items = append(items, ctxInfo{
+				Name:      name,
+				IsDefault: name == defaultCtx,
+			})
 		}
-		if sb.Len() == 0 {
-			return mcp.NewToolResultText("No contexts available"), nil
+
+		out, err := json.MarshalIndent(items, "", "  ")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
 		}
-		return mcp.NewToolResultText(sb.String()), nil
+		return mcp.NewToolResultText(string(out)), nil
 	})
 }

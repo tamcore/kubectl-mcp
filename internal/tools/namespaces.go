@@ -2,9 +2,9 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -43,6 +43,10 @@ func registerListNamespaces(s *server.MCPServer, pool *kube.ClientPool) {
 		}
 		sort.Strings(names)
 
-		return mcp.NewToolResultText(strings.Join(names, "\n")), nil
+		out, err := json.MarshalIndent(names, "", "  ")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		return mcp.NewToolResultText(string(out)), nil
 	})
 }

@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -37,41 +38,38 @@ func registerListAPIResources(s *server.MCPServer, pool *kube.ClientPool) {
 		}
 
 		type entry struct {
-			apiVersion string
-			kind       string
-			namespaced bool
-			verbs      string
+			Kind       string   `json:"kind"`
+			APIVersion string   `json:"apiVersion"`
+			Namespaced bool     `json:"namespaced"`
+			Verbs      []string `json:"verbs"`
 		}
 
 		var entries []entry
 		for _, list := range apiLists {
 			for _, r := range list.APIResources {
-				// Skip sub-resources (contain a slash).
 				if strings.Contains(r.Name, "/") {
 					continue
 				}
 				entries = append(entries, entry{
-					apiVersion: list.GroupVersion,
-					kind:       r.Kind,
-					namespaced: r.Namespaced,
-					verbs:      strings.Join(r.Verbs, ","),
+					Kind:       r.Kind,
+					APIVersion: list.GroupVersion,
+					Namespaced: r.Namespaced,
+					Verbs:      r.Verbs,
 				})
 			}
 		}
 
 		sort.Slice(entries, func(i, j int) bool {
-			if entries[i].kind != entries[j].kind {
-				return entries[i].kind < entries[j].kind
+			if entries[i].Kind != entries[j].Kind {
+				return entries[i].Kind < entries[j].Kind
 			}
-			return entries[i].apiVersion < entries[j].apiVersion
+			return entries[i].APIVersion < entries[j].APIVersion
 		})
 
-		var sb strings.Builder
-		fmt.Fprintf(&sb, "%-40s %-30s %-12s %s\n", "KIND", "APIVERSION", "NAMESPACED", "VERBS")
-		for _, e := range entries {
-			fmt.Fprintf(&sb, "%-40s %-30s %-12v %s\n", e.kind, e.apiVersion, e.namespaced, e.verbs)
+		out, err := json.MarshalIndent(entries, "", "  ")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
 		}
-
-		return mcp.NewToolResultText(sb.String()), nil
+		return mcp.NewToolResultText(string(out)), nil
 	})
 }

@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -56,20 +57,40 @@ func registerGetEvents(s *server.MCPServer, pool *kube.ClientPool) {
 		}
 
 		if len(events.Items) == 0 {
-			return mcp.NewToolResultText("No events found"), nil
+			return mcp.NewToolResultText("[]"), nil
 		}
 
-		var sb strings.Builder
-		fmt.Fprintf(&sb, "%-25s %-8s %-20s %-40s %s\n", "AGE", "TYPE", "REASON", "OBJECT", "MESSAGE")
+		type eventSummary struct {
+			Age       string `json:"age"`
+			Type      string `json:"type"`
+			Reason    string `json:"reason"`
+			Object    string `json:"object"`
+			Message   string `json:"message"`
+			Namespace string `json:"namespace,omitempty"`
+			Count     int32  `json:"count,omitempty"`
+		}
+
+		items := make([]eventSummary, 0, len(events.Items))
 		for _, e := range events.Items {
 			age := "<unknown>"
 			if !e.LastTimestamp.IsZero() {
 				age = duration.HumanDuration(metav1.Now().Sub(e.LastTimestamp.Time))
 			}
-			object := fmt.Sprintf("%s/%s", strings.ToLower(e.InvolvedObject.Kind), e.InvolvedObject.Name)
-			fmt.Fprintf(&sb, "%-25s %-8s %-20s %-40s %s\n", age, e.Type, e.Reason, object, e.Message)
+			items = append(items, eventSummary{
+				Age:       age,
+				Type:      e.Type,
+				Reason:    e.Reason,
+				Object:    fmt.Sprintf("%s/%s", strings.ToLower(e.InvolvedObject.Kind), e.InvolvedObject.Name),
+				Message:   e.Message,
+				Namespace: e.Namespace,
+				Count:     e.Count,
+			})
 		}
 
-		return mcp.NewToolResultText(sb.String()), nil
+		out, err := json.MarshalIndent(items, "", "  ")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		return mcp.NewToolResultText(string(out)), nil
 	})
 }
