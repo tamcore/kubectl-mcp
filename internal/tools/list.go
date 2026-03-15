@@ -32,10 +32,10 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 			mcp.Description("Namespace to list in (omit for cluster-scoped or all namespaces)"),
 		),
 		mcp.WithString("labelSelector",
-			mcp.Description("Label selector (e.g. app=nginx)"),
+			mcp.Description("Label selector (e.g. app=nginx). Preferred way to filter resources."),
 		),
 		mcp.WithString("fieldSelector",
-			mcp.Description("Field selector (e.g. metadata.name=foo)"),
+			mcp.Description("Field selector. Only metadata.name and metadata.namespace are universally supported. Most status fields are NOT valid field selectors. Use labelSelector instead when possible."),
 		),
 	)
 
