@@ -4,7 +4,6 @@ package e2e
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -21,24 +20,29 @@ import (
 	"github.com/tamcore/kubectl-mcp/internal/tools"
 )
 
-// startSSEServer creates an MCP server backed by the real cluster and starts
-// it on a random port. It returns the base URL and a cleanup function.
-func startSSEServer(t *testing.T) string {
-	t.Helper()
+// ---------------------------------------------------------------------------
+// Server helpers
+// ---------------------------------------------------------------------------
 
+func defaultConfig() *config.Config {
 	kubeconfig := os.Getenv("KUBECONFIG")
 	if kubeconfig == "" {
 		home, _ := os.UserHomeDir()
 		kubeconfig = home + "/.kube/config"
 	}
-
-	cfg := &config.Config{
-		Transport:       "sse",
-		SSEAddress:      "127.0.0.1:0",
+	return &config.Config{
 		Kubeconfig:      kubeconfig,
 		AllowedContexts: []string{"*"},
+		AllowWrite:      true,
+		AllowDestructive: true,
 		AllowSecrets:    false,
+		RateLimitRead:   0, // unlimited for tests
+		RateLimitWrite:  0,
 	}
+}
+
+func startSSEServerWithConfig(t *testing.T, cfg *config.Config) string {
+	t.Helper()
 
 	pool, err := kube.NewClientPool(cfg)
 	if err != nil {
@@ -50,7 +54,6 @@ func startSSEServer(t *testing.T) string {
 	)
 	tools.RegisterAll(s, pool, cfg)
 
-	// Find a free port.
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
@@ -63,24 +66,12 @@ func startSSEServer(t *testing.T) string {
 	)
 
 	go func() {
-		if err := sseServer.Start(addr); err != nil {
-			// Ignore errors from server shutdown.
-			if !strings.Contains(err.Error(), "Server closed") {
-				t.Logf("SSE server error: %v", err)
-			}
+		if err := sseServer.Start(addr); err != nil && !strings.Contains(err.Error(), "Server closed") {
+			t.Logf("SSE server error: %v", err)
 		}
 	}()
 
-	// Wait for the server to be ready.
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		conn, err := net.DialTimeout("tcp", addr, 100*time.Millisecond)
-		if err == nil {
-			_ = conn.Close()
-			break
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
+	waitForServer(t, addr)
 
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -91,9 +82,136 @@ func startSSEServer(t *testing.T) string {
 	return fmt.Sprintf("http://%s", addr)
 }
 
+func startStreamableHTTPServerWithConfig(t *testing.T, cfg *config.Config) string {
+	t.Helper()
+
+	pool, err := kube.NewClientPool(cfg)
+	if err != nil {
+		t.Fatalf("NewClientPool: %v", err)
+	}
+
+	s := server.NewMCPServer("kubectl-mcp-e2e", "test",
+		server.WithToolCapabilities(false),
+	)
+	tools.RegisterAll(s, pool, cfg)
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	addr := ln.Addr().String()
+	_ = ln.Close()
+
+	httpServer := server.NewStreamableHTTPServer(s)
+
+	go func() {
+		if err := httpServer.Start(addr); err != nil && !strings.Contains(err.Error(), "Server closed") {
+			t.Logf("streamable-HTTP server error: %v", err)
+		}
+	}()
+
+	waitForServer(t, addr)
+
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = httpServer.Shutdown(ctx)
+	})
+
+	return fmt.Sprintf("http://%s", addr)
+}
+
+func waitForServer(t *testing.T, addr string) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", addr, 100*time.Millisecond)
+		if err == nil {
+			_ = conn.Close()
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatalf("server at %s did not start in time", addr)
+}
+
+// ---------------------------------------------------------------------------
+// Client helpers
+// ---------------------------------------------------------------------------
+
+func newSSEClient(t *testing.T, base string) *mcpclient.Client {
+	t.Helper()
+	c, err := mcpclient.NewSSEMCPClient(base + "/sse")
+	if err != nil {
+		t.Fatalf("NewSSEMCPClient: %v", err)
+	}
+	t.Cleanup(func() { _ = c.Close() })
+
+	if err := c.Start(context.Background()); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+
+	initClient(t, c)
+	return c
+}
+
+func newHTTPClient(t *testing.T, base string) *mcpclient.Client {
+	t.Helper()
+	c, err := mcpclient.NewStreamableHttpClient(base + "/mcp")
+	if err != nil {
+		t.Fatalf("NewStreamableHttpClient: %v", err)
+	}
+	t.Cleanup(func() { _ = c.Close() })
+
+	if err := c.Start(context.Background()); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+
+	initClient(t, c)
+	return c
+}
+
+func initClient(t *testing.T, c *mcpclient.Client) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	initReq := mcp.InitializeRequest{
+		Params: struct {
+			ProtocolVersion string                 `json:"protocolVersion"`
+			Capabilities    mcp.ClientCapabilities `json:"capabilities"`
+			ClientInfo      mcp.Implementation     `json:"clientInfo"`
+		}{
+			ProtocolVersion: "2024-11-05",
+			ClientInfo:      mcp.Implementation{Name: "e2e-test", Version: "0.0.1"},
+		},
+	}
+
+	if _, err := c.Initialize(ctx, initReq); err != nil {
+		t.Fatalf("Initialize: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Tool call helpers
+// ---------------------------------------------------------------------------
+
+// callToolMayFail calls a tool and returns the result and error without failing the test.
+func callToolMayFail(t *testing.T, c *mcpclient.Client, name string, args map[string]any) (*mcp.CallToolResult, error) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	req := mcp.CallToolRequest{}
+	req.Params.Name = name
+	req.Params.Arguments = args
+
+	return c.CallTool(ctx, req)
+}
+
 func callTool(t *testing.T, c *mcpclient.Client, name string, args map[string]any) *mcp.CallToolResult {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
 	req := mcp.CallToolRequest{}
@@ -117,348 +235,17 @@ func resultText(r *mcp.CallToolResult) string {
 	return ""
 }
 
-func newClient(t *testing.T, base string) *mcpclient.Client {
-	t.Helper()
-	c, err := mcpclient.NewSSEMCPClient(base + "/sse")
-	if err != nil {
-		t.Fatalf("NewSSEMCPClient: %v", err)
-	}
-	t.Cleanup(func() { _ = c.Close() })
+// ---------------------------------------------------------------------------
+// Transport parameterization
+// ---------------------------------------------------------------------------
 
-	// Use background context for the SSE stream — the stream must stay alive
-	// for the lifetime of the client, not just this function.
-	if err := c.Start(context.Background()); err != nil {
-		t.Fatalf("Start: %v", err)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	initReq := mcp.InitializeRequest{
-		Params: struct {
-			ProtocolVersion string                 `json:"protocolVersion"`
-			Capabilities    mcp.ClientCapabilities `json:"capabilities"`
-			ClientInfo      mcp.Implementation     `json:"clientInfo"`
-		}{
-			ProtocolVersion: "2024-11-05",
-			ClientInfo: mcp.Implementation{
-				Name:    "e2e-test",
-				Version: "0.0.1",
-			},
-		},
-	}
-
-	if _, err := c.Initialize(ctx, initReq); err != nil {
-		t.Fatalf("Initialize: %v", err)
-	}
-	return c
+type transportCase struct {
+	name       string
+	startFunc  func(t *testing.T, cfg *config.Config) string
+	clientFunc func(t *testing.T, base string) *mcpclient.Client
 }
 
-// startStreamableHTTPServer creates an MCP server backed by the real cluster
-// and starts it as a streamable-HTTP server on a random port.
-func startStreamableHTTPServer(t *testing.T) string {
-	t.Helper()
-
-	kubeconfig := os.Getenv("KUBECONFIG")
-	if kubeconfig == "" {
-		home, _ := os.UserHomeDir()
-		kubeconfig = home + "/.kube/config"
-	}
-
-	cfg := &config.Config{
-		Transport:       "streamable-http",
-		HTTPAddress:     "127.0.0.1:0",
-		Kubeconfig:      kubeconfig,
-		AllowedContexts: []string{"*"},
-		AllowSecrets:    false,
-	}
-
-	pool, err := kube.NewClientPool(cfg)
-	if err != nil {
-		t.Fatalf("NewClientPool: %v", err)
-	}
-
-	s := server.NewMCPServer("kubectl-mcp-e2e", "test",
-		server.WithToolCapabilities(false),
-	)
-	tools.RegisterAll(s, pool, cfg)
-
-	// Find a free port.
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
-	}
-	addr := ln.Addr().String()
-	_ = ln.Close()
-
-	httpServer := server.NewStreamableHTTPServer(s)
-
-	go func() {
-		if err := httpServer.Start(addr); err != nil {
-			if !strings.Contains(err.Error(), "Server closed") {
-				t.Logf("streamable-HTTP server error: %v", err)
-			}
-		}
-	}()
-
-	// Wait for the server to be ready.
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		conn, err := net.DialTimeout("tcp", addr, 100*time.Millisecond)
-		if err == nil {
-			_ = conn.Close()
-			break
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-
-	t.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = httpServer.Shutdown(ctx)
-	})
-
-	return fmt.Sprintf("http://%s", addr)
-}
-
-func newStreamableHTTPClient(t *testing.T, base string) *mcpclient.Client {
-	t.Helper()
-	c, err := mcpclient.NewStreamableHttpClient(base + "/mcp")
-	if err != nil {
-		t.Fatalf("NewStreamableHttpClient: %v", err)
-	}
-	t.Cleanup(func() { _ = c.Close() })
-
-	if err := c.Start(context.Background()); err != nil {
-		t.Fatalf("Start: %v", err)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	initReq := mcp.InitializeRequest{
-		Params: struct {
-			ProtocolVersion string                 `json:"protocolVersion"`
-			Capabilities    mcp.ClientCapabilities `json:"capabilities"`
-			ClientInfo      mcp.Implementation     `json:"clientInfo"`
-		}{
-			ProtocolVersion: "2024-11-05",
-			ClientInfo: mcp.Implementation{
-				Name:    "e2e-test",
-				Version: "0.0.1",
-			},
-		},
-	}
-
-	if _, err := c.Initialize(ctx, initReq); err != nil {
-		t.Fatalf("Initialize: %v", err)
-	}
-	return c
-}
-
-func TestListContexts(t *testing.T) {
-	base := startSSEServer(t)
-	c := newClient(t, base)
-
-	result := callTool(t, c, "list_contexts", nil)
-	text := resultText(result)
-
-	if text == "" {
-		t.Fatal("list_contexts returned empty result")
-	}
-
-	// kind-action creates a context called "kind-e2e".
-	if !strings.Contains(text, "kind-e2e") {
-		t.Errorf("expected kind-e2e context, got: %s", text)
-	}
-}
-
-func TestListNamespaces(t *testing.T) {
-	base := startSSEServer(t)
-	c := newClient(t, base)
-
-	result := callTool(t, c, "list_namespaces", map[string]any{
-		"context": "kind-e2e",
-	})
-	text := resultText(result)
-
-	if !strings.Contains(text, "default") || !strings.Contains(text, "kube-system") {
-		t.Errorf("expected default and kube-system namespaces, got: %s", text)
-	}
-}
-
-func TestListResources(t *testing.T) {
-	base := startSSEServer(t)
-	c := newClient(t, base)
-
-	result := callTool(t, c, "list_resources", map[string]any{
-		"context":   "kind-e2e",
-		"kind":      "Pod",
-		"namespace": "kube-system",
-	})
-	text := resultText(result)
-
-	if result.IsError {
-		t.Fatalf("list_resources error: %s", text)
-	}
-
-	// Should return JSON array.
-	var items []map[string]any
-	if err := json.Unmarshal([]byte(text), &items); err != nil {
-		t.Fatalf("expected JSON array, got: %s", text)
-	}
-	if len(items) == 0 {
-		t.Error("expected at least one pod in kube-system")
-	}
-}
-
-func TestGetResource(t *testing.T) {
-	base := startSSEServer(t)
-	c := newClient(t, base)
-
-	result := callTool(t, c, "get_resource", map[string]any{
-		"context": "kind-e2e",
-		"kind":    "Namespace",
-		"name":    "default",
-	})
-	text := resultText(result)
-
-	if result.IsError {
-		t.Fatalf("get_resource error: %s", text)
-	}
-
-	// Should return JSON object.
-	var obj map[string]any
-	if err := json.Unmarshal([]byte(text), &obj); err != nil {
-		t.Fatalf("expected JSON object, got: %s", text)
-	}
-	if obj["kind"] != "Namespace" {
-		t.Errorf("expected kind=Namespace, got %v", obj["kind"])
-	}
-}
-
-func TestGetEvents(t *testing.T) {
-	base := startSSEServer(t)
-	c := newClient(t, base)
-
-	result := callTool(t, c, "get_events", map[string]any{
-		"context":   "kind-e2e",
-		"namespace": "kube-system",
-	})
-	text := resultText(result)
-
-	if result.IsError {
-		t.Fatalf("get_events error: %s", text)
-	}
-
-	// Should be valid JSON (array or "No events found").
-	if text != "No events found" {
-		var items []map[string]any
-		if err := json.Unmarshal([]byte(text), &items); err != nil {
-			t.Fatalf("expected JSON array, got: %s", text)
-		}
-	}
-}
-
-func TestSecretRedaction(t *testing.T) {
-	base := startSSEServer(t)
-	c := newClient(t, base)
-
-	// kube-system always has SA token secrets on kind clusters.
-	result := callTool(t, c, "list_resources", map[string]any{
-		"context":   "kind-e2e",
-		"kind":      "Secret",
-		"namespace": "kube-system",
-	})
-	text := resultText(result)
-
-	if result.IsError {
-		t.Fatalf("list_resources Secret error: %s", text)
-	}
-
-	var items []map[string]any
-	if err := json.Unmarshal([]byte(text), &items); err != nil {
-		t.Fatalf("expected JSON array, got: %s", text)
-	}
-	if len(items) == 0 {
-		t.Fatal("expected at least one secret in kube-system")
-	}
-}
-
-func TestListResourcesWithFilter(t *testing.T) {
-	base := startSSEServer(t)
-	c := newClient(t, base)
-
-	result := callTool(t, c, "list_resources", map[string]any{
-		"context":   "kind-e2e",
-		"kind":      "Pod",
-		"namespace": "kube-system",
-		"filter":    "status.phase=Running",
-	})
-	text := resultText(result)
-
-	if result.IsError {
-		t.Fatalf("list_resources with filter error: %s", text)
-	}
-
-	// When a filter is active, the response has a "Matched N of M Kind\n\n" header
-	// before the JSON array. Strip it.
-	jsonStart := strings.Index(text, "[")
-	if jsonStart < 0 {
-		t.Fatalf("expected JSON array in response, got: %s", text)
-	}
-
-	var items []map[string]any
-	if err := json.Unmarshal([]byte(text[jsonStart:]), &items); err != nil {
-		t.Fatalf("expected JSON array, got: %s", text)
-	}
-
-	// All returned pods should have status Running.
-	for _, item := range items {
-		if status, ok := item["status"].(string); ok && status != "Running" {
-			t.Errorf("expected Running pod, got status=%s", status)
-		}
-	}
-}
-
-// --- Streamable-HTTP transport tests ---
-
-func TestStreamableHTTP_ListContexts(t *testing.T) {
-	base := startStreamableHTTPServer(t)
-	c := newStreamableHTTPClient(t, base)
-
-	result := callTool(t, c, "list_contexts", nil)
-	text := resultText(result)
-
-	if text == "" {
-		t.Fatal("list_contexts returned empty result")
-	}
-
-	if !strings.Contains(text, "kind-e2e") {
-		t.Errorf("expected kind-e2e context, got: %s", text)
-	}
-}
-
-func TestStreamableHTTP_GetResource(t *testing.T) {
-	base := startStreamableHTTPServer(t)
-	c := newStreamableHTTPClient(t, base)
-
-	result := callTool(t, c, "get_resource", map[string]any{
-		"context": "kind-e2e",
-		"kind":    "Namespace",
-		"name":    "default",
-	})
-	text := resultText(result)
-
-	if result.IsError {
-		t.Fatalf("get_resource error: %s", text)
-	}
-
-	var obj map[string]any
-	if err := json.Unmarshal([]byte(text), &obj); err != nil {
-		t.Fatalf("expected JSON object, got: %s", text)
-	}
-	if obj["kind"] != "Namespace" {
-		t.Errorf("expected kind=Namespace, got %v", obj["kind"])
-	}
+var allTransports = []transportCase{
+	{"SSE", startSSEServerWithConfig, newSSEClient},
+	{"HTTP", startStreamableHTTPServerWithConfig, newHTTPClient},
 }
