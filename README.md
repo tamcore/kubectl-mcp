@@ -11,7 +11,7 @@ lets LLMs query and manage your clusters safely.
 - **Secrets redacted by default** — `.data` and `.stringData` replaced with `<redacted>`
 - **Multi-kubeconfig** — honours `KUBECONFIG` with colon-separated paths
 - **Context filtering** — allow/deny contexts via glob (`prod-*`) or regex (`/^staging-.+$/`)
-- **Two transports** — stdio (default) and SSE
+- **Three transports** — stdio (default), SSE, and streamable-HTTP
 - **Write operations** — opt-in via `--allow-write` for apply, patch, scale, restart, cordon, uncordon
 - **Destructive operations** — opt-in via `--allow-destructive` for delete and drain
 - **16 MCP tools** — 8 read-only + 6 write + 2 destructive
@@ -30,6 +30,9 @@ kubectl-mcp serve
 
 # Start with SSE transport
 kubectl-mcp serve --transport sse --sse-address :9090
+
+# Start with streamable-HTTP transport
+kubectl-mcp serve --transport streamable-http --http-address :9090
 
 # Use a specific kubeconfig and context
 kubectl-mcp serve --kubeconfig ~/.kube/config --context my-cluster
@@ -54,8 +57,9 @@ All flags can also be set via environment variables with a `KUBECTL_MCP_` prefix
 
 | Flag | Env Var | Default | Description |
 |------|---------|---------|-------------|
-| `--transport` | `KUBECTL_MCP_TRANSPORT` | `stdio` | Transport: `stdio` or `sse` |
+| `--transport` | `KUBECTL_MCP_TRANSPORT` | `stdio` | Transport: `stdio`, `sse`, or `streamable-http` |
 | `--sse-address` | `KUBECTL_MCP_SSE_ADDRESS` | `:8080` | SSE listen address |
+| `--http-address` | `KUBECTL_MCP_HTTP_ADDRESS` | `:8080` | Streamable-HTTP listen address |
 | `--kubeconfig` | `KUBECONFIG` | `~/.kube/config` | Colon-separated kubeconfig paths |
 | `--context` | `KUBECTL_MCP_CONTEXT` | *(current-context)* | Default kube-context override |
 | `--allowed-contexts` | `KUBECTL_MCP_ALLOWED_CONTEXTS` | `*` | Comma-separated glob/regex allow patterns |
@@ -148,6 +152,18 @@ kube-context. If omitted, the configured default context is used.
 }
 ```
 
+### Claude Desktop (streamable-HTTP)
+
+```json
+{
+  "mcpServers": {
+    "kubectl": {
+      "url": "http://localhost:8080/mcp"
+    }
+  }
+}
+```
+
 ### GitHub Copilot CLI (stdio)
 
 Add to `~/.copilot/mcp-config.json`:
@@ -204,6 +220,27 @@ kubectl-mcp serve --transport sse &
     "kubectl": {
       "type": "sse",
       "url": "http://localhost:8080/sse",
+      "headers": {},
+      "tools": ["*"]
+    }
+  }
+}
+```
+
+### GitHub Copilot CLI (streamable-HTTP)
+
+Start the server in the background, then add to `~/.copilot/mcp-config.json`:
+
+```bash
+kubectl-mcp serve --transport streamable-http &
+```
+
+```json
+{
+  "mcpServers": {
+    "kubectl": {
+      "type": "sse",
+      "url": "http://localhost:8080/mcp",
       "headers": {},
       "tools": ["*"]
     }
