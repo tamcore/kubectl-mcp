@@ -46,6 +46,10 @@ var serveCmd = &cobra.Command{
 			sseServer := server.NewSSEServer(s)
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Starting SSE server on %s\n", cfg.SSEAddress)
 			return sseServer.Start(cfg.SSEAddress)
+		case "streamable-http":
+			httpServer := server.NewStreamableHTTPServer(s)
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Starting streamable-HTTP server on %s\n", cfg.HTTPAddress)
+			return httpServer.Start(cfg.HTTPAddress)
 		default:
 			return fmt.Errorf("unknown transport: %s", cfg.Transport)
 		}
