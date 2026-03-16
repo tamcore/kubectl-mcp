@@ -30,7 +30,10 @@ func registerApplyResource(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 	)
 
 	s.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		manifest, _ := req.RequireString("manifest")
+		manifest, err := requireStringOrJSON(req, "manifest")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
 
 		// Parse manifest into unstructured object.
 		obj, err := parseManifest(manifest)

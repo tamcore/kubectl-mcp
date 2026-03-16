@@ -59,7 +59,10 @@ func registerPatchResource(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 		name, _ := req.RequireString("name")
 		namespace := req.GetString("namespace", "")
 		apiVersion := req.GetString("apiVersion", "")
-		patchStr, _ := req.RequireString("patch")
+		patchStr, err := requireStringOrJSON(req, "patch")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
 		patchTypeStr := req.GetString("patchType", "strategic")
 
 		pt, err := parsePatchType(patchTypeStr)
