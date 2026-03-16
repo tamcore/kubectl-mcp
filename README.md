@@ -1,5 +1,7 @@
 # kubectl-mcp
 
+> Built with ❤️ by AI, for AI.
+
 A minimalistic Kubernetes MCP (Model Context Protocol) server that
 lets LLMs query and manage your clusters safely.
 
