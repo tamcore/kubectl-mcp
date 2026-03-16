@@ -154,6 +154,108 @@ func newClient(t *testing.T, base string) *mcpclient.Client {
 	return c
 }
 
+// startStreamableHTTPServer creates an MCP server backed by the real cluster
+// and starts it as a streamable-HTTP server on a random port.
+func startStreamableHTTPServer(t *testing.T) string {
+	t.Helper()
+
+	kubeconfig := os.Getenv("KUBECONFIG")
+	if kubeconfig == "" {
+		home, _ := os.UserHomeDir()
+		kubeconfig = home + "/.kube/config"
+	}
+
+	cfg := &config.Config{
+		Transport:       "streamable-http",
+		HTTPAddress:     "127.0.0.1:0",
+		Kubeconfig:      kubeconfig,
+		AllowedContexts: []string{"*"},
+		AllowSecrets:    false,
+	}
+
+	pool, err := kube.NewClientPool(cfg)
+	if err != nil {
+		t.Fatalf("NewClientPool: %v", err)
+	}
+
+	s := server.NewMCPServer("kubectl-mcp-e2e", "test",
+		server.WithToolCapabilities(false),
+	)
+	tools.RegisterAll(s, pool, cfg)
+
+	// Find a free port.
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	addr := ln.Addr().String()
+	_ = ln.Close()
+
+	httpServer := server.NewStreamableHTTPServer(s)
+
+	go func() {
+		if err := httpServer.Start(addr); err != nil {
+			if !strings.Contains(err.Error(), "Server closed") {
+				t.Logf("streamable-HTTP server error: %v", err)
+			}
+		}
+	}()
+
+	// Wait for the server to be ready.
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", addr, 100*time.Millisecond)
+		if err == nil {
+			_ = conn.Close()
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = httpServer.Shutdown(ctx)
+	})
+
+	return fmt.Sprintf("http://%s", addr)
+}
+
+func newStreamableHTTPClient(t *testing.T, base string) *mcpclient.Client {
+	t.Helper()
+	c, err := mcpclient.NewStreamableHttpClient(base + "/mcp")
+	if err != nil {
+		t.Fatalf("NewStreamableHttpClient: %v", err)
+	}
+	t.Cleanup(func() { _ = c.Close() })
+
+	if err := c.Start(context.Background()); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	initReq := mcp.InitializeRequest{
+		Params: struct {
+			ProtocolVersion string                 `json:"protocolVersion"`
+			Capabilities    mcp.ClientCapabilities `json:"capabilities"`
+			ClientInfo      mcp.Implementation     `json:"clientInfo"`
+		}{
+			ProtocolVersion: "2024-11-05",
+			ClientInfo: mcp.Implementation{
+				Name:    "e2e-test",
+				Version: "0.0.1",
+			},
+		},
+	}
+
+	if _, err := c.Initialize(ctx, initReq); err != nil {
+		t.Fatalf("Initialize: %v", err)
+	}
+	return c
+}
+
 func TestListContexts(t *testing.T) {
 	base := startSSEServer(t)
 	c := newClient(t, base)
@@ -316,5 +418,47 @@ func TestListResourcesWithFilter(t *testing.T) {
 		if status, ok := item["status"].(string); ok && status != "Running" {
 			t.Errorf("expected Running pod, got status=%s", status)
 		}
+	}
+}
+
+// --- Streamable-HTTP transport tests ---
+
+func TestStreamableHTTP_ListContexts(t *testing.T) {
+	base := startStreamableHTTPServer(t)
+	c := newStreamableHTTPClient(t, base)
+
+	result := callTool(t, c, "list_contexts", nil)
+	text := resultText(result)
+
+	if text == "" {
+		t.Fatal("list_contexts returned empty result")
+	}
+
+	if !strings.Contains(text, "kind-e2e") {
+		t.Errorf("expected kind-e2e context, got: %s", text)
+	}
+}
+
+func TestStreamableHTTP_GetResource(t *testing.T) {
+	base := startStreamableHTTPServer(t)
+	c := newStreamableHTTPClient(t, base)
+
+	result := callTool(t, c, "get_resource", map[string]any{
+		"context": "kind-e2e",
+		"kind":    "Namespace",
+		"name":    "default",
+	})
+	text := resultText(result)
+
+	if result.IsError {
+		t.Fatalf("get_resource error: %s", text)
+	}
+
+	var obj map[string]any
+	if err := json.Unmarshal([]byte(text), &obj); err != nil {
+		t.Fatalf("expected JSON object, got: %s", text)
+	}
+	if obj["kind"] != "Namespace" {
+		t.Errorf("expected kind=Namespace, got %v", obj["kind"])
 	}
 }
