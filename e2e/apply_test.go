@@ -182,14 +182,15 @@ func TestApply_RejectedWithoutAllowWrite(t *testing.T) {
 			base := tc.startFunc(t, cfg)
 			c := tc.clientFunc(t, base)
 
-			// apply_resource should not be registered.
-			result := callTool(t, c, "apply_resource", map[string]any{
+			// apply_resource should not be registered — callToolMayFail handles the SDK error.
+			_, err := callToolMayFail(t, c, "apply_resource", map[string]any{
 				"manifest": configMapManifest("should-not-exist", testNamespace, map[string]string{"k": "v"}),
 			})
-			text := resultText(result)
-			// The tool shouldn't exist, so we expect an error.
-			if !result.IsError && !strings.Contains(text, "not found") {
-				t.Errorf("expected tool not found error, got: %s", text)
+			if err == nil {
+				t.Error("expected error — apply_resource should not be registered without --allow-write")
+			}
+			if !strings.Contains(err.Error(), "not found") {
+				t.Errorf("expected 'not found' error, got: %v", err)
 			}
 		})
 	}

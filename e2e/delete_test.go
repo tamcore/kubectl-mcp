@@ -91,19 +91,20 @@ func TestDelete_RejectedWithoutAllowDestructive(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := defaultConfig()
 			cfg.AllowDestructive = false
-			// AllowWrite stays true.
 
 			base := tc.startFunc(t, cfg)
 			c := tc.clientFunc(t, base)
 
-			result := callTool(t, c, "delete_resource", map[string]any{
+			_, err := callToolMayFail(t, c, "delete_resource", map[string]any{
 				"kind":      "ConfigMap",
 				"name":      "anything",
 				"namespace": testNamespace,
 			})
-			// Tool should not be registered.
-			if !result.IsError {
+			if err == nil {
 				t.Error("expected error — delete_resource should not be registered without --allow-destructive")
+			}
+			if !strings.Contains(err.Error(), "not found") {
+				t.Errorf("expected 'not found' error, got: %v", err)
 			}
 		})
 	}

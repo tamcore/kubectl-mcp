@@ -32,8 +32,10 @@ func TestSecrets(t *testing.T) {
 				if result.IsError {
 					t.Fatalf("error: %s", text)
 				}
+				// The response should contain <redacted> for data values.
 				if !strings.Contains(text, "<redacted>") {
-					t.Error("expected <redacted> in secret data")
+					// Log the actual response for debugging.
+					t.Errorf("expected <redacted> in secret data, got:\n%s", text)
 				}
 				if strings.Contains(text, "supersecret") || strings.Contains(text, secret64) {
 					t.Error("secret value leaked in response")

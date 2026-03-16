@@ -196,6 +196,19 @@ func initClient(t *testing.T, c *mcpclient.Client) {
 // Tool call helpers
 // ---------------------------------------------------------------------------
 
+// callToolMayFail calls a tool and returns the result and error without failing the test.
+func callToolMayFail(t *testing.T, c *mcpclient.Client, name string, args map[string]any) (*mcp.CallToolResult, error) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	req := mcp.CallToolRequest{}
+	req.Params.Name = name
+	req.Params.Arguments = args
+
+	return c.CallTool(ctx, req)
+}
+
 func callTool(t *testing.T, c *mcpclient.Client, name string, args map[string]any) *mcp.CallToolResult {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)

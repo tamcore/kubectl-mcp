@@ -5,6 +5,7 @@ package e2e
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestScale(t *testing.T) {
@@ -19,6 +20,8 @@ func TestScale(t *testing.T) {
 					"manifest": deploymentManifest(name, testNamespace, 1),
 				})
 				t.Cleanup(func() { deleteViaKubectl(t, "deployment", name, testNamespace) })
+				// Wait for the controller to reconcile the initial state.
+				time.Sleep(2 * time.Second)
 
 				result := callTool(t, c, "scale_resource", map[string]any{
 					"kind":      "Deployment",
@@ -50,6 +53,7 @@ func TestScale(t *testing.T) {
 					"manifest": deploymentManifest(name, testNamespace, 3),
 				})
 				t.Cleanup(func() { deleteViaKubectl(t, "deployment", name, testNamespace) })
+				time.Sleep(2 * time.Second)
 
 				result := callTool(t, c, "scale_resource", map[string]any{
 					"kind":      "Deployment",
@@ -74,6 +78,7 @@ func TestScale(t *testing.T) {
 					"manifest": statefulSetManifest(name, testNamespace, 1),
 				})
 				t.Cleanup(func() { deleteViaKubectl(t, "statefulset", name, testNamespace) })
+				time.Sleep(2 * time.Second)
 
 				result := callTool(t, c, "scale_resource", map[string]any{
 					"kind":      "StatefulSet",
