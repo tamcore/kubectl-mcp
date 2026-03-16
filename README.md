@@ -114,54 +114,45 @@ kube-context. If omitted, the configured default context is used.
 
 ## MCP Client Configuration
 
-### Claude Desktop
+### Claude Code (stdio)
 
-```json
-{
-  "mcpServers": {
-    "kubectl": {
-      "command": "kubectl-mcp",
-      "args": ["serve"]
-    }
-  }
-}
+```bash
+claude mcp add --transport stdio --scope user kubectl -- kubectl-mcp serve
 ```
 
-### Claude Desktop (with options)
+With options:
 
-```json
-{
-  "mcpServers": {
-    "kubectl": {
-      "command": "kubectl-mcp",
-      "args": ["serve", "--allow-secrets", "--denied-contexts", "/^prod-/"]
-    }
-  }
-}
+```bash
+claude mcp add --transport stdio --scope user kubectl -- \
+  kubectl-mcp serve --allow-write --allow-secrets --denied-contexts "/^prod-/"
 ```
 
-### Claude Desktop (SSE)
+To run directly from source (e.g. during development):
 
-```json
-{
-  "mcpServers": {
-    "kubectl": {
-      "url": "http://localhost:8080/sse"
-    }
-  }
-}
+```bash
+claude mcp add --transport stdio --scope user kubectl -- \
+  go run -C /path/to/kubectl-mcp ./cmd/kubectl-mcp serve \
+  --allow-write --allow-destructive --allow-secrets
 ```
 
-### Claude Desktop (streamable-HTTP)
+> **Note:** Use absolute paths — `~` is not expanded. Use `--scope local` (default) for project-only config.
 
-```json
-{
-  "mcpServers": {
-    "kubectl": {
-      "url": "http://localhost:8080/mcp"
-    }
-  }
-}
+### Claude Code (SSE)
+
+Start the server, then register it:
+
+```bash
+kubectl-mcp serve --transport sse &
+claude mcp add --transport sse --scope user kubectl http://localhost:8080/sse
+```
+
+### Claude Code (streamable-HTTP)
+
+Start the server, then register it:
+
+```bash
+kubectl-mcp serve --transport streamable-http &
+claude mcp add --transport http --scope user kubectl http://localhost:8080/mcp
 ```
 
 ### GitHub Copilot CLI (stdio)
@@ -208,7 +199,7 @@ To run directly from source (e.g. during development):
 
 ### GitHub Copilot CLI (SSE)
 
-Start the server in the background, then add to `~/.copilot/mcp-config.json`:
+Start the server, then add to `~/.copilot/mcp-config.json`:
 
 ```bash
 kubectl-mcp serve --transport sse &
@@ -229,7 +220,7 @@ kubectl-mcp serve --transport sse &
 
 ### GitHub Copilot CLI (streamable-HTTP)
 
-Start the server in the background, then add to `~/.copilot/mcp-config.json`:
+Start the server, then add to `~/.copilot/mcp-config.json`:
 
 ```bash
 kubectl-mcp serve --transport streamable-http &
@@ -239,7 +230,7 @@ kubectl-mcp serve --transport streamable-http &
 {
   "mcpServers": {
     "kubectl": {
-      "type": "sse",
+      "type": "streamable-http",
       "url": "http://localhost:8080/mcp",
       "headers": {},
       "tools": ["*"]
