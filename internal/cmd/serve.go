@@ -32,7 +32,7 @@ var serveCmd = &cobra.Command{
 
 		s := server.NewMCPServer(
 			"kubectl-mcp",
-			"0.1.0",
+			appVersion,
 			server.WithToolCapabilities(false),
 			server.WithHooks(hooks),
 		)

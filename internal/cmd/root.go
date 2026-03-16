@@ -12,6 +12,18 @@ import (
 
 var cfg config.Config
 
+var (
+	appVersion = "dev"
+	appCommit  = "unknown"
+)
+
+// SetVersion sets the application version and commit for use in the MCP server.
+func SetVersion(version, commit string) {
+	appVersion = version
+	appCommit = commit
+	rootCmd.Version = appVersion + " (" + appCommit + ")"
+}
+
 var rootCmd = &cobra.Command{
 	Use:   "kubectl-mcp",
 	Short: "A read-only Kubernetes MCP server for LLMs",
