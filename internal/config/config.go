@@ -12,6 +12,7 @@ import (
 type Config struct {
 	Transport        string
 	SSEAddress       string
+	HTTPAddress      string
 	Kubeconfig       string
 	Context          string
 	AllowedContexts  []string
@@ -24,9 +25,9 @@ type Config struct {
 // Validate checks the configuration for consistency.
 func (c *Config) Validate() error {
 	switch c.Transport {
-	case "stdio", "sse":
+	case "stdio", "sse", "streamable-http":
 	default:
-		return fmt.Errorf("invalid transport %q: must be stdio or sse", c.Transport)
+		return fmt.Errorf("invalid transport %q: must be stdio, sse, or streamable-http", c.Transport)
 	}
 	if c.AllowDestructive {
 		c.AllowWrite = true

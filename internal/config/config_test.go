@@ -16,8 +16,9 @@ func TestValidate_Transport(t *testing.T) {
 	}{
 		{"stdio is valid", "stdio", ""},
 		{"sse is valid", "sse", ""},
-		{"empty is invalid", "", `invalid transport "": must be stdio or sse`},
-		{"unknown is invalid", "grpc", `invalid transport "grpc": must be stdio or sse`},
+		{"streamable-http is valid", "streamable-http", ""},
+		{"empty is invalid", "", `invalid transport "": must be stdio, sse, or streamable-http`},
+		{"unknown is invalid", "grpc", `invalid transport "grpc": must be stdio, sse, or streamable-http`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

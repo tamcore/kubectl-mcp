@@ -20,8 +20,9 @@ var rootCmd = &cobra.Command{
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&cfg.Transport, "transport", "stdio", "MCP transport: stdio or sse")
+	rootCmd.PersistentFlags().StringVar(&cfg.Transport, "transport", "stdio", "MCP transport: stdio, sse, or streamable-http")
 	rootCmd.PersistentFlags().StringVar(&cfg.SSEAddress, "sse-address", ":8080", "SSE listen address")
+	rootCmd.PersistentFlags().StringVar(&cfg.HTTPAddress, "http-address", ":8080", "Streamable-HTTP listen address")
 	rootCmd.PersistentFlags().StringVar(&cfg.Kubeconfig, "kubeconfig", "", "Colon-separated kubeconfig paths (defaults to KUBECONFIG env or ~/.kube/config)")
 	rootCmd.PersistentFlags().StringVar(&cfg.Context, "context", "", "Default kube-context override")
 	rootCmd.PersistentFlags().StringSliceVar(&cfg.AllowedContexts, "allowed-contexts", []string{"*"}, "Comma-separated glob/regex patterns for allowed contexts")
