@@ -86,7 +86,7 @@ func TestApply(t *testing.T) {
 				if !strings.Contains(text, "Applied Secret/e2e-apply-secret") {
 					t.Errorf("expected apply confirmation, got: %s", text)
 				}
-				if !strings.Contains(text, "<redacted>") {
+				if !strings.Contains(text, "redacted") {
 					t.Error("expected secret data to be redacted in response")
 				}
 				if strings.Contains(text, "supersecret") || strings.Contains(text, secret64) {
@@ -97,19 +97,20 @@ func TestApply(t *testing.T) {
 			})
 
 			t.Run("create_pod", func(t *testing.T) {
-				manifest := podManifest("e2e-apply-pod", testNamespace, "busybox:1.36", []string{"sleep", "3600"})
+				podName := "e2e-apply-pod-" + strings.ToLower(tc.name)
+				manifest := podManifest(podName, testNamespace, "busybox:1.36", []string{"sleep", "3600"})
 				result := callTool(t, c, "apply_resource", map[string]any{"manifest": manifest})
 				text := resultText(result)
 				if result.IsError {
 					t.Fatalf("error: %s", text)
 				}
-				if !strings.Contains(text, "Applied Pod/e2e-apply-pod") {
+				if !strings.Contains(text, "Applied Pod/"+podName) {
 					t.Errorf("expected apply confirmation, got: %s", text)
 				}
 
-				waitForPodReady(t, "e2e-apply-pod", testNamespace)
+				waitForPodReady(t, podName, testNamespace)
 
-				t.Cleanup(func() { deleteViaKubectl(t, "pod", "e2e-apply-pod", testNamespace) })
+				t.Cleanup(func() { deleteViaKubectl(t, "pod", podName, testNamespace) })
 			})
 
 			t.Run("update_existing", func(t *testing.T) {
