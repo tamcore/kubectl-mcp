@@ -3,10 +3,15 @@ package cmd
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net"
+	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 )
 
 func TestSummarizeArgs(t *testing.T) {
@@ -69,6 +74,65 @@ func TestSummarizeArgs_Truncation(t *testing.T) {
 	// 120 bytes kept + 3 bytes for UTF-8 "…" = 123 max.
 	if len(got) > 123 {
 		t.Fatalf("truncated string too long: %d bytes", len(got))
+	}
+}
+
+func TestStreamableHTTPServerStartsAndAcceptsConnections(t *testing.T) {
+	s := server.NewMCPServer("test-server", "0.0.1",
+		server.WithToolCapabilities(false),
+	)
+
+	httpServer := server.NewStreamableHTTPServer(s)
+
+	// Find a free port.
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	addr := ln.Addr().String()
+	_ = ln.Close()
+
+	go func() {
+		if err := httpServer.Start(addr); err != nil && !strings.Contains(err.Error(), "Server closed") {
+			t.Logf("server error: %v", err)
+		}
+	}()
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = httpServer.Shutdown(ctx)
+	})
+
+	// Wait for the server to accept TCP connections.
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		conn, dialErr := net.DialTimeout("tcp", addr, 100*time.Millisecond)
+		if dialErr == nil {
+			_ = conn.Close()
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	// Send an MCP initialize request and verify we get a JSON-RPC response.
+	initBody := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"0.0.1"}}}`
+	resp, err := http.Post(
+		fmt.Sprintf("http://%s/mcp", addr),
+		"application/json",
+		strings.NewReader(initBody),
+	)
+	if err != nil {
+		t.Fatalf("POST /mcp failed: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	}
+
+	ct := resp.Header.Get("Content-Type")
+	if !strings.Contains(ct, "text/event-stream") && !strings.Contains(ct, "application/json") {
+		t.Fatalf("unexpected Content-Type: %s", ct)
 	}
 }
 
