@@ -20,6 +20,8 @@ type Config struct {
 	AllowWrite       bool
 	AllowDestructive bool
 	AllowSecrets     bool
+	RateLimitRead    int
+	RateLimitWrite   int
 }
 
 // Validate checks the configuration for consistency.
@@ -31,6 +33,12 @@ func (c *Config) Validate() error {
 	}
 	if c.AllowDestructive {
 		c.AllowWrite = true
+	}
+	if c.RateLimitRead < 0 {
+		return fmt.Errorf("invalid rate-limit-read %d: must be >= 0 (0 = unlimited)", c.RateLimitRead)
+	}
+	if c.RateLimitWrite < 0 {
+		return fmt.Errorf("invalid rate-limit-write %d: must be >= 0 (0 = unlimited)", c.RateLimitWrite)
 	}
 	for _, p := range c.DeniedContexts {
 		if isRegex(p) {

@@ -114,6 +114,38 @@ func TestValidate_InvalidAllowedContextsRegex(t *testing.T) {
 	}
 }
 
+func TestValidate_RateLimitNegative(t *testing.T) {
+	tests := []struct {
+		name    string
+		read    int
+		write   int
+		wantErr string
+	}{
+		{"both zero is valid", 0, 0, ""},
+		{"positive values are valid", 120, 30, ""},
+		{"negative read is invalid", -1, 30, "rate-limit-read"},
+		{"negative write is invalid", 120, -5, "rate-limit-write"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Config{Transport: "stdio", RateLimitRead: tt.read, RateLimitWrite: tt.write}
+			err := c.Validate()
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+			} else {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if !strings.Contains(err.Error(), tt.wantErr) {
+					t.Errorf("expected error containing %q, got: %v", tt.wantErr, err)
+				}
+			}
+		})
+	}
+}
+
 func TestValidate_ValidRegexPatterns(t *testing.T) {
 	c := &Config{
 		Transport:       "stdio",
