@@ -24,9 +24,10 @@ type ClientPool struct {
 
 // ContextClient bundles the clients needed for a single kube-context.
 type ContextClient struct {
-	Dynamic   dynamic.Interface
-	Clientset kubernetes.Interface
-	Discovery discovery.DiscoveryInterface
+	Dynamic    dynamic.Interface
+	Clientset  kubernetes.Interface
+	Discovery  discovery.DiscoveryInterface
+	RestConfig *rest.Config
 }
 
 // NewClientPool loads and merges all kubeconfig files and returns a pool.
@@ -113,9 +114,10 @@ func (p *ClientPool) ClientFor(contextName string) (*ContextClient, error) {
 	}
 
 	cc := &ContextClient{
-		Dynamic:   dynClient,
-		Clientset: clientset,
-		Discovery: clientset.Discovery(),
+		Dynamic:    dynClient,
+		Clientset:  clientset,
+		Discovery:  clientset.Discovery(),
+		RestConfig: restCfg,
 	}
 	p.clients[contextName] = cc
 	return cc, nil
