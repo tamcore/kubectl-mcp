@@ -3,7 +3,58 @@ package tools
 import (
 	"testing"
 	"time"
+
+	"github.com/mark3labs/mcp-go/mcp"
 )
+
+func TestRequireStringOrJSON(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    map[string]any
+		key     string
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "string value",
+			args: map[string]any{"patch": `{"metadata":{"labels":{"env":"prod"}}}`},
+			key:  "patch",
+			want: `{"metadata":{"labels":{"env":"prod"}}}`,
+		},
+		{
+			name: "object value",
+			args: map[string]any{"patch": map[string]any{"metadata": map[string]any{"labels": map[string]any{"env": "prod"}}}},
+			key:  "patch",
+			want: `{"metadata":{"labels":{"env":"prod"}}}`,
+		},
+		{
+			name: "array value",
+			args: map[string]any{"patch": []any{map[string]any{"op": "add", "path": "/metadata/labels/env", "value": "prod"}}},
+			key:  "patch",
+			want: `[{"op":"add","path":"/metadata/labels/env","value":"prod"}]`,
+		},
+		{
+			name:    "missing key",
+			args:    map[string]any{},
+			key:     "patch",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := mcp.CallToolRequest{}
+			req.Params.Arguments = tt.args
+
+			got, err := requireStringOrJSON(req, tt.key)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("requireStringOrJSON() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !tt.wantErr && got != tt.want {
+				t.Errorf("requireStringOrJSON() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
 
 func TestParseDuration(t *testing.T) {
 	tests := []struct {

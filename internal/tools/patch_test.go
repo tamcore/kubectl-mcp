@@ -185,6 +185,36 @@ func TestPatchResource_ContextNotAllowed(t *testing.T) {
 	}
 }
 
+func TestPatchResource_PatchAsObject(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+
+	fakeCS := fake.NewClientset()
+	dynClient := newWriteFakeDynClient(testPod("my-pod", "default"))
+
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+	handler := getHandler(t, "patch_resource", func(s *server.MCPServer) {
+		registerPatchResource(s, pool, cfg)
+	})
+
+	// LLM sends patch as a JSON object instead of a string.
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"kind":      "Pod",
+		"name":      "my-pod",
+		"namespace": "default",
+		"patch":     map[string]any{"metadata": map[string]any{"labels": map[string]any{"env": "prod"}}},
+		"patchType": "merge",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	text := resultText(t, res)
+	if !strings.Contains(text, "Patched Pod/my-pod") {
+		t.Errorf("expected patch confirmation, got: %s", text)
+	}
+}
+
 func TestParsePatchType(t *testing.T) {
 	tests := []struct {
 		input   string
