@@ -11,7 +11,7 @@ import (
 // writeTools lists tool names gated behind --allow-write.
 var writeTools = []string{
 	"apply_resource", "patch_resource", "scale_resource",
-	"restart_rollout", "cordon_node", "uncordon_node",
+	"restart_rollout", "cordon_node", "uncordon_node", "exec_pod",
 }
 
 // destructiveTools lists tool names gated behind --allow-destructive.
@@ -39,6 +39,7 @@ func RegisterAll(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config)
 		registerRestartRollout(s, pool)
 		registerCordonNode(s, pool)
 		registerUncordonNode(s, pool)
+		registerExecPod(s, pool, nil)
 	}
 
 	// Destructive tools (require --allow-destructive).
