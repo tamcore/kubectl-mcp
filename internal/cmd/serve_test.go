@@ -137,7 +137,8 @@ func TestStreamableHTTPServerStartsAndAcceptsConnections(t *testing.T) {
 }
 
 func TestNewLoggingHooks(t *testing.T) {
-	hooks := newLoggingHooks()
+	var s *server.MCPServer
+	hooks := newLoggingHooks(&s)
 	if hooks == nil {
 		t.Fatal("newLoggingHooks() returned nil")
 	}

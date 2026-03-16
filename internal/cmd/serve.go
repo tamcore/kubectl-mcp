@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/tamcore/kubectl-mcp/internal/kube"
+	"github.com/tamcore/kubectl-mcp/internal/mcplog"
 	"github.com/tamcore/kubectl-mcp/internal/tools"
 )
 
@@ -28,12 +29,15 @@ var serveCmd = &cobra.Command{
 			return fmt.Errorf("failed to initialize kube client pool: %w", err)
 		}
 
-		hooks := newLoggingHooks()
+		// Use a pointer so hooks can reference the server after creation.
+		var s *server.MCPServer
+		hooks := newLoggingHooks(&s)
 
-		s := server.NewMCPServer(
+		s = server.NewMCPServer(
 			"kubectl-mcp",
 			appVersion,
 			server.WithToolCapabilities(false),
+			server.WithLogging(),
 			server.WithHooks(hooks),
 		)
 
@@ -56,18 +60,33 @@ var serveCmd = &cobra.Command{
 	},
 }
 
-func newLoggingHooks() *server.Hooks {
+func newLoggingHooks(sPtr **server.MCPServer) *server.Hooks {
 	logger := log.New(os.Stderr, "", log.LstdFlags)
 	hooks := &server.Hooks{}
 
 	hooks.AddBeforeCallTool(func(ctx context.Context, id any, req *mcp.CallToolRequest) {
 		args := summarizeArgs(req.GetArguments())
 		logger.Printf("→ %s(%s)", req.Params.Name, args)
+
+		if *sPtr != nil {
+			_ = (*sPtr).SendLogMessageToClient(ctx, mcplog.NewNotification(
+				mcp.LoggingLevelDebug,
+				fmt.Sprintf("→ %s(%s)", req.Params.Name, args),
+			))
+		}
 	})
 
 	hooks.AddAfterCallTool(func(ctx context.Context, id any, req *mcp.CallToolRequest, result any) {
 		if r, ok := result.(*mcp.CallToolResult); ok && r.IsError {
 			logger.Printf("✗ %s failed", req.Params.Name)
+
+			if *sPtr != nil {
+				errText := extractErrorText(r)
+				_ = (*sPtr).SendLogMessageToClient(ctx, mcplog.NewNotification(
+					mcp.LoggingLevelWarning,
+					fmt.Sprintf("%s failed: %s", req.Params.Name, errText),
+				))
+			}
 		} else {
 			logger.Printf("✓ %s done", req.Params.Name)
 		}
@@ -75,9 +94,26 @@ func newLoggingHooks() *server.Hooks {
 
 	hooks.AddOnError(func(ctx context.Context, id any, method mcp.MCPMethod, message any, err error) {
 		logger.Printf("✗ error in %s: %v", method, err)
+
+		if *sPtr != nil {
+			_ = (*sPtr).SendLogMessageToClient(ctx, mcplog.NewNotification(
+				mcp.LoggingLevelError,
+				fmt.Sprintf("error in %s: %v", method, err),
+			))
+		}
 	})
 
 	return hooks
+}
+
+func extractErrorText(r *mcp.CallToolResult) string {
+	if len(r.Content) == 0 {
+		return ""
+	}
+	if tc, ok := r.Content[0].(mcp.TextContent); ok {
+		return tc.Text
+	}
+	return ""
 }
 
 func summarizeArgs(args map[string]any) string {
