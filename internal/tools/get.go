@@ -102,7 +102,14 @@ type gvrCandidate struct {
 
 // resolveGVR resolves a kind (and optional apiVersion) to a GroupVersionResource
 // using the discovery client. Prefers core API group and exact kind matches.
+// Supports kubectl short names (e.g. "deploy", "svc") and suggests corrections
+// for typos via fuzzy matching.
 func resolveGVR(cc *kube.ContextClient, kind, apiVersion string) (schema.GroupVersionResource, error) {
+	// Try kubectl short name first.
+	if fullKind, ok := resolveShortName(kind); ok {
+		kind = fullKind
+	}
+
 	_, apiLists, err := cc.Discovery.ServerGroupsAndResources()
 	if err != nil {
 		return schema.GroupVersionResource{}, fmt.Errorf("discovery error: %w", err)
@@ -143,6 +150,18 @@ func resolveGVR(cc *kube.ContextClient, kind, apiVersion string) (schema.GroupVe
 	}
 
 	if len(candidates) == 0 {
+		// Collect all known kinds for fuzzy suggestion.
+		var knownKinds []string
+		for _, list := range apiLists {
+			for _, r := range list.APIResources {
+				if !strings.Contains(r.Name, "/") {
+					knownKinds = append(knownKinds, r.Kind)
+				}
+			}
+		}
+		if suggestion := suggestKind(kind, knownKinds); suggestion != "" {
+			return schema.GroupVersionResource{}, fmt.Errorf("could not resolve resource for kind %q (did you mean %q?)", kind, suggestion)
+		}
 		return schema.GroupVersionResource{}, fmt.Errorf("could not resolve resource for kind %q (apiVersion=%q)", kind, apiVersion)
 	}
 
