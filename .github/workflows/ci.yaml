@@ -44,7 +44,7 @@ jobs:
       - uses: actions/setup-go@v6.3.0
         with:
           go-version-file: go.mod
-      - run: go test -race -count=1 ./...
+      - run: go test -v -race -count=1 ./...
 
   envtest:
     name: Envtest
@@ -58,4 +58,4 @@ jobs:
         run: go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
       - name: Run envtest tests
         run: |
-          KUBEBUILDER_ASSETS=$(setup-envtest use --print path) go test -count=1 -tags=envtest -race -cover ./internal/kube/
+          KUBEBUILDER_ASSETS=$(setup-envtest use --print path) go test -v -count=1 -tags=envtest -race -cover ./internal/kube/
