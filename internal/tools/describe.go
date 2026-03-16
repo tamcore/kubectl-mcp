@@ -36,6 +36,13 @@ func registerDescribeResource(s *server.MCPServer, pool *kube.ClientPool, cfg *c
 		mcp.WithString("namespace",
 			mcp.Description("Namespace (required for namespaced resources)"),
 		),
+		mcp.WithString("include_annotations",
+			mcp.Description("Comma-separated glob patterns for annotation keys to include (e.g. 'app.kubernetes.io/*'). If set, only matching annotations are returned."),
+		),
+		mcp.WithString("exclude_annotations",
+			mcp.Description("Comma-separated glob patterns for annotation keys to exclude (e.g. 'kubectl.kubernetes.io/*'). "+
+				"kubectl.kubernetes.io/last-applied-configuration is always excluded."),
+		),
 	)
 
 	s.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -72,6 +79,7 @@ func registerDescribeResource(s *server.MCPServer, pool *kube.ClientPool, cfg *c
 		if !cfg.AllowSecrets {
 			kube.RedactSecrets(obj)
 		}
+		filterObjAnnotations(obj, req)
 
 		var sb strings.Builder
 

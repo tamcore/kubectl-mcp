@@ -39,6 +39,13 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 				"status.containerStatuses.0.ready=true). Multiple filters comma-separated. "+
 				"Use this instead of fieldSelector for non-metadata fields."),
 		),
+		mcp.WithString("include_annotations",
+			mcp.Description("Comma-separated glob patterns for annotation keys to include (e.g. 'app.kubernetes.io/*'). If set, only matching annotations are returned."),
+		),
+		mcp.WithString("exclude_annotations",
+			mcp.Description("Comma-separated glob patterns for annotation keys to exclude (e.g. 'kubectl.kubernetes.io/*'). "+
+				"kubectl.kubernetes.io/last-applied-configuration is always excluded."),
+		),
 	)
 
 	s.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -80,6 +87,7 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 		if !cfg.AllowSecrets {
 			kube.RedactSecretsList(list)
 		}
+		filterListAnnotations(list, req)
 
 		// Apply client-side filters.
 		filters, err := parseFilters(filter)
