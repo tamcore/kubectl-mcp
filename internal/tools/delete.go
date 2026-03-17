@@ -11,7 +11,8 @@ import (
 	"github.com/tamcore/kubectl-mcp/internal/kube"
 )
 
-func registerDeleteResource(s *server.MCPServer, pool *kube.ClientPool) {
+func registerDeleteResource(s *server.MCPServer, pool *kube.ClientPool) { //nolint:cyclop // elicitation adds a confirmation step
+	mcpServer := s
 	tool := mcp.NewTool("delete_resource",
 		mcp.WithDescription("Delete a Kubernetes resource by kind, name, and namespace. Requires --allow-destructive."),
 		mcp.WithReadOnlyHintAnnotation(false),
@@ -64,8 +65,26 @@ func registerDeleteResource(s *server.MCPServer, pool *kube.ClientPool) {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 
+		dryRun := req.GetBool("dryRun", false)
+
+		// Request elicitation confirmation for non-dry-run deletes.
+		if !dryRun {
+			target := fmt.Sprintf("%s/%s", kind, name)
+			if namespace != "" {
+				target += fmt.Sprintf(" in namespace %q", namespace)
+			}
+			confirmed, err := confirmDestructiveAction(ctx, mcpServer,
+				fmt.Sprintf("Are you sure you want to delete %s?", target))
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("elicitation error: %v", err)), nil
+			}
+			if !confirmed {
+				return mcp.NewToolResultText("Delete cancelled by user"), nil
+			}
+		}
+
 		deleteOpts := metav1.DeleteOptions{
-			DryRun: dryRunOption(req.GetBool("dryRun", false)),
+			DryRun: dryRunOption(dryRun),
 		}
 		gracePeriod := int64(req.GetFloat("gracePeriodSeconds", -1))
 		if gracePeriod >= 0 {

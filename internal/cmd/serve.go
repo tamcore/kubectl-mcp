@@ -40,6 +40,7 @@ var serveCmd = &cobra.Command{
 			server.WithToolCapabilities(false),
 			server.WithResourceCapabilities(false, false),
 			server.WithLogging(),
+			server.WithElicitation(),
 			server.WithHooks(hooks),
 		)
 

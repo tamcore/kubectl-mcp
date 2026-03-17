@@ -16,6 +16,7 @@ import (
 )
 
 func registerDrainNode(s *server.MCPServer, pool *kube.ClientPool) {
+	mcpServer := s
 	tool := mcp.NewTool("drain_node",
 		mcp.WithDescription("Drain a Kubernetes node: cordon it and evict all eligible pods. Requires --allow-destructive."),
 		mcp.WithReadOnlyHintAnnotation(false),
@@ -52,6 +53,17 @@ func registerDrainNode(s *server.MCPServer, pool *kube.ClientPool) {
 		}
 
 		node, _ := req.RequireString("node")
+
+		// Request elicitation confirmation before draining.
+		confirmed, confirmErr := confirmDestructiveAction(ctx, mcpServer,
+			fmt.Sprintf("Are you sure you want to drain node %q? This will cordon the node and evict all eligible pods.", node))
+		if confirmErr != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("elicitation error: %v", confirmErr)), nil
+		}
+		if !confirmed {
+			return mcp.NewToolResultText("Drain cancelled by user"), nil
+		}
+
 		ignoreDaemonSets := req.GetBool("ignoreDaemonSets", true)
 		gracePeriod := int64(req.GetFloat("gracePeriodSeconds", -1))
 
