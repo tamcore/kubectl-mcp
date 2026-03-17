@@ -14,6 +14,7 @@ var writeTools = []string{
 	"restart_rollout", "cordon_node", "uncordon_node", "exec_pod",
 	"rollout_undo",
 	"run_pod",
+	"port_forward",
 }
 
 // destructiveTools lists tool names gated behind --allow-destructive.
@@ -50,6 +51,7 @@ func RegisterAll(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config)
 		registerExecPod(s, pool, nil)
 		registerRolloutUndo(s, pool)
 		registerRunPod(s, pool)
+		registerPortForward(s, pool, nil)
 	}
 
 	// Destructive tools (require --allow-destructive).

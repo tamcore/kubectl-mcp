@@ -238,6 +238,7 @@ func TestRegisterAll(t *testing.T) {
 		"restart_rollout", "cordon_node", "uncordon_node", "exec_pod",
 		"rollout_undo",
 		"run_pod",
+		"port_forward",
 	}
 	destructiveTools := []string{
 		"delete_resource", "drain_node",
