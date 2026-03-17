@@ -245,6 +245,7 @@ func TestRegisterAll(t *testing.T) {
 	}
 	destructiveTools := []string{
 		"delete_resource", "drain_node",
+		"cleanup_pods",
 	}
 
 	t.Run("read-only mode", func(t *testing.T) {

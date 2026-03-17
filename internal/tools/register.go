@@ -21,6 +21,7 @@ var writeTools = []string{
 // destructiveTools lists tool names gated behind --allow-destructive.
 var destructiveTools = []string{
 	"delete_resource", "drain_node",
+	"cleanup_pods",
 }
 
 // RegisterAll registers every MCP tool on the given server.
@@ -63,6 +64,7 @@ func RegisterAll(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config)
 	if cfg.AllowDestructive {
 		registerDeleteResource(s, pool)
 		registerDrainNode(s, pool)
+		registerCleanupPods(s, pool)
 	}
 
 	// Apply rate limiting to all registered tools.
