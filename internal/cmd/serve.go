@@ -13,6 +13,7 @@ import (
 
 	"github.com/tamcore/kubectl-mcp/internal/kube"
 	"github.com/tamcore/kubectl-mcp/internal/mcplog"
+	"github.com/tamcore/kubectl-mcp/internal/resources"
 	"github.com/tamcore/kubectl-mcp/internal/tools"
 )
 
@@ -37,11 +38,13 @@ var serveCmd = &cobra.Command{
 			"kubectl-mcp",
 			appVersion,
 			server.WithToolCapabilities(false),
+			server.WithResourceCapabilities(false, false),
 			server.WithLogging(),
 			server.WithHooks(hooks),
 		)
 
 		tools.RegisterAll(s, pool, &cfg)
+		resources.RegisterAll(s, pool, &cfg)
 
 		switch cfg.Transport {
 		case "stdio":
