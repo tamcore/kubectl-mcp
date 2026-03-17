@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -48,6 +49,12 @@ func registerGetLogs(s *server.MCPServer, pool *kube.ClientPool) {
 		mcp.WithBoolean("previous",
 			mcp.Description("Return logs from previous terminated container"),
 		),
+		mcp.WithBoolean("timestamps",
+			mcp.Description("Include RFC3339 timestamps at the beginning of each log line"),
+		),
+		mcp.WithString("sinceTime",
+			mcp.Description("Only return logs after this RFC3339 timestamp (e.g. '2024-01-15T10:00:00Z'). Mutually exclusive with 'since'."),
+		),
 	)
 
 	s.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -72,15 +79,23 @@ func registerGetLogs(s *server.MCPServer, pool *kube.ClientPool) {
 			return mcp.NewToolResultError("either pod or labelSelector must be provided"), nil
 		}
 
+		sinceStr := req.GetString("since", "")
+		sinceTimeStr := req.GetString("sinceTime", "")
+		timestamps := req.GetBool("timestamps", false)
+
+		if sinceStr != "" && sinceTimeStr != "" {
+			return mcp.NewToolResultError("since and sinceTime are mutually exclusive — provide only one"), nil
+		}
+
 		opts := &corev1.PodLogOptions{
-			TailLines: &tailLines,
-			Previous:  previous,
+			TailLines:  &tailLines,
+			Previous:   previous,
+			Timestamps: timestamps,
 		}
 		if container != "" {
 			opts.Container = container
 		}
 
-		sinceStr := req.GetString("since", "")
 		if sinceStr != "" {
 			d, err := parseDuration(sinceStr)
 			if err != nil {
@@ -88,6 +103,14 @@ func registerGetLogs(s *server.MCPServer, pool *kube.ClientPool) {
 			}
 			secs := int64(d.Seconds())
 			opts.SinceSeconds = &secs
+		}
+		if sinceTimeStr != "" {
+			t, err := time.Parse(time.RFC3339, sinceTimeStr)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("invalid sinceTime (must be RFC3339): %v", err)), nil
+			}
+			mt := metav1.NewTime(t)
+			opts.SinceTime = &mt
 		}
 
 		// Single-pod path.

@@ -146,6 +146,61 @@ func TestGetLogs_LabelSelectorContextNotAllowed(t *testing.T) {
 	}
 }
 
+func TestGetLogs_SinceAndSinceTimeMutuallyExclusive(t *testing.T) {
+	cfg := defaultCfg()
+	fakeCS := fake.NewClientset()
+	dynClient := newFakeDynClient()
+	pool := buildPool(cfg, defaultRawConfig(), dynClient, fakeCS)
+
+	handler := getHandler(t, "get_logs", func(s *server.MCPServer) {
+		registerGetLogs(s, pool)
+	})
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"namespace": "default",
+		"pod":       "my-pod",
+		"since":     "5m",
+		"sinceTime": "2024-01-15T10:00:00Z",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.IsError {
+		t.Error("expected error when both since and sinceTime are provided")
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "mutually exclusive") {
+		t.Errorf("expected mutual exclusion error, got: %s", text)
+	}
+}
+
+func TestGetLogs_SinceTimeInvalidFormat(t *testing.T) {
+	cfg := defaultCfg()
+	fakeCS := fake.NewClientset()
+	dynClient := newFakeDynClient()
+	pool := buildPool(cfg, defaultRawConfig(), dynClient, fakeCS)
+
+	handler := getHandler(t, "get_logs", func(s *server.MCPServer) {
+		registerGetLogs(s, pool)
+	})
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"namespace": "default",
+		"pod":       "my-pod",
+		"sinceTime": "not-a-date",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.IsError {
+		t.Error("expected error for invalid sinceTime format")
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "RFC3339") {
+		t.Errorf("expected RFC3339 format error, got: %s", text)
+	}
+}
+
 func TestGetLogs_PodStillWorksAlone(t *testing.T) {
 	cfg := defaultCfg()
 	fakeCS := fake.NewClientset()
