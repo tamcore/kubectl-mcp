@@ -234,6 +234,7 @@ func TestRegisterAll(t *testing.T) {
 	writeTools := []string{
 		"apply_resource", "patch_resource", "scale_resource",
 		"restart_rollout", "cordon_node", "uncordon_node", "exec_pod",
+		"rollout_undo",
 	}
 	destructiveTools := []string{
 		"delete_resource", "drain_node",
