@@ -50,6 +50,15 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 			mcp.Description("Comma-separated glob patterns for annotation keys to exclude (e.g. 'kubectl.kubernetes.io/*'). "+
 				"kubectl.kubernetes.io/last-applied-configuration is always excluded."),
 		),
+		mcp.WithNumber("limit",
+			mcp.Description("Maximum number of resources to return per page. Use with 'continue' for pagination."),
+		),
+		mcp.WithString("continue",
+			mcp.Description("Continue token from a previous paginated response."),
+		),
+		mcp.WithString("fieldSelector",
+			mcp.Description("Server-side field selector (e.g. 'metadata.name=my-pod,status.phase=Running'). Complements the client-side 'filter' parameter."),
+		),
 	)
 
 	s.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -74,8 +83,19 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 
+		fieldSelector := req.GetString("fieldSelector", "")
+		limit := int64(req.GetFloat("limit", 0))
+		continueToken := req.GetString("continue", "")
+
 		opts := metav1.ListOptions{
 			LabelSelector: labelSelector,
+			FieldSelector: fieldSelector,
+		}
+		if limit > 0 {
+			opts.Limit = limit
+		}
+		if continueToken != "" {
+			opts.Continue = continueToken
 		}
 
 		var list *unstructured.UnstructuredList
@@ -112,11 +132,14 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 			return mcp.NewToolResultError(fmt.Sprintf("failed to format results: %v", err)), nil
 		}
 
+		var header string
 		if len(filters) > 0 {
-			header := fmt.Sprintf("Matched %d of %d %s\n\n", len(items), len(list.Items), kind)
-			return mcp.NewToolResultText(header + jsonOut), nil
+			header = fmt.Sprintf("Matched %d of %d %s\n\n", len(items), len(list.Items), kind)
 		}
-		return mcp.NewToolResultText(jsonOut), nil
+		if ct := list.GetContinue(); ct != "" {
+			header += fmt.Sprintf("Pagination: use continue=%q to fetch the next page\n\n", ct)
+		}
+		return mcp.NewToolResultText(header + jsonOut), nil
 	})
 }
 
