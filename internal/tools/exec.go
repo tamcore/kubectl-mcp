@@ -3,6 +3,7 @@ package tools
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -121,7 +122,8 @@ func registerExecPod(s *server.MCPServer, pool *kube.ClientPool, runner ExecRunn
 		var stdout, stderr bytes.Buffer
 		err = runner.Run(execCtx, cc.Clientset, cc.RestConfig, namespace, pod, container, command, &stdout, &stderr)
 		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("exec failed: %v", err)), nil
+			msg := formatExecError(err, timeout, &stderr)
+			return mcp.NewToolResultError(msg), nil
 		}
 
 		var sb strings.Builder
@@ -142,6 +144,29 @@ func registerExecPod(s *server.MCPServer, pool *kube.ClientPool, runner ExecRunn
 	})
 }
 
+// formatExecError builds an LLM-friendly error message for a failed exec.
+// It detects deadline exceeded (timeout) and appends any stderr output.
+func formatExecError(err error, timeout time.Duration, stderr *bytes.Buffer) string {
+	var sb strings.Builder
+
+	if errors.Is(err, context.DeadlineExceeded) {
+		fmt.Fprintf(&sb,
+			"exec failed: command timed out after %s. "+
+				"The command may be long-running or interactive. "+
+				"Use the timeout parameter (max %ds) to increase the limit.",
+			timeout, int(maxExecTimeout.Seconds()))
+	} else {
+		fmt.Fprintf(&sb, "exec failed: %v", err)
+	}
+
+	if stderr != nil && stderr.Len() > 0 {
+		sb.WriteString("\n\nSTDERR:\n")
+		sb.WriteString(stderr.String())
+	}
+
+	return sb.String()
+}
+
 // requireCommand extracts the command parameter, handling both string arrays
 // and single strings (LLMs may send either).
 func requireCommand(req mcp.CallToolRequest) ([]string, error) {
@@ -153,8 +178,10 @@ func requireCommand(req mcp.CallToolRequest) ([]string, error) {
 
 	switch v := val.(type) {
 	case string:
-		// Single string — split on whitespace.
-		parts := strings.Fields(v)
+		parts, err := shellSplit(v)
+		if err != nil {
+			return nil, fmt.Errorf("invalid command string: %w", err)
+		}
 		if len(parts) == 0 {
 			return nil, fmt.Errorf("command must not be empty")
 		}
