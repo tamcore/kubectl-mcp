@@ -13,6 +13,7 @@ var writeTools = []string{
 	"apply_resource", "patch_resource", "scale_resource",
 	"restart_rollout", "cordon_node", "uncordon_node", "exec_pod",
 	"rollout_undo",
+	"rollout_pause", "rollout_resume",
 	"run_pod",
 	"port_forward",
 }
@@ -50,6 +51,8 @@ func RegisterAll(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config)
 		registerUncordonNode(s, pool)
 		registerExecPod(s, pool, nil)
 		registerRolloutUndo(s, pool)
+		registerRolloutPause(s, pool)
+		registerRolloutResume(s, pool)
 		registerRunPod(s, pool)
 		registerPortForward(s, pool, nil)
 	}

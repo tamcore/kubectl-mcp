@@ -237,6 +237,7 @@ func TestRegisterAll(t *testing.T) {
 		"apply_resource", "patch_resource", "scale_resource",
 		"restart_rollout", "cordon_node", "uncordon_node", "exec_pod",
 		"rollout_undo",
+		"rollout_pause", "rollout_resume",
 		"run_pod",
 		"port_forward",
 	}
