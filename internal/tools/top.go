@@ -89,6 +89,9 @@ func registerTopPods(s *server.MCPServer, pool *kube.ClientPool) {
 		mcp.WithString("name",
 			mcp.Description("Filter by pod name"),
 		),
+		mcp.WithBoolean("containers",
+			mcp.Description("Show per-container metrics instead of aggregated pod totals (like kubectl top pods --containers)"),
+		),
 	)
 
 	s.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -104,6 +107,7 @@ func registerTopPods(s *server.MCPServer, pool *kube.ClientPool) {
 
 		namespace := req.GetString("namespace", "")
 		name := req.GetString("name", "")
+		showContainers := req.GetBool("containers", false)
 
 		var metricsList []unstructured.Unstructured
 
@@ -129,6 +133,33 @@ func registerTopPods(s *server.MCPServer, pool *kube.ClientPool) {
 
 		if len(metricsList) == 0 {
 			return mcp.NewToolResultText("[]"), nil
+		}
+
+		if showContainers {
+			type containerUsage struct {
+				Name      string `json:"name"`
+				Namespace string `json:"namespace"`
+				Container string `json:"container"`
+				CPU       string `json:"cpu"`
+				Memory    string `json:"memory"`
+			}
+			var items []containerUsage
+			for _, m := range metricsList {
+				for _, cu := range eachContainerUsage(m.Object) {
+					items = append(items, containerUsage{
+						Name:      m.GetName(),
+						Namespace: m.GetNamespace(),
+						Container: cu.name,
+						CPU:       fmt.Sprintf("%dm", cu.cpuMillis),
+						Memory:    fmt.Sprintf("%dMi", cu.memBytes/(1024*1024)),
+					})
+				}
+			}
+			out, err := json.MarshalIndent(items, "", "  ")
+			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+			return mcp.NewToolResultText(string(out)), nil
 		}
 
 		type podUsage struct {
@@ -183,6 +214,44 @@ func sumContainerUsage(obj map[string]interface{}) (cpuMillis int64, memBytes in
 		}
 	}
 	return cpuMillis, memBytes
+}
+
+type containerMetric struct {
+	name      string
+	cpuMillis int64
+	memBytes  int64
+}
+
+// eachContainerUsage returns per-container CPU and memory from a PodMetrics object.
+func eachContainerUsage(obj map[string]interface{}) []containerMetric {
+	containers, ok := obj["containers"].([]interface{})
+	if !ok {
+		return nil
+	}
+	result := make([]containerMetric, 0, len(containers))
+	for _, c := range containers {
+		cm, ok := c.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		usage, ok := cm["usage"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		name, _ := cm["name"].(string)
+		var m containerMetric
+		m.name = name
+		if cpu, ok := usage["cpu"].(string); ok {
+			q := resource.MustParse(cpu)
+			m.cpuMillis = q.MilliValue()
+		}
+		if mem, ok := usage["memory"].(string); ok {
+			q := resource.MustParse(mem)
+			m.memBytes = q.Value()
+		}
+		result = append(result, m)
+	}
+	return result
 }
 
 // ---------------------------------------------------------------------------
