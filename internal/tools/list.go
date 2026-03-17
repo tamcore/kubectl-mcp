@@ -139,7 +139,14 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 		if ct := list.GetContinue(); ct != "" {
 			header += fmt.Sprintf("Pagination: use continue=%q to fetch the next page\n\n", ct)
 		}
-		return mcp.NewToolResultText(header + jsonOut), nil
+
+		// Build structured content from the item objects.
+		structured := make([]map[string]interface{}, 0, len(items))
+		for _, item := range items {
+			structured = append(structured, item.Object)
+		}
+
+		return mcp.NewToolResultStructured(structured, header+jsonOut), nil
 	})
 }
 

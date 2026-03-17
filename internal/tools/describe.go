@@ -152,7 +152,7 @@ func registerDescribeResource(s *server.MCPServer, pool *kube.ClientPool, cfg *c
 			fmt.Fprintf(&sb, "\nEvents:\n%s", events)
 		}
 
-		return mcp.NewToolResultText(sb.String()), nil
+		return mcp.NewToolResultStructured(obj.Object, sb.String()), nil
 	})
 }
 

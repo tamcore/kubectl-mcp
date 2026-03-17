@@ -93,7 +93,7 @@ func registerGetResource(s *server.MCPServer, pool *kube.ClientPool, cfg *config
 			return mcp.NewToolResultError(fmt.Sprintf("failed to marshal resource: %v", err)), nil
 		}
 
-		return mcp.NewToolResultText(string(out)), nil
+		return mcp.NewToolResultStructured(obj.Object, string(out)), nil
 	})
 }
 
