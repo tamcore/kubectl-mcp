@@ -318,6 +318,103 @@ func TestTopPods_NameFilter(t *testing.T) {
 	}
 }
 
+func TestTopPods_ContainersBreakdown(t *testing.T) {
+	cfg := defaultCfg()
+	dynClient := newMetricsFakeDynClient(
+		testPodMetricsMultiContainer("pod-1", "default", []map[string]interface{}{
+			{"name": "app", "usage": map[string]interface{}{"cpu": "200m", "memory": "64Mi"}},
+			{"name": "sidecar", "usage": map[string]interface{}{"cpu": "50m", "memory": "32Mi"}},
+		}),
+	)
+	fakeCS := fake.NewClientset()
+	pool := buildPool(cfg, defaultRawConfig(), dynClient, fakeCS)
+
+	handler := getHandler(t, "top_pods", func(s *server.MCPServer) {
+		registerTopPods(s, pool)
+	})
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"namespace":  "default",
+		"containers": true,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	text := resultText(t, res)
+	var items []map[string]interface{}
+	if err := json.Unmarshal([]byte(text), &items); err != nil {
+		t.Fatalf("expected JSON array, got: %s", text)
+	}
+	// Should have 2 rows: one per container.
+	if len(items) != 2 {
+		t.Fatalf("expected 2 container rows, got %d: %s", len(items), text)
+	}
+	// Each row must have "container" field.
+	for _, item := range items {
+		if _, ok := item["container"]; !ok {
+			t.Errorf("expected 'container' field in item %v", item)
+		}
+		if item["name"] != "pod-1" {
+			t.Errorf("expected pod name 'pod-1', got %v", item["name"])
+		}
+	}
+	// Verify individual container values.
+	if items[0]["container"] != "app" {
+		t.Errorf("expected first container 'app', got %v", items[0]["container"])
+	}
+	if items[0]["cpu"] != "200m" {
+		t.Errorf("expected 200m CPU for app, got %v", items[0]["cpu"])
+	}
+	if items[1]["container"] != "sidecar" {
+		t.Errorf("expected second container 'sidecar', got %v", items[1]["container"])
+	}
+	if items[1]["cpu"] != "50m" {
+		t.Errorf("expected 50m CPU for sidecar, got %v", items[1]["cpu"])
+	}
+}
+
+func TestTopPods_ContainersFalseAggregates(t *testing.T) {
+	cfg := defaultCfg()
+	dynClient := newMetricsFakeDynClient(
+		testPodMetricsMultiContainer("pod-1", "default", []map[string]interface{}{
+			{"name": "app", "usage": map[string]interface{}{"cpu": "200m", "memory": "64Mi"}},
+			{"name": "sidecar", "usage": map[string]interface{}{"cpu": "50m", "memory": "32Mi"}},
+		}),
+	)
+	fakeCS := fake.NewClientset()
+	pool := buildPool(cfg, defaultRawConfig(), dynClient, fakeCS)
+
+	handler := getHandler(t, "top_pods", func(s *server.MCPServer) {
+		registerTopPods(s, pool)
+	})
+
+	// containers=false (default) should aggregate.
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"namespace": "default",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	text := resultText(t, res)
+	var items []map[string]interface{}
+	if err := json.Unmarshal([]byte(text), &items); err != nil {
+		t.Fatalf("expected JSON, got: %s", text)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected 1 aggregated row, got %d", len(items))
+	}
+	// Should NOT have "container" field.
+	if _, ok := items[0]["container"]; ok {
+		t.Errorf("should not have 'container' field when containers=false")
+	}
+	// CPU should be 200m + 50m = 250m.
+	if items[0]["cpu"] != "250m" {
+		t.Errorf("expected 250m aggregated CPU, got %v", items[0]["cpu"])
+	}
+}
+
 func TestTopPods_MultiContainer(t *testing.T) {
 	cfg := defaultCfg()
 	dynClient := newMetricsFakeDynClient(
