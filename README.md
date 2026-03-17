@@ -18,6 +18,7 @@ lets LLMs query and manage your clusters safely.
 - **Rate limiting** — configurable per-minute limits for read and write operations
 - **MCP tool annotations** — every tool declares `readOnlyHint`, `destructiveHint`, `idempotentHint`, and `openWorldHint` so MCP clients can make informed decisions
 - **26 MCP tools** — 14 read-only + 10 write + 2 destructive
+- **MCP resources** — read any Kubernetes resource via `k8s://` URI scheme (2 resource templates)
 
 ## Installation
 
@@ -126,6 +127,35 @@ kube-context. If omitted, the configured default context is used.
 |------|-------------|
 | `delete_resource` | Delete a resource with optional dry-run and grace period |
 | `drain_node` | Cordon a node and evict all eligible pods |
+
+## MCP Resources
+
+Resources expose Kubernetes objects via `k8s://` URIs, allowing MCP clients
+to read cluster state directly.
+
+### URI Scheme
+
+Two URI patterns are supported:
+
+| Pattern | Scope |
+|---------|-------|
+| `k8s://{context}/namespaces/{namespace}/{group}/{version}/{resource}/{name}` | Namespaced resources |
+| `k8s://{context}/{group}/{version}/{resource}/{name}` | Cluster-scoped resources |
+
+Use `core` as the group for core API resources (pods, services, configmaps, nodes, etc.).
+
+### Examples
+
+```
+k8s://my-cluster/namespaces/default/core/v1/pods/nginx
+k8s://my-cluster/namespaces/kube-system/apps/v1/deployments/coredns
+k8s://my-cluster/core/v1/nodes/worker-1
+k8s://my-cluster/core/v1/namespaces/kube-system
+k8s://my-cluster/namespaces/default/core/v1/secrets/my-secret
+```
+
+Resources respect the `--allow-secrets` flag: Secret data is redacted by default.
+Noisy metadata (managedFields, last-applied-configuration) is automatically stripped.
 
 ## MCP Client Configuration
 

@@ -17,6 +17,7 @@ import (
 
 	"github.com/tamcore/kubectl-mcp/internal/config"
 	"github.com/tamcore/kubectl-mcp/internal/kube"
+	"github.com/tamcore/kubectl-mcp/internal/resources"
 	"github.com/tamcore/kubectl-mcp/internal/tools"
 )
 
@@ -51,8 +52,11 @@ func startSSEServerWithConfig(t *testing.T, cfg *config.Config) string {
 
 	s := server.NewMCPServer("kubectl-mcp-e2e", "test",
 		server.WithToolCapabilities(false),
+		server.WithResourceCapabilities(false, false),
 	)
 	tools.RegisterAll(s, pool, cfg)
+	resources.RegisterAll(s, pool, cfg)
+
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -92,8 +96,11 @@ func startStreamableHTTPServerWithConfig(t *testing.T, cfg *config.Config) strin
 
 	s := server.NewMCPServer("kubectl-mcp-e2e", "test",
 		server.WithToolCapabilities(false),
+		server.WithResourceCapabilities(false, false),
 	)
 	tools.RegisterAll(s, pool, cfg)
+	resources.RegisterAll(s, pool, cfg)
+
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

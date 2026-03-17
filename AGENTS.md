@@ -24,12 +24,14 @@ internal/
   kube/                Kubernetes client pool, helpers
   mcplog/              Structured MCP logging
   ratelimit/           Token-bucket rate limiting middleware
+  resources/           MCP resource templates and handlers (k8s:// URI)
   tools/               MCP tool definitions and handlers
 e2e/                   End-to-end tests (build tag: e2e)
 ```
 
 Each tool lives in its own file under `internal/tools/` (e.g. `get.go`, `list.go`,
-`delete.go`). The project currently has 26 MCP tools (14 read-only, 10 write, 2 destructive).
+`delete.go`). The project currently has 26 MCP tools (14 read-only, 10 write, 2 destructive)
+and 2 MCP resource templates (namespaced + cluster-scoped via `k8s://` URI).
 Keep files under 400 lines; extract helpers when they grow.
 
 ## Adding a New MCP Tool
