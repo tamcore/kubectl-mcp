@@ -19,7 +19,7 @@ import (
 
 func registerGetLogs(s *server.MCPServer, pool *kube.ClientPool) {
 	tool := mcp.NewTool("get_logs",
-		mcp.WithDescription("Get logs from a Kubernetes pod or from all pods matching a label selector"),
+		mcp.WithDescription("Get logs from a Kubernetes pod, from all pods matching a label selector, or from a resource like deployment/nginx"),
 		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithDestructiveHintAnnotation(false),
 		mcp.WithIdempotentHintAnnotation(true),
@@ -55,6 +55,9 @@ func registerGetLogs(s *server.MCPServer, pool *kube.ClientPool) {
 		mcp.WithString("sinceTime",
 			mcp.Description("Only return logs after this RFC3339 timestamp (e.g. '2024-01-15T10:00:00Z'). Mutually exclusive with 'since'."),
 		),
+		mcp.WithString("resource",
+			mcp.Description("Resource reference (e.g. 'deployment/nginx', 'job/my-job'). Resolves to pod label selector. Supported: Deployment, Job, StatefulSet, ReplicaSet, DaemonSet. Mutually exclusive with pod and labelSelector."),
+		),
 	)
 
 	s.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -71,12 +74,27 @@ func registerGetLogs(s *server.MCPServer, pool *kube.ClientPool) {
 		namespace, _ := req.RequireString("namespace")
 		podName := req.GetString("pod", "")
 		labelSelector := req.GetString("labelSelector", "")
+		resource := req.GetString("resource", "")
 		container := req.GetString("container", "")
 		previous := req.GetBool("previous", false)
 		tailLines := int64(req.GetFloat("tail", 100))
 
-		if podName == "" && labelSelector == "" {
-			return mcp.NewToolResultError("either pod or labelSelector must be provided"), nil
+		// Exactly one of pod, labelSelector, or resource must be provided.
+		specified := countSpecified(podName, labelSelector, resource)
+		if specified == 0 {
+			return mcp.NewToolResultError("one of pod, labelSelector, or resource must be provided"), nil
+		}
+		if specified > 1 {
+			return mcp.NewToolResultError("pod, labelSelector, and resource are mutually exclusive — provide only one"), nil
+		}
+
+		// Resolve resource reference to label selector.
+		if resource != "" {
+			resolved, err := resolveResourceToLabelSelector(ctx, cc, namespace, resource)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("failed to resolve resource %q: %v", resource, err)), nil
+			}
+			labelSelector = resolved
 		}
 
 		sinceStr := req.GetString("since", "")
@@ -175,6 +193,17 @@ func fetchPodLogs(ctx context.Context, cc *kube.ContextClient, namespace, pod st
 		return mcp.NewToolResultText("(no logs)"), nil
 	}
 	return mcp.NewToolResultText(string(data)), nil
+}
+
+// countSpecified returns the number of non-empty string arguments.
+func countSpecified(args ...string) int {
+	count := 0
+	for _, a := range args {
+		if a != "" {
+			count++
+		}
+	}
+	return count
 }
 
 // extractText gets the text content from a tool result.
