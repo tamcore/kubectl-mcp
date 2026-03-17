@@ -14,6 +14,10 @@ import (
 func registerListContexts(s *server.MCPServer, pool *kube.ClientPool) {
 	tool := mcp.NewTool("list_contexts",
 		mcp.WithDescription("List available Kubernetes contexts"),
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(true),
+		mcp.WithOpenWorldHintAnnotation(true),
 	)
 
 	s.AddTool(tool, func(_ context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {

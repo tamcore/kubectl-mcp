@@ -16,6 +16,10 @@ import (
 func registerListNamespaces(s *server.MCPServer, pool *kube.ClientPool) {
 	tool := mcp.NewTool("list_namespaces",
 		mcp.WithDescription("List namespaces in a Kubernetes cluster"),
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(true),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithString("context",
 			mcp.Description("Kubernetes context to use (defaults to current context)"),
 		),

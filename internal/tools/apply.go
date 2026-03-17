@@ -19,6 +19,10 @@ import (
 
 func registerApplyResource(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config) {
 	tool := mcp.NewTool("apply_resource",
+		mcp.WithReadOnlyHintAnnotation(false),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(true),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithDescription("Apply a Kubernetes resource from a JSON or YAML manifest (like kubectl apply). Requires --allow-write."),
 		mcp.WithString("context",
 			mcp.Description("Kubernetes context to use (defaults to current context)"),

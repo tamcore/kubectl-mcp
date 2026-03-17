@@ -64,6 +64,10 @@ func registerExecPod(s *server.MCPServer, pool *kube.ClientPool, runner ExecRunn
 
 	tool := mcp.NewTool("exec_pod",
 		mcp.WithDescription("Execute a command in a Kubernetes pod container. Requires --allow-write."),
+		mcp.WithReadOnlyHintAnnotation(false),
+		mcp.WithDestructiveHintAnnotation(true),
+		mcp.WithIdempotentHintAnnotation(false),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithString("context",
 			mcp.Description("Kubernetes context to use (defaults to current context)"),
 		),

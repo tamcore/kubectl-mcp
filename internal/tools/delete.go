@@ -14,6 +14,10 @@ import (
 func registerDeleteResource(s *server.MCPServer, pool *kube.ClientPool) {
 	tool := mcp.NewTool("delete_resource",
 		mcp.WithDescription("Delete a Kubernetes resource by kind, name, and namespace. Requires --allow-destructive."),
+		mcp.WithReadOnlyHintAnnotation(false),
+		mcp.WithDestructiveHintAnnotation(true),
+		mcp.WithIdempotentHintAnnotation(true),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithString("context",
 			mcp.Description("Kubernetes context to use (defaults to current context)"),
 		),

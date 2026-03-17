@@ -19,6 +19,10 @@ import (
 func registerGetResource(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config) {
 	tool := mcp.NewTool("get_resource",
 		mcp.WithDescription("Get a single Kubernetes resource by kind and name, returned as JSON"),
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(true),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithString("context",
 			mcp.Description("Kubernetes context to use (defaults to current context)"),
 		),

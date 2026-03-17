@@ -16,6 +16,10 @@ import (
 func registerListAPIResources(s *server.MCPServer, pool *kube.ClientPool) {
 	tool := mcp.NewTool("list_api_resources",
 		mcp.WithDescription("List available API resources (kinds) in the cluster"),
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(true),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithString("context",
 			mcp.Description("Kubernetes context to use (defaults to current context)"),
 		),

@@ -19,6 +19,10 @@ import (
 func registerGetLogs(s *server.MCPServer, pool *kube.ClientPool) {
 	tool := mcp.NewTool("get_logs",
 		mcp.WithDescription("Get logs from a Kubernetes pod or from all pods matching a label selector"),
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(true),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithString("context",
 			mcp.Description("Kubernetes context to use (defaults to current context)"),
 		),

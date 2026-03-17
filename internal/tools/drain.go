@@ -18,6 +18,10 @@ import (
 func registerDrainNode(s *server.MCPServer, pool *kube.ClientPool) {
 	tool := mcp.NewTool("drain_node",
 		mcp.WithDescription("Drain a Kubernetes node: cordon it and evict all eligible pods. Requires --allow-destructive."),
+		mcp.WithReadOnlyHintAnnotation(false),
+		mcp.WithDestructiveHintAnnotation(true),
+		mcp.WithIdempotentHintAnnotation(false),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithString("context",
 			mcp.Description("Kubernetes context to use (defaults to current context)"),
 		),

@@ -18,6 +18,10 @@ import (
 func registerPatchResource(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config) {
 	tool := mcp.NewTool("patch_resource",
 		mcp.WithDescription("Patch a Kubernetes resource using JSON patch, merge patch, or strategic merge patch. Requires --allow-write."),
+		mcp.WithReadOnlyHintAnnotation(false),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(true),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithString("context",
 			mcp.Description("Kubernetes context to use (defaults to current context)"),
 		),

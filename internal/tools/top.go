@@ -80,6 +80,10 @@ const metricsNotAvailableMsg = "metrics-server is not available in this cluster 
 func registerTopPods(s *server.MCPServer, pool *kube.ClientPool) {
 	tool := mcp.NewTool("top_pods",
 		mcp.WithDescription("Get CPU and memory usage for pods (like kubectl top pods). Requires metrics-server."),
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(true),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithString("context",
 			mcp.Description("Kubernetes context to use (defaults to current context)"),
 		),
@@ -261,6 +265,10 @@ func eachContainerUsage(obj map[string]interface{}) []containerMetric {
 func registerTopNodes(s *server.MCPServer, pool *kube.ClientPool) {
 	tool := mcp.NewTool("top_nodes",
 		mcp.WithDescription("Get CPU and memory usage for nodes (like kubectl top nodes). Requires metrics-server."),
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(true),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithString("context",
 			mcp.Description("Kubernetes context to use (defaults to current context)"),
 		),

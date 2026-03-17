@@ -18,6 +18,10 @@ var nodeGVR = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "n
 func registerCordonNode(s *server.MCPServer, pool *kube.ClientPool) {
 	tool := mcp.NewTool("cordon_node",
 		mcp.WithDescription("Mark a Kubernetes node as unschedulable (cordon). Requires --allow-write."),
+		mcp.WithReadOnlyHintAnnotation(false),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(true),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithString("context",
 			mcp.Description("Kubernetes context to use (defaults to current context)"),
 		),
@@ -33,6 +37,10 @@ func registerCordonNode(s *server.MCPServer, pool *kube.ClientPool) {
 func registerUncordonNode(s *server.MCPServer, pool *kube.ClientPool) {
 	tool := mcp.NewTool("uncordon_node",
 		mcp.WithDescription("Mark a Kubernetes node as schedulable (uncordon). Requires --allow-write."),
+		mcp.WithReadOnlyHintAnnotation(false),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(true),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithString("context",
 			mcp.Description("Kubernetes context to use (defaults to current context)"),
 		),

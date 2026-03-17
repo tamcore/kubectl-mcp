@@ -17,6 +17,10 @@ import (
 func registerScaleResource(s *server.MCPServer, pool *kube.ClientPool) {
 	tool := mcp.NewTool("scale_resource",
 		mcp.WithDescription("Scale a Deployment, StatefulSet, or ReplicaSet to a given number of replicas. Requires --allow-write."),
+		mcp.WithReadOnlyHintAnnotation(false),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(true),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithString("context",
 			mcp.Description("Kubernetes context to use (defaults to current context)"),
 		),

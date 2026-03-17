@@ -17,6 +17,10 @@ import (
 func registerRestartRollout(s *server.MCPServer, pool *kube.ClientPool) {
 	tool := mcp.NewTool("restart_rollout",
 		mcp.WithDescription("Restart a rollout by patching the pod template annotation (like kubectl rollout restart). Requires --allow-write."),
+		mcp.WithReadOnlyHintAnnotation(false),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(false),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithString("context",
 			mcp.Description("Kubernetes context to use (defaults to current context)"),
 		),

@@ -18,6 +18,10 @@ import (
 
 func registerDescribeResource(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config) {
 	tool := mcp.NewTool("describe_resource",
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(true),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithDescription("Describe a Kubernetes resource with detailed information including conditions and events"),
 		mcp.WithString("context",
 			mcp.Description("Kubernetes context to use (defaults to current context)"),
