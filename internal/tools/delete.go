@@ -35,6 +35,12 @@ func registerDeleteResource(s *server.MCPServer, pool *kube.ClientPool) {
 		mcp.WithString("apiVersion",
 			mcp.Description("API version (e.g. v1, apps/v1). If omitted, the server will try to discover it."),
 		),
+		mcp.WithBoolean("dryRun",
+			mcp.Description("If true, validate the request without persisting the change (server-side dry run)"),
+		),
+		mcp.WithNumber("gracePeriodSeconds",
+			mcp.Description("Grace period in seconds before forceful deletion. 0 means immediate. Omit for the resource's default grace period."),
+		),
 	)
 
 	s.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -58,16 +64,28 @@ func registerDeleteResource(s *server.MCPServer, pool *kube.ClientPool) {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 
+		deleteOpts := metav1.DeleteOptions{
+			DryRun: dryRunOption(req.GetBool("dryRun", false)),
+		}
+		gracePeriod := int64(req.GetFloat("gracePeriodSeconds", -1))
+		if gracePeriod >= 0 {
+			deleteOpts.GracePeriodSeconds = &gracePeriod
+		}
+
 		if namespace != "" {
-			err = cc.Dynamic.Resource(gvr).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+			err = cc.Dynamic.Resource(gvr).Namespace(namespace).Delete(ctx, name, deleteOpts)
 		} else {
-			err = cc.Dynamic.Resource(gvr).Delete(ctx, name, metav1.DeleteOptions{})
+			err = cc.Dynamic.Resource(gvr).Delete(ctx, name, deleteOpts)
 		}
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to delete %s/%s: %v", kind, name, err)), nil
 		}
 
-		msg := fmt.Sprintf("Deleted %s/%s", kind, name)
+		msg := "Deleted"
+		if len(deleteOpts.DryRun) > 0 {
+			msg = "DRY RUN: would delete"
+		}
+		msg += fmt.Sprintf(" %s/%s", kind, name)
 		if namespace != "" {
 			msg += fmt.Sprintf(" in namespace %q", namespace)
 		}

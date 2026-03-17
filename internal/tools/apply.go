@@ -31,6 +31,9 @@ func registerApplyResource(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 			mcp.Required(),
 			mcp.Description("The resource manifest as a JSON or YAML string"),
 		),
+		mcp.WithBoolean("dryRun",
+			mcp.Description("If true, validate the request without persisting the change (server-side dry run)"),
+		),
 	)
 
 	s.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -73,8 +76,10 @@ func registerApplyResource(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 			res = cc.Dynamic.Resource(gvr)
 		}
 
+		dryRun := dryRunOption(req.GetBool("dryRun", false))
+
 		// Try Create first; if the resource already exists, Update it.
-		result, err = res.Create(ctx, obj, metav1.CreateOptions{})
+		result, err = res.Create(ctx, obj, metav1.CreateOptions{DryRun: dryRun})
 		if err != nil {
 			if !isAlreadyExists(err) {
 				return mcp.NewToolResultError(fmt.Sprintf("failed to apply %s/%s: %v", kind, name, err)), nil
@@ -85,7 +90,7 @@ func registerApplyResource(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get existing %s/%s: %v", kind, name, getErr)), nil
 			}
 			obj.SetResourceVersion(existing.GetResourceVersion())
-			result, err = res.Update(ctx, obj, metav1.UpdateOptions{})
+			result, err = res.Update(ctx, obj, metav1.UpdateOptions{DryRun: dryRun})
 			if err != nil {
 				return mcp.NewToolResultError(fmt.Sprintf("failed to update %s/%s: %v", kind, name, err)), nil
 			}
@@ -100,7 +105,11 @@ func registerApplyResource(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 			return mcp.NewToolResultError(fmt.Sprintf("failed to marshal result: %v", err)), nil
 		}
 
-		return mcp.NewToolResultText(fmt.Sprintf("Applied %s/%s in context %q\n\n%s", kind, name, ctxName, string(out))), nil
+		prefix := "Applied"
+		if len(dryRun) > 0 {
+			prefix = "DRY RUN: would apply"
+		}
+		return mcp.NewToolResultText(fmt.Sprintf("%s %s/%s in context %q\n\n%s", prefix, kind, name, ctxName, string(out))), nil
 	})
 }
 

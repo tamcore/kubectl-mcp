@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // requireStringOrJSON returns a string argument by key. If the LLM sends a
@@ -29,6 +30,14 @@ func requireStringOrJSON(req mcp.CallToolRequest, key string) (string, error) {
 		return "", fmt.Errorf("argument %q could not be serialized: %w", key, err)
 	}
 	return string(b), nil
+}
+
+// dryRunOption returns the DryRun field value for K8s API options.
+func dryRunOption(dryRun bool) []string {
+	if dryRun {
+		return []string{metav1.DryRunAll}
+	}
+	return nil
 }
 
 // parseDuration parses a human-friendly duration string like "5m", "1h", "30s", "2d".

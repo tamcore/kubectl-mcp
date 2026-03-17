@@ -46,6 +46,9 @@ func registerPatchResource(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 		mcp.WithString("patchType",
 			mcp.Description("Patch type: json, merge, or strategic (default: strategic)"),
 		),
+		mcp.WithBoolean("dryRun",
+			mcp.Description("If true, validate the request without persisting the change (server-side dry run)"),
+		),
 	)
 
 	s.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -80,12 +83,13 @@ func registerPatchResource(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 		}
 
 		patchData := []byte(patchStr)
+		dryRun := dryRunOption(req.GetBool("dryRun", false))
 
 		var result *unstructured.Unstructured
 		if namespace != "" {
-			result, err = cc.Dynamic.Resource(gvr).Namespace(namespace).Patch(ctx, name, pt, patchData, metav1.PatchOptions{})
+			result, err = cc.Dynamic.Resource(gvr).Namespace(namespace).Patch(ctx, name, pt, patchData, metav1.PatchOptions{DryRun: dryRun})
 		} else {
-			result, err = cc.Dynamic.Resource(gvr).Patch(ctx, name, pt, patchData, metav1.PatchOptions{})
+			result, err = cc.Dynamic.Resource(gvr).Patch(ctx, name, pt, patchData, metav1.PatchOptions{DryRun: dryRun})
 		}
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to patch %s/%s: %v", kind, name, err)), nil
@@ -100,7 +104,11 @@ func registerPatchResource(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 			return mcp.NewToolResultError(fmt.Sprintf("failed to marshal result: %v", err)), nil
 		}
 
-		return mcp.NewToolResultText(fmt.Sprintf("Patched %s/%s in context %q\n\n%s", kind, name, ctxName, string(out))), nil
+		prefix := "Patched"
+		if len(dryRun) > 0 {
+			prefix = "DRY RUN: would patch"
+		}
+		return mcp.NewToolResultText(fmt.Sprintf("%s %s/%s in context %q\n\n%s", prefix, kind, name, ctxName, string(out))), nil
 	})
 }
 
