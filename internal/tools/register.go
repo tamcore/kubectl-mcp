@@ -32,6 +32,7 @@ func RegisterAll(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config)
 	registerGetEvents(s, pool)
 	registerTopPods(s, pool)
 	registerTopNodes(s, pool)
+	registerRolloutStatus(s, pool)
 
 	// Write tools (require --allow-write).
 	if cfg.AllowWrite {
