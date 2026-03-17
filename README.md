@@ -17,7 +17,9 @@ lets LLMs query and manage your clusters safely.
 - **Fuzzy kind matching** — resolves short names (`deploy`, `svc`) and suggests corrections for typos
 - **Rate limiting** — configurable per-minute limits for read and write operations
 - **MCP tool annotations** — every tool declares `readOnlyHint`, `destructiveHint`, `idempotentHint`, and `openWorldHint` so MCP clients can make informed decisions
-- **26 MCP tools** — 14 read-only + 10 write + 2 destructive
+- **Elicitation confirmation** — destructive operations (delete, drain) prompt for user confirmation via MCP elicitation
+- **Structured content** — get, list, and describe responses include machine-readable structured content alongside text
+- **31 MCP tools** — 16 read-only + 12 write + 3 destructive
 - **MCP resources** — read any Kubernetes resource via `k8s://` URI scheme (2 resource templates)
 
 ## Installation
@@ -68,8 +70,8 @@ All flags can also be set via environment variables with a `KUBECTL_MCP_` prefix
 | `--context` | `KUBECTL_MCP_CONTEXT` | *(current-context)* | Default kube-context override |
 | `--allowed-contexts` | `KUBECTL_MCP_ALLOWED_CONTEXTS` | `*` | Comma-separated glob/regex allow patterns |
 | `--denied-contexts` | `KUBECTL_MCP_DENIED_CONTEXTS` | *(none)* | Comma-separated glob/regex deny patterns |
-| `--allow-write` | `KUBECTL_MCP_ALLOW_WRITE` | `false` | Enable write operations (apply, patch, scale, restart, cordon, uncordon, exec, rollout undo, run, port-forward) |
-| `--allow-destructive` | `KUBECTL_MCP_ALLOW_DESTRUCTIVE` | `false` | Enable destructive operations (delete, drain); implies `--allow-write` |
+| `--allow-write` | `KUBECTL_MCP_ALLOW_WRITE` | `false` | Enable write operations (apply, patch, scale, restart, cordon, uncordon, exec, rollout undo, rollout pause/resume, run, port-forward) |
+| `--allow-destructive` | `KUBECTL_MCP_ALLOW_DESTRUCTIVE` | `false` | Enable destructive operations (delete, drain, cleanup-pods); implies `--allow-write` |
 | `--allow-secrets` | `KUBECTL_MCP_ALLOW_SECRETS` | `false` | Allow reading Secret data |
 | `--rate-limit-read` | `KUBECTL_MCP_RATE_LIMIT_READ` | `120` | Max read tool calls per minute (0 = unlimited) |
 | `--rate-limit-write` | `KUBECTL_MCP_RATE_LIMIT_WRITE` | `30` | Max write tool calls per minute (0 = unlimited) |
@@ -97,7 +99,7 @@ kube-context. If omitted, the configured default context is used.
 | `get_resource` | Get a single resource as JSON |
 | `list_resources` | List resources with label/field selectors, pagination, and client-side filters |
 | `describe_resource` | Rich describe output with conditions, spec, and events |
-| `get_logs` | Get pod/container logs (supports label selectors, timestamps, sinceTime) |
+| `get_logs` | Get pod/container logs (supports label selectors, timestamps, sinceTime, resource references like deployment/nginx) |
 | `get_events` | Get cluster events |
 | `top_pods` | Get CPU/memory usage for pods (requires metrics-server) |
 | `top_nodes` | Get CPU/memory usage for nodes with allocatable percentages |
@@ -105,6 +107,8 @@ kube-context. If omitted, the configured default context is used.
 | `rollout_history` | Show rollout revision history of a Deployment |
 | `explain_resource` | Explain a resource kind (metadata, verbs, scope) via discovery API |
 | `node_logs` | Get logs from a node via the kubelet proxy |
+| `node_stats` | Get node-level resource usage (CPU, memory, filesystem) from the kubelet stats/summary API |
+| `stop_port_forward` | Stop an active port-forward session or list all active sessions |
 
 ### Write tools (require `--allow-write`)
 
@@ -118,6 +122,8 @@ kube-context. If omitted, the configured default context is used.
 | `uncordon_node` | Mark a node as schedulable |
 | `exec_pod` | Execute a command in a pod container (with timeout) |
 | `rollout_undo` | Undo a Deployment rollout to a previous revision |
+| `rollout_pause` | Pause a Deployment rollout |
+| `rollout_resume` | Resume a paused Deployment rollout |
 | `run_pod` | Create and run a pod with a given image (like `kubectl run`) |
 | `port_forward` | Forward a local port to a pod port (with auto-timeout) |
 
@@ -125,8 +131,9 @@ kube-context. If omitted, the configured default context is used.
 
 | Tool | Description |
 |------|-------------|
-| `delete_resource` | Delete a resource with optional dry-run and grace period |
-| `drain_node` | Cordon a node and evict all eligible pods |
+| `delete_resource` | Delete a resource with optional dry-run and grace period (with elicitation confirmation) |
+| `drain_node` | Cordon a node and evict all eligible pods (with elicitation confirmation) |
+| `cleanup_pods` | Delete pods in error states (Evicted, Failed, Succeeded) from a namespace |
 
 ## MCP Resources
 
@@ -282,6 +289,23 @@ kubectl-mcp serve --transport streamable-http &
     }
   }
 }
+```
+
+## Known Limitations
+
+### Follow / streaming logs
+
+MCP tools use a request-response model — there is no server-to-client
+streaming support. Therefore, `kubectl logs -f` (follow) behaviour cannot
+be replicated. As a workaround, use the `since` or `sinceTime` parameter
+with periodic polling to approximate tailing:
+
+```
+# First call
+get_logs(namespace="default", pod="my-pod", since="1m")
+
+# Subsequent calls
+get_logs(namespace="default", pod="my-pod", sinceTime="<last-seen-timestamp>")
 ```
 
 ## License
