@@ -14,10 +14,12 @@ func TestLimiter_AllowsUnderLimit(t *testing.T) {
 }
 
 func TestLimiter_RejectsWhenExhausted(t *testing.T) {
-	l := NewLimiter(10) // 10/min, burst = max(1, 10/10) = 1
-	// First call should succeed (uses the burst token).
-	if !l.Allow() {
-		t.Fatal("first call should succeed")
+	l := NewLimiter(10) // 10/min, burst = max(5, 10/6) = 5
+	// Drain all burst tokens.
+	for i := 0; i < 5; i++ {
+		if !l.Allow() {
+			t.Fatalf("call %d should succeed within burst", i+1)
+		}
 	}
 	// Rapidly exhaust — without waiting, subsequent calls should fail.
 	rejected := false
@@ -69,6 +71,24 @@ func TestLimiter_DenyMessageUnlimited(t *testing.T) {
 	msg := l.DenyMessage()
 	if !strings.Contains(msg, "unlimited") {
 		t.Errorf("expected 'unlimited' in message for zero-rate limiter, got: %s", msg)
+	}
+}
+
+func TestLimiter_BurstAllowsLLMParallelCalls(t *testing.T) {
+	// Write limiter at 30/min should allow at least 5 rapid calls (burst=5).
+	l := NewLimiter(30)
+	for i := 0; i < 5; i++ {
+		if !l.Allow() {
+			t.Fatalf("call %d should succeed within burst for 30/min limiter", i+1)
+		}
+	}
+
+	// Read limiter at 120/min should allow at least 15 rapid calls (burst=20).
+	l2 := NewLimiter(120)
+	for i := 0; i < 15; i++ {
+		if !l2.Allow() {
+			t.Fatalf("call %d should succeed within burst for 120/min limiter", i+1)
+		}
 	}
 }
 

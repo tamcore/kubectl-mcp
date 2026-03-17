@@ -22,7 +22,7 @@ func NewLimiter(perMinute int) *Limiter {
 	}
 
 	perSecond := float64(perMinute) / 60.0
-	burst := int(math.Max(1, float64(perMinute)/10.0))
+	burst := int(math.Max(5, float64(perMinute)/6.0))
 
 	return &Limiter{
 		inner:     rate.NewLimiter(rate.Limit(perSecond), burst),
