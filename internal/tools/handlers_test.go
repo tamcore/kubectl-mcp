@@ -229,6 +229,7 @@ func TestRegisterAll(t *testing.T) {
 		"get_logs", "get_events",
 		"top_pods", "top_nodes",
 		"rollout_status",
+		"rollout_history",
 	}
 	writeTools := []string{
 		"apply_resource", "patch_resource", "scale_resource",
