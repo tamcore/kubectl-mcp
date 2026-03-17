@@ -29,17 +29,25 @@ e2e/                   End-to-end tests (build tag: e2e)
 ```
 
 Each tool lives in its own file under `internal/tools/` (e.g. `get.go`, `list.go`,
-`delete.go`). Keep files under 400 lines; extract helpers when they grow.
+`delete.go`). The project currently has 26 MCP tools (14 read-only, 10 write, 2 destructive).
+Keep files under 400 lines; extract helpers when they grow.
 
 ## Adding a New MCP Tool
 
 1. Create `internal/tools/<name>.go` with a `register<Name>(s, pool, cfg)` function.
    - Define the tool with `mcp.NewTool(...)` and add parameters.
+   - **Always set MCP tool annotations** for every tool:
+     ```go
+     mcp.WithReadOnlyHintAnnotation(true),      // true for read-only tools
+     mcp.WithDestructiveHintAnnotation(false),   // true only for delete/drain/exec
+     mcp.WithIdempotentHintAnnotation(true),     // false for create-style operations
+     mcp.WithOpenWorldHintAnnotation(true),      // true for all tools (Kubernetes is open-world)
+     ```
    - Register it via `s.AddTool(tool, handlerFunc)`.
 2. Wire it into `RegisterAll()` in `internal/tools/register.go`.
-   - Read-only tools are always registered.
-   - Write tools require `cfg.AllowWrite`; destructive tools require `cfg.AllowDestructive`.
-   - Add the tool name to `writeTools` or `destructiveTools` as appropriate.
+   - Read-only tools are always registered (currently 14).
+   - Write tools require `cfg.AllowWrite` (currently 10); add the tool name to `writeTools`.
+   - Destructive tools require `cfg.AllowDestructive` (currently 2); add the tool name to `destructiveTools`.
 3. Write unit tests in `internal/tools/<name>_test.go` using fake clients from
    `internal/kube/testing.go`.
 4. Add E2E coverage in `e2e/` (build tag `e2e`).
