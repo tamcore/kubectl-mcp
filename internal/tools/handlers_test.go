@@ -231,6 +231,7 @@ func TestRegisterAll(t *testing.T) {
 		"rollout_status",
 		"rollout_history",
 		"node_logs",
+		"node_stats",
 		"explain_resource",
 	}
 	writeTools := []string{
