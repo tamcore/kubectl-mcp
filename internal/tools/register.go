@@ -41,6 +41,7 @@ func RegisterAll(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config)
 	registerNodeLogs(s, pool)
 	registerNodeStats(s, pool)
 	registerExplainResource(s, pool)
+	registerStopPortForward(s)
 
 	// Write tools (require --allow-write).
 	if cfg.AllowWrite {

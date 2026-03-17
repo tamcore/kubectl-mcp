@@ -233,6 +233,7 @@ func TestRegisterAll(t *testing.T) {
 		"node_logs",
 		"node_stats",
 		"explain_resource",
+		"stop_port_forward",
 	}
 	writeTools := []string{
 		"apply_resource", "patch_resource", "scale_resource",
