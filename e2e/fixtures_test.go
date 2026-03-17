@@ -187,3 +187,52 @@ func statefulSetManifest(name, namespace string, replicas int) string {
 	}`, name, namespace, replicas, name, name, name)
 }
 
+func labeledPodManifest(name, namespace, image string, labels map[string]string, command []string) string {
+	cmdJSON, _ := json.Marshal(command)
+	labelsJSON, _ := json.Marshal(labels)
+	return fmt.Sprintf(`{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {"name": %q, "namespace": %q, "labels": %s},
+		"spec": {
+			"containers": [{
+				"name": "main",
+				"image": %q,
+				"command": %s
+			}],
+			"restartPolicy": "Never"
+		}
+	}`, name, namespace, string(labelsJSON), image, string(cmdJSON))
+}
+
+func deploymentManifestWithImage(name, namespace, image string, replicas int) string {
+	return fmt.Sprintf(`{
+		"apiVersion": "apps/v1",
+		"kind": "Deployment",
+		"metadata": {"name": %q, "namespace": %q},
+		"spec": {
+			"replicas": %d,
+			"selector": {"matchLabels": {"app": %q}},
+			"template": {
+				"metadata": {"labels": {"app": %q}},
+				"spec": {
+					"containers": [{
+						"name": "nginx",
+						"image": %q,
+						"ports": [{"containerPort": 80}]
+					}]
+				}
+			}
+		}
+	}`, name, namespace, replicas, name, name, image)
+}
+
+func waitForDeploymentReady(t *testing.T, name, namespace string) {
+	t.Helper()
+	err := kubectl("rollout", "status", fmt.Sprintf("deployment/%s", name),
+		"-n", namespace, "--timeout=120s")
+	if err != nil {
+		t.Fatalf("waiting for deployment %s/%s rollout: %v", namespace, name, err)
+	}
+}
+
