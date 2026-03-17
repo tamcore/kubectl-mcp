@@ -12,9 +12,12 @@ lets LLMs query and manage your clusters safely.
 - **Multi-kubeconfig** — honours `KUBECONFIG` with colon-separated paths
 - **Context filtering** — allow/deny contexts via glob (`prod-*`) or regex (`/^staging-.+$/`)
 - **Three transports** — stdio (default), SSE, and streamable-HTTP
-- **Write operations** — opt-in via `--allow-write` for apply, patch, scale, restart, cordon, uncordon
+- **Write operations** — opt-in via `--allow-write` for apply, patch, scale, restart, cordon, uncordon, exec, rollout undo, run, port-forward
 - **Destructive operations** — opt-in via `--allow-destructive` for delete and drain
-- **16 MCP tools** — 8 read-only + 6 write + 2 destructive
+- **Fuzzy kind matching** — resolves short names (`deploy`, `svc`) and suggests corrections for typos
+- **Rate limiting** — configurable per-minute limits for read and write operations
+- **MCP tool annotations** — every tool declares `readOnlyHint`, `destructiveHint`, `idempotentHint`, and `openWorldHint` so MCP clients can make informed decisions
+- **26 MCP tools** — 14 read-only + 10 write + 2 destructive
 
 ## Installation
 
@@ -64,9 +67,11 @@ All flags can also be set via environment variables with a `KUBECTL_MCP_` prefix
 | `--context` | `KUBECTL_MCP_CONTEXT` | *(current-context)* | Default kube-context override |
 | `--allowed-contexts` | `KUBECTL_MCP_ALLOWED_CONTEXTS` | `*` | Comma-separated glob/regex allow patterns |
 | `--denied-contexts` | `KUBECTL_MCP_DENIED_CONTEXTS` | *(none)* | Comma-separated glob/regex deny patterns |
-| `--allow-write` | `KUBECTL_MCP_ALLOW_WRITE` | `false` | Enable write operations (apply, patch, scale, restart, cordon, uncordon) |
+| `--allow-write` | `KUBECTL_MCP_ALLOW_WRITE` | `false` | Enable write operations (apply, patch, scale, restart, cordon, uncordon, exec, rollout undo, run, port-forward) |
 | `--allow-destructive` | `KUBECTL_MCP_ALLOW_DESTRUCTIVE` | `false` | Enable destructive operations (delete, drain); implies `--allow-write` |
 | `--allow-secrets` | `KUBECTL_MCP_ALLOW_SECRETS` | `false` | Allow reading Secret data |
+| `--rate-limit-read` | `KUBECTL_MCP_RATE_LIMIT_READ` | `120` | Max read tool calls per minute (0 = unlimited) |
+| `--rate-limit-write` | `KUBECTL_MCP_RATE_LIMIT_WRITE` | `30` | Max write tool calls per minute (0 = unlimited) |
 
 ### Context Filtering
 
@@ -89,27 +94,37 @@ kube-context. If omitted, the configured default context is used.
 | `list_namespaces` | List namespaces |
 | `list_api_resources` | List API resources (kind, apiVersion, namespaced, verbs) |
 | `get_resource` | Get a single resource as JSON |
-| `list_resources` | List resources with label/field selectors |
+| `list_resources` | List resources with label/field selectors, pagination, and client-side filters |
 | `describe_resource` | Rich describe output with conditions, spec, and events |
-| `get_logs` | Get pod/container logs |
+| `get_logs` | Get pod/container logs (supports label selectors, timestamps, sinceTime) |
 | `get_events` | Get cluster events |
+| `top_pods` | Get CPU/memory usage for pods (requires metrics-server) |
+| `top_nodes` | Get CPU/memory usage for nodes with allocatable percentages |
+| `rollout_status` | Get rollout status of a Deployment, StatefulSet, or DaemonSet |
+| `rollout_history` | Show rollout revision history of a Deployment |
+| `explain_resource` | Explain a resource kind (metadata, verbs, scope) via discovery API |
+| `node_logs` | Get logs from a node via the kubelet proxy |
 
 ### Write tools (require `--allow-write`)
 
 | Tool | Description |
 |------|-------------|
-| `apply_resource` | Apply a JSON/YAML manifest (create or update) |
-| `patch_resource` | Patch a resource (json, merge, or strategic merge patch) |
+| `apply_resource` | Apply a JSON/YAML manifest with optional dry-run |
+| `patch_resource` | Patch a resource (json, merge, or strategic) with optional dry-run |
 | `scale_resource` | Scale a Deployment, StatefulSet, or ReplicaSet |
 | `restart_rollout` | Restart a Deployment, StatefulSet, or DaemonSet rollout |
 | `cordon_node` | Mark a node as unschedulable |
 | `uncordon_node` | Mark a node as schedulable |
+| `exec_pod` | Execute a command in a pod container (with timeout) |
+| `rollout_undo` | Undo a Deployment rollout to a previous revision |
+| `run_pod` | Create and run a pod with a given image (like `kubectl run`) |
+| `port_forward` | Forward a local port to a pod port (with auto-timeout) |
 
 ### Destructive tools (require `--allow-destructive`)
 
 | Tool | Description |
 |------|-------------|
-| `delete_resource` | Delete a resource by kind, name, and namespace |
+| `delete_resource` | Delete a resource with optional dry-run and grace period |
 | `drain_node` | Cordon a node and evict all eligible pods |
 
 ## MCP Client Configuration
