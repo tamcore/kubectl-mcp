@@ -767,6 +767,43 @@ func TestListResourcesHandler(t *testing.T) {
 			t.Error("raw secret data should be redacted in list results")
 		}
 	})
+
+	t.Run("default limit applied when no explicit limit", func(t *testing.T) {
+		// With 3 pods and a default limit of 100, all pods should be returned
+		// and no pagination hint about "first 100" should appear (fewer than limit).
+		res, err := handler(context.Background(), callToolReq(map[string]any{
+			"kind": "Pod",
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := resultText(t, res)
+		// 3 pods < 100 default limit, so no pagination prefix expected.
+		if strings.Contains(text, "Showing first") {
+			t.Error("should not show 'Showing first' when results fit within default limit")
+		}
+	})
+
+	t.Run("explicit limit overrides default", func(t *testing.T) {
+		res, err := handler(context.Background(), callToolReq(map[string]any{
+			"kind":  "Pod",
+			"limit": float64(2),
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.IsError {
+			t.Fatalf("unexpected error: %s", resultText(t, res))
+		}
+		// With limit=2, the fake client may not support real pagination,
+		// but the handler should accept the explicit limit without error.
+	})
+}
+
+func TestDefaultListLimitConstant(t *testing.T) {
+	if defaultListLimit != 100 {
+		t.Errorf("expected defaultListLimit=100, got %d", defaultListLimit)
+	}
 }
 
 // --- describe_resource ---

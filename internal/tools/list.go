@@ -14,6 +14,10 @@ import (
 	"github.com/tamcore/kubectl-mcp/internal/kube"
 )
 
+// defaultListLimit is the server-side page size used when the caller does not
+// provide an explicit limit. This keeps initial responses compact.
+const defaultListLimit int64 = 100
+
 func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config) {
 	tool := mcp.NewTool("list_resources",
 		mcp.WithDescription("List Kubernetes resources of a given kind"),
@@ -51,7 +55,7 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 				"kubectl.kubernetes.io/last-applied-configuration is always excluded."),
 		),
 		mcp.WithNumber("limit",
-			mcp.Description("Maximum number of resources to return per page. Use with 'continue' for pagination."),
+			mcp.Description("Maximum number of resources to return per page (default: 100). Use with 'continue' for pagination."),
 		),
 		mcp.WithString("continue",
 			mcp.Description("Continue token from a previous paginated response."),
@@ -87,12 +91,17 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 		limit := int64(req.GetFloat("limit", 0))
 		continueToken := req.GetString("continue", "")
 
+		// Apply default limit when caller did not specify one.
+		usedDefaultLimit := false
+		if limit <= 0 {
+			limit = defaultListLimit
+			usedDefaultLimit = true
+		}
+
 		opts := metav1.ListOptions{
 			LabelSelector: labelSelector,
 			FieldSelector: fieldSelector,
-		}
-		if limit > 0 {
-			opts.Limit = limit
+			Limit:         limit,
 		}
 		if continueToken != "" {
 			opts.Continue = continueToken
@@ -137,6 +146,9 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 			header = fmt.Sprintf("Matched %d of %d %s\n\n", len(items), len(list.Items), kind)
 		}
 		if ct := list.GetContinue(); ct != "" {
+			if usedDefaultLimit {
+				header += fmt.Sprintf("Showing first %d results. ", defaultListLimit)
+			}
 			header += fmt.Sprintf("Pagination: use continue=%q to fetch the next page\n\n", ct)
 		}
 
