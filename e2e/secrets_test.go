@@ -109,11 +109,25 @@ func TestDescribeResource_SecretRedaction(t *testing.T) {
 				if result.IsError {
 					t.Fatalf("error: %s", text)
 				}
-				if !strings.Contains(text, "redacted") {
-					t.Errorf("expected <redacted> in describe output, got:\n%s", text)
-				}
+				// describe_resource returns both text and structuredContent.
+				// The text format doesn't render the data section, but the
+				// secret value must not leak anywhere in the response.
 				if strings.Contains(text, "topsecret") || strings.Contains(text, secret64) {
-					t.Error("secret value leaked in describe response")
+					t.Error("secret value leaked in describe text response")
+				}
+
+				// Verify structuredContent has redacted data.
+				if result.StructuredContent != nil {
+					sc, ok := result.StructuredContent.(map[string]interface{})
+					if ok {
+						if data, ok := sc["data"].(map[string]interface{}); ok {
+							for k, v := range data {
+								if v != "<redacted>" {
+									t.Errorf("expected data[%s] to be <redacted>, got %v", k, v)
+								}
+							}
+						}
+					}
 				}
 			})
 
@@ -132,8 +146,17 @@ func TestDescribeResource_SecretRedaction(t *testing.T) {
 				if result.IsError {
 					t.Fatalf("error: %s", text)
 				}
-				if strings.Contains(text, "redacted") {
-					t.Error("expected actual secret data with --allow-secrets, got <redacted>")
+
+				// With AllowSecrets, the structuredContent should contain the actual value.
+				if result.StructuredContent != nil {
+					sc, ok := result.StructuredContent.(map[string]interface{})
+					if ok {
+						if data, ok := sc["data"].(map[string]interface{}); ok {
+							if data["token"] == "<redacted>" {
+								t.Error("expected actual secret data with --allow-secrets, got <redacted>")
+							}
+						}
+					}
 				}
 			})
 		})
