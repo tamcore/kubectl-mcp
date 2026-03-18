@@ -925,6 +925,53 @@ func TestDescribeResourceHandler(t *testing.T) {
 			t.Error("expected nodeName in spec")
 		}
 	})
+
+	t.Run("managedFields stripped from describe output", func(t *testing.T) {
+		podWithMF := &unstructured.Unstructured{Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name":              "mf-pod",
+				"namespace":         "default",
+				"creationTimestamp": "2024-01-01T00:00:00Z",
+				"managedFields": []interface{}{
+					map[string]interface{}{
+						"manager":   "kubectl",
+						"operation": "Apply",
+					},
+				},
+			},
+			"spec": map[string]interface{}{"nodeName": "node-1"},
+		}}
+		dynMF := newFakeDynClient(podWithMF)
+		poolMF := buildPool(cfg, defaultRawConfig(), dynMF, fake.NewClientset())
+		h := getHandler(t, "describe_resource", func(s *server.MCPServer) {
+			registerDescribeResource(s, poolMF, cfg)
+		})
+		res, err := h(context.Background(), callToolReq(map[string]any{
+			"kind":      "Pod",
+			"name":      "mf-pod",
+			"namespace": "default",
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.IsError {
+			t.Fatalf("unexpected error: %s", resultText(t, res))
+		}
+		text := resultText(t, res)
+		if strings.Contains(text, "managedFields") {
+			t.Error("managedFields should be stripped from describe output")
+		}
+		// Verify the structured content also lacks managedFields.
+		structured, err := json.Marshal(res.StructuredContent)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(structured), "managedFields") {
+			t.Error("managedFields should be stripped from structured content")
+		}
+	})
 }
 
 // --- get_logs ---

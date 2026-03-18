@@ -85,6 +85,9 @@ func registerDescribeResource(s *server.MCPServer, pool *kube.ClientPool, cfg *c
 		}
 		filterObjAnnotations(obj, req)
 
+		// Strip noisy metadata before building output.
+		cleaned := StripNoisyMetadata(obj.Object)
+
 		var sb strings.Builder
 
 		// Header
@@ -115,7 +118,7 @@ func registerDescribeResource(s *server.MCPServer, pool *kube.ClientPool, cfg *c
 		}
 
 		// Conditions (if present)
-		conditions, found, _ := unstructuredNestedSlice(obj.Object, "status", "conditions")
+		conditions, found, _ := unstructuredNestedSlice(cleaned, "status", "conditions")
 		if found && len(conditions) > 0 {
 			fmt.Fprintf(&sb, "\nConditions:\n")
 			fmt.Fprintf(&sb, "  %-25s %-10s %-25s %s\n", "TYPE", "STATUS", "REASON", "MESSAGE")
@@ -134,7 +137,7 @@ func registerDescribeResource(s *server.MCPServer, pool *kube.ClientPool, cfg *c
 		}
 
 		// Spec summary (YAML)
-		if spec, ok := obj.Object["spec"]; ok {
+		if spec, ok := cleaned["spec"]; ok {
 			specYAML, err := yaml.Marshal(spec)
 			if err == nil {
 				fmt.Fprintf(&sb, "\nSpec:\n")
@@ -152,7 +155,7 @@ func registerDescribeResource(s *server.MCPServer, pool *kube.ClientPool, cfg *c
 			fmt.Fprintf(&sb, "\nEvents:\n%s", events)
 		}
 
-		return mcp.NewToolResultStructured(obj.Object, sb.String()), nil
+		return mcp.NewToolResultStructured(cleaned, sb.String()), nil
 	})
 }
 
