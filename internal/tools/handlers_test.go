@@ -426,51 +426,236 @@ func TestListAPIResourcesHandler(t *testing.T) {
 		registerListAPIResources(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{}))
-	if err != nil {
-		t.Fatal(err)
-	}
-	text := resultText(t, res)
-
-	type entry struct {
-		Kind       string   `json:"kind"`
-		APIVersion string   `json:"apiVersion"`
-		Namespaced bool     `json:"namespaced"`
-		Verbs      []string `json:"verbs"`
-	}
-	var entries []entry
-	if err := json.Unmarshal([]byte(text), &entries); err != nil {
-		t.Fatal(err)
-	}
-
-	// pods/log sub-resource should be filtered out; main Pod resource must exist.
-	podFound := false
-	for _, e := range entries {
-		if e.Kind == "Pod" && e.APIVersion == "v1" {
-			podFound = true
+	t.Run("default format is table", func(t *testing.T) {
+		res, err := handler(context.Background(), callToolReq(map[string]any{}))
+		if err != nil {
+			t.Fatal(err)
 		}
-	}
-	if !podFound {
-		t.Error("expected Pod v1 resource to be present")
-	}
+		text := resultText(t, res)
 
-	// Verify sorted by kind.
-	for i := 1; i < len(entries); i++ {
-		if entries[i-1].Kind > entries[i].Kind {
-			t.Errorf("not sorted: %s > %s", entries[i-1].Kind, entries[i].Kind)
+		// Table format should have column headers.
+		if !strings.Contains(text, "KIND") {
+			t.Error("expected KIND column header in table output")
 		}
-	}
+		if !strings.Contains(text, "APIVERSION") {
+			t.Error("expected APIVERSION column header")
+		}
+		if !strings.Contains(text, "Pod") {
+			t.Error("expected Pod in table output")
+		}
+		if !strings.Contains(text, "Deployment") {
+			t.Error("expected Deployment in table output")
+		}
+	})
 
-	// The Deployment entry from apps/v1 should be present.
-	found := false
-	for _, e := range entries {
-		if e.Kind == "Deployment" && e.APIVersion == "apps/v1" {
-			found = true
+	t.Run("format=json", func(t *testing.T) {
+		res, err := handler(context.Background(), callToolReq(map[string]any{
+			"format": "json",
+		}))
+		if err != nil {
+			t.Fatal(err)
 		}
-	}
-	if !found {
-		t.Error("expected Deployment entry from apps/v1")
-	}
+		text := resultText(t, res)
+
+		type entry struct {
+			Kind       string   `json:"kind"`
+			APIVersion string   `json:"apiVersion"`
+			Namespaced bool     `json:"namespaced"`
+			Verbs      []string `json:"verbs"`
+		}
+		var entries []entry
+		if err := json.Unmarshal([]byte(text), &entries); err != nil {
+			t.Fatal(err)
+		}
+
+		// pods/log sub-resource should be filtered out; main Pod resource must exist.
+		podFound := false
+		for _, e := range entries {
+			if e.Kind == "Pod" && e.APIVersion == "v1" {
+				podFound = true
+			}
+		}
+		if !podFound {
+			t.Error("expected Pod v1 resource to be present")
+		}
+
+		// Verify sorted by kind.
+		for i := 1; i < len(entries); i++ {
+			if entries[i-1].Kind > entries[i].Kind {
+				t.Errorf("not sorted: %s > %s", entries[i-1].Kind, entries[i].Kind)
+			}
+		}
+
+		// The Deployment entry from apps/v1 should be present.
+		found := false
+		for _, e := range entries {
+			if e.Kind == "Deployment" && e.APIVersion == "apps/v1" {
+				found = true
+			}
+		}
+		if !found {
+			t.Error("expected Deployment entry from apps/v1")
+		}
+
+		// Verify structuredContent is an object envelope.
+		if res.StructuredContent == nil {
+			t.Fatal("expected StructuredContent to be populated for JSON format")
+		}
+		envelope, ok := res.StructuredContent.(map[string]interface{})
+		if !ok {
+			t.Fatalf("expected map[string]interface{}, got %T", res.StructuredContent)
+		}
+		if _, ok := envelope["items"]; !ok {
+			t.Error("expected 'items' key in structured content")
+		}
+		if _, ok := envelope["count"]; !ok {
+			t.Error("expected 'count' key in structured content")
+		}
+	})
+
+	t.Run("filter by group", func(t *testing.T) {
+		res, err := handler(context.Background(), callToolReq(map[string]any{
+			"format": "json",
+			"group":  "apps",
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := resultText(t, res)
+
+		type entry struct {
+			Kind       string `json:"kind"`
+			APIVersion string `json:"apiVersion"`
+		}
+		var entries []entry
+		if err := json.Unmarshal([]byte(text), &entries); err != nil {
+			t.Fatal(err)
+		}
+		if len(entries) == 0 {
+			t.Fatal("expected at least one entry for group=apps")
+		}
+		for _, e := range entries {
+			if !strings.Contains(e.APIVersion, "apps") {
+				t.Errorf("expected all entries to be in apps group, got apiVersion=%s", e.APIVersion)
+			}
+		}
+	})
+
+	t.Run("filter by namespaced=true", func(t *testing.T) {
+		res, err := handler(context.Background(), callToolReq(map[string]any{
+			"format":     "json",
+			"namespaced": "true",
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := resultText(t, res)
+
+		type entry struct {
+			Kind       string `json:"kind"`
+			Namespaced bool   `json:"namespaced"`
+		}
+		var entries []entry
+		if err := json.Unmarshal([]byte(text), &entries); err != nil {
+			t.Fatal(err)
+		}
+		for _, e := range entries {
+			if !e.Namespaced {
+				t.Errorf("expected all entries to be namespaced, got %s", e.Kind)
+			}
+		}
+		// Namespace (cluster-scoped) should be excluded.
+		for _, e := range entries {
+			if e.Kind == "Namespace" {
+				t.Error("Namespace should not appear with namespaced=true filter")
+			}
+		}
+	})
+
+	t.Run("filter by namespaced=false", func(t *testing.T) {
+		res, err := handler(context.Background(), callToolReq(map[string]any{
+			"format":     "json",
+			"namespaced": "false",
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := resultText(t, res)
+
+		type entry struct {
+			Kind       string `json:"kind"`
+			Namespaced bool   `json:"namespaced"`
+		}
+		var entries []entry
+		if err := json.Unmarshal([]byte(text), &entries); err != nil {
+			t.Fatal(err)
+		}
+		for _, e := range entries {
+			if e.Namespaced {
+				t.Errorf("expected all entries to be cluster-scoped, got %s", e.Kind)
+			}
+		}
+	})
+
+	t.Run("filter by verb", func(t *testing.T) {
+		res, err := handler(context.Background(), callToolReq(map[string]any{
+			"format": "json",
+			"verb":   "list",
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := resultText(t, res)
+
+		type entry struct {
+			Kind  string   `json:"kind"`
+			Verbs []string `json:"verbs"`
+		}
+		var entries []entry
+		if err := json.Unmarshal([]byte(text), &entries); err != nil {
+			t.Fatal(err)
+		}
+		for _, e := range entries {
+			hasVerb := false
+			for _, v := range e.Verbs {
+				if v == "list" {
+					hasVerb = true
+					break
+				}
+			}
+			if !hasVerb {
+				t.Errorf("expected %s to have 'list' verb", e.Kind)
+			}
+		}
+	})
+
+	t.Run("filter by core group", func(t *testing.T) {
+		res, err := handler(context.Background(), callToolReq(map[string]any{
+			"format": "json",
+			"group":  "core",
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := resultText(t, res)
+
+		type entry struct {
+			Kind       string `json:"kind"`
+			APIVersion string `json:"apiVersion"`
+		}
+		var entries []entry
+		if err := json.Unmarshal([]byte(text), &entries); err != nil {
+			t.Fatal(err)
+		}
+		if len(entries) == 0 {
+			t.Fatal("expected entries for core group")
+		}
+		for _, e := range entries {
+			if e.APIVersion != "v1" {
+				t.Errorf("expected core group resources to have apiVersion=v1, got %s for %s", e.APIVersion, e.Kind)
+			}
+		}
+	})
 }
 
 // --- get_resource ---

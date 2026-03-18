@@ -55,6 +55,18 @@ func TestStructuredContent(t *testing.T) {
 				if result.StructuredContent == nil {
 					t.Error("expected StructuredContent to be populated for list_resources")
 				}
+
+				// Verify structuredContent is an object envelope (not array).
+				envelope, ok := result.StructuredContent.(map[string]interface{})
+				if !ok {
+					t.Fatalf("expected StructuredContent to be map, got %T", result.StructuredContent)
+				}
+				if _, ok := envelope["items"]; !ok {
+					t.Error("expected 'items' key in structured content envelope")
+				}
+				if _, ok := envelope["count"]; !ok {
+					t.Error("expected 'count' key in structured content envelope")
+				}
 			})
 
 			t.Run("describe_resource", func(t *testing.T) {

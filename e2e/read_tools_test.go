@@ -49,30 +49,104 @@ func TestListAPIResources(t *testing.T) {
 			base := tc.startFunc(t, defaultConfig())
 			c := tc.clientFunc(t, base)
 
-			result := callTool(t, c, "list_api_resources", nil)
-			text := resultText(result)
+			t.Run("default_table_format", func(t *testing.T) {
+				result := callTool(t, c, "list_api_resources", nil)
+				text := resultText(result)
 
-			if result.IsError {
-				t.Fatalf("error: %s", text)
-			}
-
-			var items []map[string]any
-			if err := json.Unmarshal([]byte(text), &items); err != nil {
-				t.Fatalf("expected JSON array: %v", err)
-			}
-
-			// Check for well-known kinds.
-			kinds := make(map[string]bool)
-			for _, item := range items {
-				if k, ok := item["kind"].(string); ok {
-					kinds[k] = true
+				if result.IsError {
+					t.Fatalf("error: %s", text)
 				}
-			}
-			for _, expected := range []string{"Pod", "Deployment", "Service", "Namespace"} {
-				if !kinds[expected] {
-					t.Errorf("expected kind %q in api_resources", expected)
+
+				// Default format is table with column headers.
+				if !strings.Contains(text, "KIND") {
+					t.Error("expected KIND column header in table output")
 				}
-			}
+				if !strings.Contains(text, "APIVERSION") {
+					t.Error("expected APIVERSION column header")
+				}
+				// Well-known kinds should appear.
+				for _, expected := range []string{"Pod", "Deployment", "Service", "Namespace"} {
+					if !strings.Contains(text, expected) {
+						t.Errorf("expected kind %q in table output", expected)
+					}
+				}
+			})
+
+			t.Run("json_format", func(t *testing.T) {
+				result := callTool(t, c, "list_api_resources", map[string]any{
+					"format": "json",
+				})
+				text := resultText(result)
+
+				if result.IsError {
+					t.Fatalf("error: %s", text)
+				}
+
+				var items []map[string]any
+				if err := json.Unmarshal([]byte(text), &items); err != nil {
+					t.Fatalf("expected JSON array: %v", err)
+				}
+
+				kinds := make(map[string]bool)
+				for _, item := range items {
+					if k, ok := item["kind"].(string); ok {
+						kinds[k] = true
+					}
+				}
+				for _, expected := range []string{"Pod", "Deployment", "Service", "Namespace"} {
+					if !kinds[expected] {
+						t.Errorf("expected kind %q in api_resources JSON", expected)
+					}
+				}
+			})
+
+			t.Run("filter_by_group", func(t *testing.T) {
+				result := callTool(t, c, "list_api_resources", map[string]any{
+					"format": "json",
+					"group":  "apps",
+				})
+				text := resultText(result)
+
+				if result.IsError {
+					t.Fatalf("error: %s", text)
+				}
+
+				var items []map[string]any
+				if err := json.Unmarshal([]byte(text), &items); err != nil {
+					t.Fatalf("expected JSON array: %v", err)
+				}
+				if len(items) == 0 {
+					t.Fatal("expected at least one entry for group=apps")
+				}
+				for _, item := range items {
+					av, _ := item["apiVersion"].(string)
+					if !strings.Contains(av, "apps") {
+						t.Errorf("expected apps group, got apiVersion=%s", av)
+					}
+				}
+			})
+
+			t.Run("filter_cluster_scoped", func(t *testing.T) {
+				result := callTool(t, c, "list_api_resources", map[string]any{
+					"format":     "json",
+					"namespaced": "false",
+				})
+				text := resultText(result)
+
+				if result.IsError {
+					t.Fatalf("error: %s", text)
+				}
+
+				var items []map[string]any
+				if err := json.Unmarshal([]byte(text), &items); err != nil {
+					t.Fatalf("expected JSON array: %v", err)
+				}
+				for _, item := range items {
+					if ns, _ := item["namespaced"].(bool); ns {
+						t.Errorf("expected cluster-scoped only, got namespaced kind=%v", item["kind"])
+					}
+				}
+			})
 		})
 	}
 }
