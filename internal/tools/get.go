@@ -2,7 +2,6 @@ package tools
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -47,6 +46,9 @@ func registerGetResource(s *server.MCPServer, pool *kube.ClientPool, cfg *config
 			mcp.Description("Comma-separated glob patterns for annotation keys to exclude (e.g. 'kubectl.kubernetes.io/*'). "+
 				"kubectl.kubernetes.io/last-applied-configuration is always excluded."),
 		),
+		mcp.WithString("format",
+			mcp.Description("Output format: 'full' (default, JSON with noisy metadata stripped), 'summary' (compact key fields), 'yaml' (YAML with noisy metadata stripped)"),
+		),
 	)
 
 	s.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -85,14 +87,9 @@ func registerGetResource(s *server.MCPServer, pool *kube.ClientPool, cfg *config
 		}
 		filterObjAnnotations(obj, req)
 
-		cleaned := StripNoisyMetadata(obj.Object)
+		format := req.GetString("format", "full")
 
-		out, err := json.MarshalIndent(cleaned, "", "  ")
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to marshal resource: %v", err)), nil
-		}
-
-		return mcp.NewToolResultStructured(cleaned, string(out)), nil
+		return formatGetResult(obj, format)
 	})
 }
 
