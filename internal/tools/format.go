@@ -286,3 +286,66 @@ func nodeRoles(labels map[string]string) string {
 	}
 	return strings.Join(roles, ",")
 }
+
+// formatTable renders a metav1.Table as a human-readable, column-aligned text
+// table. Column headers come from ColumnDefinitions; row data from Cells.
+func formatTable(table *metav1.Table) string {
+	if table == nil || len(table.Rows) == 0 {
+		return "(no data)"
+	}
+
+	// Build header names.
+	headers := make([]string, 0, len(table.ColumnDefinitions))
+	for _, col := range table.ColumnDefinitions {
+		headers = append(headers, strings.ToUpper(col.Name))
+	}
+
+	// Compute column widths.
+	widths := make([]int, len(headers))
+	for i, h := range headers {
+		widths[i] = len(h)
+	}
+	rows := make([][]string, 0, len(table.Rows))
+	for _, row := range table.Rows {
+		cells := make([]string, len(headers))
+		for i := range headers {
+			if i < len(row.Cells) {
+				cells[i] = fmt.Sprintf("%v", row.Cells[i])
+			}
+			if len(cells[i]) > widths[i] {
+				widths[i] = len(cells[i])
+			}
+		}
+		rows = append(rows, cells)
+	}
+
+	// Render.
+	var sb strings.Builder
+	for i, h := range headers {
+		if i > 0 {
+			sb.WriteString("  ")
+		}
+		sb.WriteString(padRight(h, widths[i]))
+	}
+	sb.WriteString("\n")
+
+	for _, row := range rows {
+		for i, cell := range row {
+			if i > 0 {
+				sb.WriteString("  ")
+			}
+			sb.WriteString(padRight(cell, widths[i]))
+		}
+		sb.WriteString("\n")
+	}
+
+	return sb.String()
+}
+
+// padRight pads s with spaces on the right to the given width.
+func padRight(s string, width int) string {
+	if len(s) >= width {
+		return s
+	}
+	return s + strings.Repeat(" ", width-len(s))
+}

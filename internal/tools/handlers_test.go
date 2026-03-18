@@ -806,6 +806,114 @@ func TestDefaultListLimitConstant(t *testing.T) {
 	}
 }
 
+func TestListResourcesFormatParameter(t *testing.T) {
+	pod := testPod("fmt-pod", "default")
+	cfg := defaultCfg()
+	fakeCS := fake.NewClientset()
+	dynClient := newFakeDynClient(pod)
+	pool := buildPool(cfg, defaultRawConfig(), dynClient, fakeCS)
+
+	handler := getHandler(t, "list_resources", func(s *server.MCPServer) {
+		registerListResources(s, pool, cfg)
+	})
+
+	t.Run("invalid format returns error", func(t *testing.T) {
+		res, err := handler(context.Background(), callToolReq(map[string]any{
+			"kind":   "Pod",
+			"format": "bogus",
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !res.IsError {
+			t.Error("expected error for invalid format")
+		}
+		text := resultText(t, res)
+		if !strings.Contains(text, "invalid format") {
+			t.Errorf("expected 'invalid format' error, got: %s", text)
+		}
+	})
+
+	t.Run("table+filter returns error", func(t *testing.T) {
+		res, err := handler(context.Background(), callToolReq(map[string]any{
+			"kind":   "Pod",
+			"format": "table",
+			"filter": "status.phase=Running",
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !res.IsError {
+			t.Error("expected error for table+filter")
+		}
+		text := resultText(t, res)
+		if !strings.Contains(text, "incompatible") {
+			t.Errorf("expected incompatibility error, got: %s", text)
+		}
+	})
+
+	t.Run("format=summary returns summary output", func(t *testing.T) {
+		res, err := handler(context.Background(), callToolReq(map[string]any{
+			"kind":   "Pod",
+			"format": "summary",
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.IsError {
+			t.Fatalf("unexpected error: %s", resultText(t, res))
+		}
+		text := resultText(t, res)
+		if !strings.Contains(text, "fmt-pod") {
+			t.Error("expected pod name in summary output")
+		}
+	})
+
+	t.Run("format=json returns full objects with metadata stripped", func(t *testing.T) {
+		podWithMeta := &unstructured.Unstructured{Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name":              "json-pod",
+				"namespace":         "default",
+				"creationTimestamp": "2024-01-01T00:00:00Z",
+				"uid":               "uid-123",
+				"resourceVersion":   "99",
+				"managedFields":     []interface{}{map[string]interface{}{"manager": "x"}},
+			},
+			"spec": map[string]interface{}{"nodeName": "node-1"},
+		}}
+		dynClient2 := newFakeDynClient(podWithMeta)
+		pool2 := buildPool(cfg, defaultRawConfig(), dynClient2, fake.NewClientset())
+		h := getHandler(t, "list_resources", func(s *server.MCPServer) {
+			registerListResources(s, pool2, cfg)
+		})
+
+		res, err := h(context.Background(), callToolReq(map[string]any{
+			"kind":   "Pod",
+			"format": "json",
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.IsError {
+			t.Fatalf("unexpected error: %s", resultText(t, res))
+		}
+		text := resultText(t, res)
+		// Should contain full object fields like "spec".
+		if !strings.Contains(text, "nodeName") {
+			t.Error("expected spec.nodeName in JSON output")
+		}
+		// Noisy metadata should be stripped.
+		if strings.Contains(text, "uid-123") {
+			t.Error("uid should be stripped from JSON output")
+		}
+		if strings.Contains(text, "managedFields") {
+			t.Error("managedFields should be stripped from JSON output")
+		}
+	})
+}
+
 // --- describe_resource ---
 
 func TestDescribeResourceHandler(t *testing.T) {

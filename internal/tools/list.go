@@ -63,6 +63,9 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 		mcp.WithString("fieldSelector",
 			mcp.Description("Server-side field selector (e.g. 'metadata.name=my-pod,status.phase=Running'). Complements the client-side 'filter' parameter."),
 		),
+		mcp.WithString("format",
+			mcp.Description("Output format: 'summary' (default, compact fields), 'table' (server-side columnar, incompatible with filter), 'json' (full objects with noisy metadata stripped)"),
+		),
 	)
 
 	s.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -81,6 +84,19 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 		apiVersion := req.GetString("apiVersion", "")
 		labelSelector := req.GetString("labelSelector", "")
 		filter := req.GetString("filter", "")
+		format := req.GetString("format", "summary")
+
+		// Validate format.
+		switch format {
+		case "summary", "table", "json":
+		default:
+			return mcp.NewToolResultError(fmt.Sprintf("invalid format %q: must be summary, table, or json", format)), nil
+		}
+
+		// Table format is incompatible with client-side filter.
+		if format == "table" && filter != "" {
+			return mcp.NewToolResultError("format=table is incompatible with client-side filter"), nil
+		}
 
 		gvr, err := resolveGVR(cc, kind, apiVersion)
 		if err != nil {
@@ -105,6 +121,11 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 		}
 		if continueToken != "" {
 			opts.Continue = continueToken
+		}
+
+		// Table format uses the server-side Table API directly.
+		if format == "table" {
+			return handleListTable(ctx, cc, gvr, namespace, opts)
 		}
 
 		var list *unstructured.UnstructuredList
@@ -136,29 +157,7 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 			return mcp.NewToolResultText(fmt.Sprintf("No %s found", kind)), nil
 		}
 
-		jsonOut, err := formatResourceList(items)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to format results: %v", err)), nil
-		}
-
-		var header string
-		if len(filters) > 0 {
-			header = fmt.Sprintf("Matched %d of %d %s\n\n", len(items), len(list.Items), kind)
-		}
-		if ct := list.GetContinue(); ct != "" {
-			if usedDefaultLimit {
-				header += fmt.Sprintf("Showing first %d results. ", defaultListLimit)
-			}
-			header += fmt.Sprintf("Pagination: use continue=%q to fetch the next page\n\n", ct)
-		}
-
-		// Build structured content from the item objects.
-		structured := make([]map[string]interface{}, 0, len(items))
-		for _, item := range items {
-			structured = append(structured, item.Object)
-		}
-
-		return mcp.NewToolResultStructured(structured, header+jsonOut), nil
+		return handleListFormat(format, items, filters, list, kind, usedDefaultLimit)
 	})
 }
 
