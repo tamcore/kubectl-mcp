@@ -159,6 +159,50 @@ func TestFormatListAsJSON(t *testing.T) {
 	}
 }
 
+func TestHandleListFormatStructuredContentIsObject(t *testing.T) {
+	items := []unstructured.Unstructured{
+		{Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name":      "pod-a",
+				"namespace": "default",
+			},
+			"status": map[string]interface{}{"phase": "Running"},
+		}},
+	}
+
+	list := &unstructured.UnstructuredList{}
+	list.Items = items
+
+	for _, format := range []string{"summary", "json"} {
+		t.Run(format, func(t *testing.T) {
+			result, err := handleListFormat(format, items, nil, list, "Pod", false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.IsError {
+				t.Fatal("unexpected error result")
+			}
+			if result.StructuredContent == nil {
+				t.Fatal("expected StructuredContent to be populated")
+			}
+
+			// Must be a map (JSON object), not a slice.
+			envelope, ok := result.StructuredContent.(map[string]interface{})
+			if !ok {
+				t.Fatalf("expected map[string]interface{}, got %T", result.StructuredContent)
+			}
+			if _, ok := envelope["items"]; !ok {
+				t.Error("expected 'items' key in envelope")
+			}
+			if envelope["count"].(int) != 1 {
+				t.Errorf("expected count=1, got %v", envelope["count"])
+			}
+		})
+	}
+}
+
 func TestBuildResourcePath(t *testing.T) {
 	tests := []struct {
 		name      string

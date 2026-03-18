@@ -84,13 +84,32 @@ func TestListResources_HasStructuredContent(t *testing.T) {
 		t.Error("expected StructuredContent to be populated")
 	}
 
-	// Verify it's a slice.
-	items, ok := res.StructuredContent.([]map[string]interface{})
+	// Verify it's an object envelope (not a raw array).
+	envelope, ok := res.StructuredContent.(map[string]interface{})
 	if !ok {
-		t.Fatalf("expected StructuredContent to be []map[string]interface{}, got %T", res.StructuredContent)
+		t.Fatalf("expected StructuredContent to be map[string]interface{}, got %T", res.StructuredContent)
+	}
+
+	// Verify envelope has "items" key with the actual list.
+	rawItems, ok := envelope["items"]
+	if !ok {
+		t.Fatal("expected 'items' key in structured content envelope")
+	}
+	items, ok := rawItems.([]map[string]interface{})
+	if !ok {
+		t.Fatalf("expected items to be []map[string]interface{}, got %T", rawItems)
 	}
 	if len(items) == 0 {
 		t.Error("expected at least one item in structured content")
+	}
+
+	// Verify "count" matches items length.
+	count, ok := envelope["count"]
+	if !ok {
+		t.Fatal("expected 'count' key in structured content envelope")
+	}
+	if count.(int) != len(items) {
+		t.Errorf("expected count=%d, got %v", len(items), count)
 	}
 }
 

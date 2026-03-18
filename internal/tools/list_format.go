@@ -18,6 +18,19 @@ import (
 // tableAcceptHeader is the Accept header for the server-side Table API.
 const tableAcceptHeader = "application/json;as=Table;g=meta.k8s.io;v=v1"
 
+// wrapListEnvelope wraps a list of items in an object envelope for structuredContent.
+// The MCP protocol requires structuredContent to be a JSON object, not an array.
+func wrapListEnvelope(items []map[string]interface{}, continueToken string) map[string]interface{} {
+	envelope := map[string]interface{}{
+		"items": items,
+		"count": len(items),
+	}
+	if continueToken != "" {
+		envelope["continue"] = continueToken
+	}
+	return envelope
+}
+
 // formatListAsJSON strips noisy metadata from each item and returns a JSON array.
 func formatListAsJSON(items []unstructured.Unstructured) (string, []map[string]interface{}, error) {
 	cleaned := make([]map[string]interface{}, 0, len(items))
@@ -175,7 +188,8 @@ func handleListFormat(
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to format results: %v", err)), nil
 		}
-		return mcp.NewToolResultStructured(structured, header+jsonText), nil
+		envelope := wrapListEnvelope(structured, list.GetContinue())
+		return mcp.NewToolResultStructured(envelope, header+jsonText), nil
 
 	default: // "summary"
 		jsonOut, err := formatResourceList(items)
@@ -186,6 +200,7 @@ func handleListFormat(
 		for _, item := range items {
 			structured = append(structured, item.Object)
 		}
-		return mcp.NewToolResultStructured(structured, header+jsonOut), nil
+		envelope := wrapListEnvelope(structured, list.GetContinue())
+		return mcp.NewToolResultStructured(envelope, header+jsonOut), nil
 	}
 }
