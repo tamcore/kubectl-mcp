@@ -72,6 +72,38 @@ func TestExecPod(t *testing.T) {
 				}
 			})
 
+			t.Run("with_container", func(t *testing.T) {
+				result := callTool(t, c, "exec_pod", map[string]any{
+					"namespace": testNamespace,
+					"pod":       podName,
+					"container": "main",
+					"command":   []any{"echo", "container-test"},
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("error: %s", text)
+				}
+				if !strings.Contains(text, "container-test") {
+					t.Errorf("expected container-test, got: %s", text)
+				}
+			})
+
+			t.Run("with_timeout", func(t *testing.T) {
+				result := callTool(t, c, "exec_pod", map[string]any{
+					"namespace": testNamespace,
+					"pod":       podName,
+					"command":   []any{"echo", "timeout-test"},
+					"timeout":   float64(10),
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("error: %s", text)
+				}
+				if !strings.Contains(text, "timeout-test") {
+					t.Errorf("expected timeout-test, got: %s", text)
+				}
+			})
+
 			t.Run("nonexistent_pod_returns_error", func(t *testing.T) {
 				result := callTool(t, c, "exec_pod", map[string]any{
 					"namespace": testNamespace,

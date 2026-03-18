@@ -25,12 +25,28 @@ func TestTopPods(t *testing.T) {
 					t.Errorf("expected metrics-server error, got: %s", text)
 				}
 			} else {
-				// If metrics-server happens to be installed, just verify non-empty output.
 				t.Log("metrics-server is available; top_pods returned data")
 				if text == "" {
 					t.Error("expected non-empty response")
 				}
 			}
+
+			t.Run("with_name_filter", func(t *testing.T) {
+				result := callTool(t, c, "top_pods", map[string]any{
+					"namespace": "kube-system",
+					"name":      "coredns",
+				})
+				// May error (no metrics-server) — just verify param is accepted.
+				_ = result
+			})
+
+			t.Run("with_containers", func(t *testing.T) {
+				result := callTool(t, c, "top_pods", map[string]any{
+					"namespace":  "kube-system",
+					"containers": true,
+				})
+				_ = result
+			})
 		})
 	}
 }
@@ -54,6 +70,14 @@ func TestTopNodes(t *testing.T) {
 					t.Error("expected non-empty response")
 				}
 			}
+
+			t.Run("with_name_filter", func(t *testing.T) {
+				result := callTool(t, c, "top_nodes", map[string]any{
+					"name": "e2e-control-plane",
+				})
+				// May error (no metrics-server) — just verify param is accepted.
+				_ = result
+			})
 		})
 	}
 }

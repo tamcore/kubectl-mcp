@@ -28,6 +28,21 @@ func TestPortForward(t *testing.T) {
 				}
 			})
 
+			t.Run("with_localPort_and_timeout", func(t *testing.T) {
+				// Exercises localPort and timeout parameters.
+				// Will error because the pod doesn't exist, but params are accepted.
+				result := callTool(t, c, "port_forward", map[string]any{
+					"namespace":  testNamespace,
+					"pod":        "no-such-pod-xyz",
+					"remotePort": float64(8080),
+					"localPort":  float64(9090),
+					"timeout":    float64(5),
+				})
+				if !result.IsError {
+					t.Error("expected error for nonexistent pod")
+				}
+			})
+
 			t.Run("nonexistent_pod", func(t *testing.T) {
 				// The SPDY forwarder is a placeholder that always errors,
 				// so this tests that the tool produces an error on invocation.

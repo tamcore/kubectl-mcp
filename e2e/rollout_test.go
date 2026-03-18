@@ -192,6 +192,23 @@ func TestRolloutUndo(t *testing.T) {
 				}
 			})
 
+			t.Run("undo_to_specific_revision", func(t *testing.T) {
+				// Undo to revision 1 explicitly using toRevision.
+				result := callTool(t, c, "rollout_undo", map[string]any{
+					"kind":       "Deployment",
+					"name":       name,
+					"namespace":  testNamespace,
+					"toRevision": float64(1),
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("error: %s", text)
+				}
+				if !strings.Contains(text, "Rolled back") {
+					t.Errorf("expected 'Rolled back' confirmation, got: %s", text)
+				}
+			})
+
 			t.Run("unsupported_kind_returns_error", func(t *testing.T) {
 				result := callTool(t, c, "rollout_undo", map[string]any{
 					"kind":      "ConfigMap",

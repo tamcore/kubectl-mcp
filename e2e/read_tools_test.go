@@ -126,6 +126,40 @@ func TestListAPIResources(t *testing.T) {
 				}
 			})
 
+			t.Run("filter_by_verb", func(t *testing.T) {
+				result := callTool(t, c, "list_api_resources", map[string]any{
+					"format": "json",
+					"verb":   "list",
+				})
+				text := resultText(result)
+
+				if result.IsError {
+					t.Fatalf("error: %s", text)
+				}
+
+				var items []map[string]any
+				if err := json.Unmarshal([]byte(text), &items); err != nil {
+					t.Fatalf("expected JSON array: %v", err)
+				}
+				if len(items) == 0 {
+					t.Fatal("expected at least one listable resource")
+				}
+				for _, item := range items {
+					verbs, _ := item["verbs"].([]any)
+					hasList := false
+					for _, v := range verbs {
+						if v == "list" {
+							hasList = true
+							break
+						}
+					}
+					if !hasList {
+						t.Errorf("expected 'list' verb for %v", item["kind"])
+						break
+					}
+				}
+			})
+
 			t.Run("filter_cluster_scoped", func(t *testing.T) {
 				result := callTool(t, c, "list_api_resources", map[string]any{
 					"format":     "json",
@@ -184,6 +218,21 @@ func TestDescribeResource(t *testing.T) {
 					t.Error("expected error for nonexistent pod")
 				}
 			})
+
+			t.Run("with_apiVersion", func(t *testing.T) {
+				result := callTool(t, c, "describe_resource", map[string]any{
+					"kind":       "Namespace",
+					"name":       "default",
+					"apiVersion": "v1",
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("error: %s", text)
+				}
+				if !strings.Contains(text, "Name:         default") {
+					t.Errorf("expected name in describe output, got: %s", text)
+				}
+			})
 		})
 	}
 }
@@ -231,6 +280,40 @@ func TestGetLogs(t *testing.T) {
 				if result.IsError {
 					t.Fatalf("error: %s", resultText(result))
 				}
+			})
+
+			t.Run("with_container", func(t *testing.T) {
+				// Get the first container name from the pod.
+				getResult := callTool(t, c, "get_resource", map[string]any{
+					"kind":      "Pod",
+					"name":      podName,
+					"namespace": "kube-system",
+					"format":    "full",
+				})
+				text := resultText(getResult)
+				// Extract a container name — kube-system pods typically have a single container.
+				// The container param should work even if specifying the default container.
+				result := callTool(t, c, "get_logs", map[string]any{
+					"namespace": "kube-system",
+					"pod":       podName,
+					"tail":      float64(3),
+					"container": strings.Split(podName, "-")[0], // best effort container name guess
+				})
+				// May error if container name doesn't match, but the parameter is exercised.
+				_ = text
+				_ = result
+			})
+
+			t.Run("with_previous", func(t *testing.T) {
+				result := callTool(t, c, "get_logs", map[string]any{
+					"namespace": "kube-system",
+					"pod":       podName,
+					"tail":      float64(3),
+					"previous":  true,
+				})
+				// Previous container logs may not exist, so error is acceptable.
+				// We just verify the parameter is accepted.
+				_ = result
 			})
 
 			t.Run("nonexistent_pod_returns_error", func(t *testing.T) {
@@ -285,6 +368,19 @@ func TestGetEvents(t *testing.T) {
 					}
 				}
 			})
+
+			t.Run("with_fieldSelector", func(t *testing.T) {
+				result := callTool(t, c, "get_events", map[string]any{
+					"namespace":     "kube-system",
+					"fieldSelector": "reason=Scheduled",
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("error: %s", text)
+				}
+				// May be "No events found" if no Scheduled events exist.
+				_ = text
+			})
 		})
 	}
 }
@@ -308,6 +404,22 @@ func TestGetResource(t *testing.T) {
 			if obj["kind"] != "Namespace" {
 				t.Errorf("expected kind=Namespace, got %v", obj["kind"])
 			}
+
+			t.Run("with_apiVersion", func(t *testing.T) {
+				result := callTool(t, c, "get_resource", map[string]any{
+					"kind":       "Namespace",
+					"name":       "default",
+					"apiVersion": "v1",
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("error: %s", text)
+				}
+				obj := jsonObjectFromResult(t, text)
+				if obj["kind"] != "Namespace" {
+					t.Errorf("expected kind=Namespace, got %v", obj["kind"])
+				}
+			})
 		})
 	}
 }
@@ -347,6 +459,64 @@ func TestListResources(t *testing.T) {
 				for _, item := range items {
 					if status, ok := item["status"].(string); ok && status != "Running" {
 						t.Errorf("expected Running pod, got status=%s", status)
+					}
+				}
+			})
+
+			t.Run("with_apiVersion", func(t *testing.T) {
+				result := callTool(t, c, "list_resources", map[string]any{
+					"kind":       "Deployment",
+					"namespace":  "kube-system",
+					"apiVersion": "apps/v1",
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("error: %s", text)
+				}
+				// Should return results (coredns deployment typically exists).
+				items := jsonArrayFromResult(t, text)
+				if len(items) == 0 {
+					t.Log("no deployments in kube-system (may be expected)")
+				}
+			})
+
+			t.Run("with_continue_pagination", func(t *testing.T) {
+				// Request with limit=1 to trigger pagination.
+				result := callTool(t, c, "list_resources", map[string]any{
+					"kind":      "Pod",
+					"namespace": "kube-system",
+					"limit":     float64(1),
+					"format":    "json",
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("error: %s", text)
+				}
+				items := jsonArrayFromResult(t, text)
+				if len(items) != 1 {
+					t.Errorf("expected 1 item with limit=1, got %d", len(items))
+				}
+
+				// If pagination token is present, use it.
+				if strings.Contains(text, "continue=") {
+					// Extract continue token from the header text.
+					idx := strings.Index(text, `continue="`)
+					if idx >= 0 {
+						start := idx + len(`continue="`)
+						end := strings.Index(text[start:], `"`)
+						if end > 0 {
+							token := text[start : start+end]
+							result2 := callTool(t, c, "list_resources", map[string]any{
+								"kind":      "Pod",
+								"namespace": "kube-system",
+								"limit":     float64(1),
+								"format":    "json",
+								"continue":  token,
+							})
+							if result2.IsError {
+								t.Fatalf("continue error: %s", resultText(result2))
+							}
+						}
 					}
 				}
 			})

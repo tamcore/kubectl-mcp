@@ -121,6 +121,52 @@ func TestPatch(t *testing.T) {
 				}
 			})
 
+			t.Run("with_dryRun", func(t *testing.T) {
+				name := "e2e-patch-dry"
+				callTool(t, c, "apply_resource", map[string]any{
+					"manifest": configMapManifest(name, testNamespace, map[string]string{"a": "1"}),
+				})
+				t.Cleanup(func() { deleteViaKubectl(t, "configmap", name, testNamespace) })
+
+				result := callTool(t, c, "patch_resource", map[string]any{
+					"kind":      "ConfigMap",
+					"name":      name,
+					"namespace": testNamespace,
+					"patch":     `{"data":{"dry":"run"}}`,
+					"patchType": "merge",
+					"dryRun":    true,
+				})
+				if result.IsError {
+					t.Fatalf("error: %s", resultText(result))
+				}
+				// Verify the dry-run didn't actually apply.
+				out, _ := kubectlOutput("get", "configmap", name, "-n", testNamespace,
+					"-o", "jsonpath={.data.dry}")
+				if out == "run" {
+					t.Error("dry-run should not have persisted the change")
+				}
+			})
+
+			t.Run("with_apiVersion", func(t *testing.T) {
+				name := "e2e-patch-apiv"
+				callTool(t, c, "apply_resource", map[string]any{
+					"manifest": configMapManifest(name, testNamespace, map[string]string{"x": "1"}),
+				})
+				t.Cleanup(func() { deleteViaKubectl(t, "configmap", name, testNamespace) })
+
+				result := callTool(t, c, "patch_resource", map[string]any{
+					"kind":       "ConfigMap",
+					"name":       name,
+					"namespace":  testNamespace,
+					"apiVersion": "v1",
+					"patch":      `{"data":{"y":"2"}}`,
+					"patchType":  "merge",
+				})
+				if result.IsError {
+					t.Fatalf("error: %s", resultText(result))
+				}
+			})
+
 			t.Run("invalid_patch_type_returns_error", func(t *testing.T) {
 				result := callTool(t, c, "patch_resource", map[string]any{
 					"kind":      "ConfigMap",

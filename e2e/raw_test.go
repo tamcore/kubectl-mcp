@@ -82,6 +82,24 @@ func TestRawAPI(t *testing.T) {
 				}
 			})
 
+			t.Run("POST_with_body_and_content_type", func(t *testing.T) {
+				name := "e2e-raw-post-" + strings.ToLower(tc.name)
+				result := callTool(t, c, "api_raw", map[string]any{
+					"path":         "/api/v1/namespaces/" + testNamespace + "/configmaps",
+					"method":       "POST",
+					"content_type": "application/json",
+					"body":         `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"` + name + `"},"data":{"key":"val"}}`,
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("error: %s", text)
+				}
+				if !strings.Contains(text, name) {
+					t.Errorf("expected %s in response, got: %.200s", name, text)
+				}
+				t.Cleanup(func() { deleteViaKubectl(t, "configmap", name, testNamespace) })
+			})
+
 			t.Run("invalid_path", func(t *testing.T) {
 				result := callTool(t, c, "api_raw", map[string]any{
 					"path": "no-leading-slash",

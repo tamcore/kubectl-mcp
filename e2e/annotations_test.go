@@ -108,7 +108,7 @@ func TestAnnotations(t *testing.T) {
 				}
 			})
 
-			t.Run("describe_resource_filters", func(t *testing.T) {
+			t.Run("describe_resource_exclude_annotations", func(t *testing.T) {
 				result := callTool(t, c, "describe_resource", map[string]any{
 					"kind":                "Pod",
 					"name":                podName,
@@ -124,7 +124,23 @@ func TestAnnotations(t *testing.T) {
 				}
 			})
 
-			t.Run("list_resources_filters", func(t *testing.T) {
+			t.Run("describe_resource_include_annotations", func(t *testing.T) {
+				result := callTool(t, c, "describe_resource", map[string]any{
+					"kind":                "Pod",
+					"name":                podName,
+					"namespace":           testNamespace,
+					"include_annotations": "app.kubernetes.io/*",
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("error: %s", text)
+				}
+				if strings.Contains(text, "internal.io/debug") {
+					t.Error("internal.io/debug should NOT appear with include filter")
+				}
+			})
+
+			t.Run("list_resources_include_annotations", func(t *testing.T) {
 				result := callTool(t, c, "list_resources", map[string]any{
 					"kind":                "Pod",
 					"namespace":           testNamespace,
@@ -136,6 +152,17 @@ func TestAnnotations(t *testing.T) {
 				}
 				// The list response may not include annotations directly
 				// (it's a summary format), but it should not error.
+			})
+
+			t.Run("list_resources_exclude_annotations", func(t *testing.T) {
+				result := callTool(t, c, "list_resources", map[string]any{
+					"kind":                "Pod",
+					"namespace":           testNamespace,
+					"exclude_annotations": "internal.io/*",
+				})
+				if result.IsError {
+					t.Fatalf("error: %s", resultText(result))
+				}
 			})
 		})
 	}

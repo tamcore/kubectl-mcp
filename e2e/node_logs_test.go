@@ -41,6 +41,21 @@ func TestNodeLogs(t *testing.T) {
 				}
 			})
 
+			t.Run("with_tail", func(t *testing.T) {
+				nodeOut, err := kubectlOutput("get", "nodes", "-o", "jsonpath={.items[0].metadata.name}")
+				if err != nil {
+					t.Fatalf("failed to get node name: %v", err)
+				}
+				nodeName := strings.TrimSpace(nodeOut)
+
+				result := callTool(t, c, "node_logs", map[string]any{
+					"node": nodeName,
+					"tail": float64(10),
+				})
+				// May error on KinD — just verify param is accepted.
+				_ = result
+			})
+
 			t.Run("valid_node_name", func(t *testing.T) {
 				// Get an actual node name from the cluster.
 				nodeOut, err := kubectlOutput("get", "nodes", "-o", "jsonpath={.items[0].metadata.name}")

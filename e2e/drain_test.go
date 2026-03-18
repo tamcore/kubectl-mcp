@@ -36,8 +36,10 @@ func TestDrain(t *testing.T) {
 				waitForPodReady(t, podName, testNamespace)
 
 				result := callTool(t, c, "drain_node", map[string]any{
-					"node":             nodeName,
-					"ignoreDaemonSets": true,
+					"node":               nodeName,
+					"ignoreDaemonSets":   true,
+					"deleteEmptyDirData": true,
+					"gracePeriodSeconds": float64(10),
 				})
 				text := resultText(result)
 				if result.IsError {
