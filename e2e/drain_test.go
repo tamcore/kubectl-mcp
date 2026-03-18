@@ -62,3 +62,25 @@ func TestDrain(t *testing.T) {
 		})
 	}
 }
+
+func TestDrain_RejectedWithoutAllowDestructive(t *testing.T) {
+	for _, tc := range allTransports {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := defaultConfig()
+			cfg.AllowDestructive = false
+
+			base := tc.startFunc(t, cfg)
+			c := tc.clientFunc(t, base)
+
+			_, err := callToolMayFail(t, c, "drain_node", map[string]any{
+				"node": "anything",
+			})
+			if err == nil {
+				t.Error("expected error -- drain_node should not be registered without --allow-destructive")
+			}
+			if err != nil && !strings.Contains(err.Error(), "not found") {
+				t.Errorf("expected 'not found' error, got: %v", err)
+			}
+		})
+	}
+}

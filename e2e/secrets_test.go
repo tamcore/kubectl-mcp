@@ -84,3 +84,58 @@ func TestSecrets(t *testing.T) {
 		})
 	}
 }
+
+func TestDescribeResource_SecretRedaction(t *testing.T) {
+	for _, tc := range allTransports {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create the secret via a write-enabled server.
+			base := tc.startFunc(t, defaultConfig())
+			c := tc.clientFunc(t, base)
+
+			secretName := "e2e-describe-secret-" + strings.ToLower(tc.name)
+			secret64 := base64.StdEncoding.EncodeToString([]byte("topsecret"))
+			callTool(t, c, "apply_resource", map[string]any{
+				"manifest": secretManifest(secretName, testNamespace, map[string]string{"token": secret64}),
+			})
+			t.Cleanup(func() { deleteViaKubectl(t, "secret", secretName, testNamespace) })
+
+			t.Run("describe_redacted_by_default", func(t *testing.T) {
+				result := callTool(t, c, "describe_resource", map[string]any{
+					"kind":      "Secret",
+					"name":      secretName,
+					"namespace": testNamespace,
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("error: %s", text)
+				}
+				if !strings.Contains(text, "redacted") {
+					t.Errorf("expected <redacted> in describe output, got:\n%s", text)
+				}
+				if strings.Contains(text, "topsecret") || strings.Contains(text, secret64) {
+					t.Error("secret value leaked in describe response")
+				}
+			})
+
+			t.Run("describe_with_allow_secrets", func(t *testing.T) {
+				cfg := defaultConfig()
+				cfg.AllowSecrets = true
+				base2 := tc.startFunc(t, cfg)
+				c2 := tc.clientFunc(t, base2)
+
+				result := callTool(t, c2, "describe_resource", map[string]any{
+					"kind":      "Secret",
+					"name":      secretName,
+					"namespace": testNamespace,
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("error: %s", text)
+				}
+				if strings.Contains(text, "redacted") {
+					t.Error("expected actual secret data with --allow-secrets, got <redacted>")
+				}
+			})
+		})
+	}
+}

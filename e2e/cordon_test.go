@@ -67,3 +67,36 @@ func TestCordonUncordon(t *testing.T) {
 		})
 	}
 }
+
+func TestCordonUncordon_RejectedWithoutAllowWrite(t *testing.T) {
+	for _, tc := range allTransports {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := defaultConfig()
+			cfg.AllowWrite = false
+			cfg.AllowDestructive = false
+
+			base := tc.startFunc(t, cfg)
+			c := tc.clientFunc(t, base)
+
+			_, err := callToolMayFail(t, c, "cordon_node", map[string]any{
+				"node": "anything",
+			})
+			if err == nil {
+				t.Error("expected error -- cordon_node should not be registered without --allow-write")
+			}
+			if err != nil && !strings.Contains(err.Error(), "not found") {
+				t.Errorf("expected 'not found' error, got: %v", err)
+			}
+
+			_, err = callToolMayFail(t, c, "uncordon_node", map[string]any{
+				"node": "anything",
+			})
+			if err == nil {
+				t.Error("expected error -- uncordon_node should not be registered without --allow-write")
+			}
+			if err != nil && !strings.Contains(err.Error(), "not found") {
+				t.Errorf("expected 'not found' error, got: %v", err)
+			}
+		})
+	}
+}

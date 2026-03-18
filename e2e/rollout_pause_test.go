@@ -88,6 +88,7 @@ func TestRolloutPause_RejectedWithoutAllowWrite(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := defaultConfig()
 			cfg.AllowWrite = false
+			cfg.AllowDestructive = false
 
 			base := tc.startFunc(t, cfg)
 			c := tc.clientFunc(t, base)
@@ -99,6 +100,34 @@ func TestRolloutPause_RejectedWithoutAllowWrite(t *testing.T) {
 			})
 			if err == nil {
 				t.Error("expected error -- rollout_pause should not be registered without --allow-write")
+			}
+			if err != nil && !strings.Contains(err.Error(), "not found") {
+				t.Errorf("expected 'not found' error, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestRolloutResume_RejectedWithoutAllowWrite(t *testing.T) {
+	for _, tc := range allTransports {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := defaultConfig()
+			cfg.AllowWrite = false
+			cfg.AllowDestructive = false
+
+			base := tc.startFunc(t, cfg)
+			c := tc.clientFunc(t, base)
+
+			_, err := callToolMayFail(t, c, "rollout_resume", map[string]any{
+				"kind":      "Deployment",
+				"name":      "anything",
+				"namespace": testNamespace,
+			})
+			if err == nil {
+				t.Error("expected error -- rollout_resume should not be registered without --allow-write")
+			}
+			if err != nil && !strings.Contains(err.Error(), "not found") {
+				t.Errorf("expected 'not found' error, got: %v", err)
 			}
 		})
 	}

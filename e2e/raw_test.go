@@ -55,8 +55,8 @@ func TestRawAPI(t *testing.T) {
 				}
 			})
 
-			t.Run("POST_requires_allow_write", func(t *testing.T) {
-				// Default config has AllowWrite=true, so create a server without it.
+			t.Run("non_GET_requires_allow_write", func(t *testing.T) {
+				// Start a server with AllowRaw=true but AllowWrite=false.
 				cfgNoWrite := defaultConfig()
 				cfgNoWrite.AllowRaw = true
 				cfgNoWrite.AllowWrite = false
@@ -65,17 +65,20 @@ func TestRawAPI(t *testing.T) {
 				base2 := tc.startFunc(t, cfgNoWrite)
 				c2 := tc.clientFunc(t, base2)
 
-				result := callTool(t, c2, "api_raw", map[string]any{
-					"path":   "/api/v1/namespaces/default/configmaps",
-					"method": "POST",
-					"body":   `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"raw-test"}}`,
-				})
-				if !result.IsError {
-					t.Error("expected error for POST without --allow-write")
-				}
-				text := resultText(result)
-				if !strings.Contains(text, "--allow-write") {
-					t.Errorf("expected --allow-write in error, got: %s", text)
+				for _, method := range []string{"POST", "PUT", "PATCH", "DELETE"} {
+					t.Run(method, func(t *testing.T) {
+						result := callTool(t, c2, "api_raw", map[string]any{
+							"path":   "/api/v1/namespaces/default/configmaps",
+							"method": method,
+						})
+						if !result.IsError {
+							t.Errorf("expected error for %s without --allow-write", method)
+						}
+						text := resultText(result)
+						if !strings.Contains(text, "--allow-write") {
+							t.Errorf("expected --allow-write in error, got: %s", text)
+						}
+					})
 				}
 			})
 
