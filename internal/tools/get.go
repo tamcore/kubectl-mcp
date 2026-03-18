@@ -85,15 +85,14 @@ func registerGetResource(s *server.MCPServer, pool *kube.ClientPool, cfg *config
 		}
 		filterObjAnnotations(obj, req)
 
-		// Strip managedFields to reduce noise.
-		delete(obj.Object["metadata"].(map[string]interface{}), "managedFields")
+		cleaned := StripNoisyMetadata(obj.Object)
 
-		out, err := json.MarshalIndent(obj.Object, "", "  ")
+		out, err := json.MarshalIndent(cleaned, "", "  ")
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to marshal resource: %v", err)), nil
 		}
 
-		return mcp.NewToolResultStructured(obj.Object, string(out)), nil
+		return mcp.NewToolResultStructured(cleaned, string(out)), nil
 	})
 }
 
