@@ -42,6 +42,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&cfg.AllowWrite, "allow-write", false, "Enable write operations")
 	rootCmd.PersistentFlags().BoolVar(&cfg.AllowDestructive, "allow-destructive", false, "Enable destructive operations (delete, drain); implies --allow-write")
 	rootCmd.PersistentFlags().BoolVar(&cfg.AllowSecrets, "allow-secrets", false, "Allow reading Secret data")
+	rootCmd.PersistentFlags().BoolVar(&cfg.AllowRaw, "allow-raw", false, "Enable raw Kubernetes API requests (api_raw tool)")
 	rootCmd.PersistentFlags().IntVar(&cfg.RateLimitRead, "rate-limit-read", 120, "Max read tool calls per minute (0 = unlimited)")
 	rootCmd.PersistentFlags().IntVar(&cfg.RateLimitWrite, "rate-limit-write", 30, "Max write tool calls per minute (0 = unlimited)")
 

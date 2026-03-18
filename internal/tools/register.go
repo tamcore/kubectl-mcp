@@ -16,6 +16,7 @@ var writeTools = []string{
 	"rollout_pause", "rollout_resume",
 	"run_pod",
 	"port_forward",
+	"api_raw",
 }
 
 // destructiveTools lists tool names gated behind --allow-destructive.
@@ -65,6 +66,11 @@ func RegisterAll(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config)
 		registerDeleteResource(s, pool)
 		registerDrainNode(s, pool)
 		registerCleanupPods(s, pool)
+	}
+
+	// Raw API tools (require --allow-raw).
+	if cfg.AllowRaw {
+		registerRawAPI(s, pool, cfg, nil)
 	}
 
 	// Apply rate limiting to all registered tools.

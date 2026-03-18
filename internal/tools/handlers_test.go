@@ -247,6 +247,9 @@ func TestRegisterAll(t *testing.T) {
 		"delete_resource", "drain_node",
 		"cleanup_pods",
 	}
+	rawTools := []string{
+		"api_raw",
+	}
 
 	t.Run("read-only mode", func(t *testing.T) {
 		cfg := defaultCfg()
@@ -268,6 +271,11 @@ func TestRegisterAll(t *testing.T) {
 		for _, name := range destructiveTools {
 			if _, ok := tools[name]; ok {
 				t.Errorf("tool %q should NOT be registered in read-only mode", name)
+			}
+		}
+		for _, name := range rawTools {
+			if _, ok := tools[name]; ok {
+				t.Errorf("tool %q should NOT be registered without --allow-raw", name)
 			}
 		}
 	})
@@ -310,6 +318,21 @@ func TestRegisterAll(t *testing.T) {
 		for _, name := range all {
 			if _, ok := tools[name]; !ok {
 				t.Errorf("expected tool %q to be registered in destructive mode", name)
+			}
+		}
+	})
+
+	t.Run("raw mode", func(t *testing.T) {
+		cfg := defaultCfg()
+		cfg.AllowRaw = true
+		pool := buildPool(cfg, defaultRawConfig(), newFakeDynClient(), fake.NewClientset())
+		s := server.NewMCPServer("test", "0.1.0", server.WithToolCapabilities(false))
+		RegisterAll(s, pool, cfg)
+
+		tools := s.ListTools()
+		for _, name := range rawTools {
+			if _, ok := tools[name]; !ok {
+				t.Errorf("expected tool %q to be registered with --allow-raw", name)
 			}
 		}
 	})

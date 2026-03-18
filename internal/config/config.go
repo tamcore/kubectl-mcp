@@ -20,6 +20,7 @@ type Config struct {
 	AllowWrite       bool
 	AllowDestructive bool
 	AllowSecrets     bool
+	AllowRaw         bool
 	RateLimitRead    int
 	RateLimitWrite   int
 }
