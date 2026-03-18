@@ -201,7 +201,7 @@ func TestExecPod_QuotedStringCommand(t *testing.T) {
 
 	var captured []string
 	runner := &fakeExecRunner{
-		stdout:    "ok\n",
+		stdout:     "ok\n",
 		captureCmd: &captured,
 	}
 	handler := getHandler(t, "exec_pod", func(s *server.MCPServer) {

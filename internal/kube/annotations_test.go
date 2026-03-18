@@ -16,7 +16,7 @@ func TestFilterAnnotations(t *testing.T) {
 		{
 			name: "default excludes last-applied-configuration",
 			input: map[string]string{
-				"app":    "nginx",
+				"app": "nginx",
 				"kubectl.kubernetes.io/last-applied-configuration": `{"big":"json"}`,
 			},
 			expected: map[string]string{
@@ -26,22 +26,22 @@ func TestFilterAnnotations(t *testing.T) {
 		{
 			name: "glob exclude pattern",
 			input: map[string]string{
-				"app":                        "nginx",
-				"kubectl.kubernetes.io/foo":  "bar",
-				"kubectl.kubernetes.io/baz":  "qux",
-				"helm.sh/chart":              "nginx-1.0",
+				"app":                       "nginx",
+				"kubectl.kubernetes.io/foo": "bar",
+				"kubectl.kubernetes.io/baz": "qux",
+				"helm.sh/chart":             "nginx-1.0",
 			},
 			exclude: []string{"kubectl.kubernetes.io/*"},
 			expected: map[string]string{
-				"app":          "nginx",
+				"app":           "nginx",
 				"helm.sh/chart": "nginx-1.0",
 			},
 		},
 		{
 			name: "include pattern keeps only matched",
 			input: map[string]string{
-				"app":          "nginx",
-				"version":      "v2",
+				"app":           "nginx",
+				"version":       "v2",
 				"helm.sh/chart": "nginx-1.0",
 			},
 			include: []string{"app", "version"},
@@ -87,23 +87,23 @@ func TestFilterAnnotations(t *testing.T) {
 		{
 			name: "multiple exclude patterns",
 			input: map[string]string{
-				"app":                        "nginx",
-				"kubectl.kubernetes.io/foo":  "bar",
-				"helm.sh/chart":              "nginx-1.0",
-				"meta.helm.sh/release-name":  "my-release",
+				"app":                       "nginx",
+				"kubectl.kubernetes.io/foo": "bar",
+				"helm.sh/chart":             "nginx-1.0",
+				"meta.helm.sh/release-name": "my-release",
 			},
 			exclude: []string{"kubectl.kubernetes.io/*", "*.helm.sh/*"},
 			expected: map[string]string{
-				"app":          "nginx",
+				"app":           "nginx",
 				"helm.sh/chart": "nginx-1.0",
 			},
 		},
 		{
 			name: "include with glob",
 			input: map[string]string{
-				"app.kubernetes.io/name":      "nginx",
-				"app.kubernetes.io/version":   "1.0",
-				"helm.sh/chart":               "nginx-1.0",
+				"app.kubernetes.io/name":    "nginx",
+				"app.kubernetes.io/version": "1.0",
+				"helm.sh/chart":             "nginx-1.0",
 			},
 			include: []string{"app.kubernetes.io/*"},
 			expected: map[string]string{
@@ -125,7 +125,7 @@ func TestFilterAnnotations(t *testing.T) {
 
 func TestFilterAnnotations_DoesNotMutateInput(t *testing.T) {
 	input := map[string]string{
-		"app":    "nginx",
+		"app": "nginx",
 		"kubectl.kubernetes.io/last-applied-configuration": `{"big":"json"}`,
 	}
 

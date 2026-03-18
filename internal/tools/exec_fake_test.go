@@ -13,7 +13,7 @@ import (
 type fakeExecRunner struct {
 	stdout     string
 	stderr     string
-	execErr    string   // non-empty to simulate an error
+	execErr    string    // non-empty to simulate an error
 	captureCmd *[]string // if set, captures the command slice
 }
 

@@ -9,9 +9,9 @@ import (
 
 // Limiter is a token-bucket rate limiter for MCP tool calls.
 type Limiter struct {
-	inner      *rate.Limiter
-	perMinute  int
-	unlimited  bool
+	inner     *rate.Limiter
+	perMinute int
+	unlimited bool
 }
 
 // NewLimiter creates a rate limiter that allows perMinute calls per minute.

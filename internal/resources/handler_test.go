@@ -218,7 +218,7 @@ func TestStripNoise(t *testing.T) {
 			"managedFields": []interface{}{"something"},
 			"annotations": map[string]interface{}{
 				"kubectl.kubernetes.io/last-applied-configuration": "{}",
-				"app.kubernetes.io/name":                          "test",
+				"app.kubernetes.io/name":                           "test",
 			},
 		},
 	}}

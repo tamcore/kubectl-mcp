@@ -14,12 +14,12 @@ func TestLevenshtein(t *testing.T) {
 		{"abc", "abd", 1},
 		{"Deployment", "Deploymnt", 1},
 		{"Deployment", "Deploment", 1},
-		{"Deployment", "deployment", 1},     // case differs in first char
-		{"StatefulSet", "StatfulSet", 1},     // missing 'e'
-		{"ConfigMap", "configmap", 2},        // two case diffs
-		{"Pod", "Pode", 1},                   // extra char
-		{"Service", "Servce", 1},             // missing 'i'
-		{"completely", "different", 8},       // very different
+		{"Deployment", "deployment", 1},  // case differs in first char
+		{"StatefulSet", "StatfulSet", 1}, // missing 'e'
+		{"ConfigMap", "configmap", 2},    // two case diffs
+		{"Pod", "Pode", 1},               // extra char
+		{"Service", "Servce", 1},         // missing 'i'
+		{"completely", "different", 8},   // very different
 	}
 	for _, tt := range tests {
 		t.Run(tt.a+"_"+tt.b, func(t *testing.T) {
@@ -55,8 +55,8 @@ func TestResolveShortName(t *testing.T) {
 		{"ep", "Endpoints", true},
 		{"hpa", "HorizontalPodAutoscaler", true},
 		{"cj", "CronJob", true},
-		{"Deployment", "", false},  // full names don't match
-		{"xyz", "", false},          // unknown short name
+		{"Deployment", "", false}, // full names don't match
+		{"xyz", "", false},        // unknown short name
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
@@ -90,8 +90,8 @@ func TestSuggestKind(t *testing.T) {
 		{"Configmap", "ConfigMap"},
 		{"secrt", "Secret"},
 		{"Pode", "Pod"},
-		{"Nod", "Pod"},  // distance 1 from both Pod and Node; Pod wins alphabetically
-		{"completely_unknown_xyz", ""},  // too far from anything
+		{"Nod", "Pod"},                 // distance 1 from both Pod and Node; Pod wins alphabetically
+		{"completely_unknown_xyz", ""}, // too far from anything
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {

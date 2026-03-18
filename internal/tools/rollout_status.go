@@ -15,11 +15,11 @@ import (
 
 // rolloutStatusResult holds the structured rollout status for a workload.
 type rolloutStatusResult struct {
-	Kind      string            `json:"kind"`
-	Name      string            `json:"name"`
-	Namespace string            `json:"namespace"`
-	Complete  bool              `json:"complete"`
-	Replicas  map[string]int64  `json:"replicas"`
+	Kind       string            `json:"kind"`
+	Name       string            `json:"name"`
+	Namespace  string            `json:"namespace"`
+	Complete   bool              `json:"complete"`
+	Replicas   map[string]int64  `json:"replicas"`
 	Conditions []statusCondition `json:"conditions,omitempty"`
 }
 

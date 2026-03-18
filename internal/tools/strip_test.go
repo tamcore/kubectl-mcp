@@ -6,9 +6,9 @@ import (
 
 func TestStripNoisyMetadata(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    map[string]interface{}
-		checkFn  func(t *testing.T, result map[string]interface{})
+		name    string
+		input   map[string]interface{}
+		checkFn func(t *testing.T, result map[string]interface{})
 	}{
 		{
 			name: "removes uid and resourceVersion",
