@@ -193,12 +193,12 @@ func TestRolloutUndo(t *testing.T) {
 			})
 
 			t.Run("undo_to_specific_revision", func(t *testing.T) {
-				// Undo to revision 1 explicitly using toRevision.
+				// After undo_to_previous, we have revision 3. Undo to revision 2.
 				result := callTool(t, c, "rollout_undo", map[string]any{
 					"kind":       "Deployment",
 					"name":       name,
 					"namespace":  testNamespace,
-					"toRevision": float64(1),
+					"toRevision": float64(2),
 				})
 				text := resultText(result)
 				if result.IsError {
