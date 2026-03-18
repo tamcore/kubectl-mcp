@@ -3,10 +3,13 @@ package tools
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
+
+const elicitationTimeout = 5 * time.Second
 
 // confirmDestructiveAction sends an elicitation request to the client asking
 // for confirmation before proceeding with a destructive operation.
@@ -34,10 +37,17 @@ func confirmDestructiveAction(ctx context.Context, s *server.MCPServer, message 
 		},
 	}
 
-	result, err := s.RequestElicitation(ctx, request)
+	// Use a bounded timeout so that clients without elicitation support
+	// don't block the tool call indefinitely.
+	elicitCtx, cancel := context.WithTimeout(ctx, elicitationTimeout)
+	defer cancel()
+
+	result, err := s.RequestElicitation(elicitCtx, request)
 	if err != nil {
-		// Graceful degradation: if elicitation is not supported, proceed.
-		if errors.Is(err, server.ErrElicitationNotSupported) || errors.Is(err, server.ErrNoActiveSession) {
+		// Graceful degradation: if elicitation is not supported or times out, proceed.
+		if errors.Is(err, server.ErrElicitationNotSupported) ||
+			errors.Is(err, server.ErrNoActiveSession) ||
+			errors.Is(err, context.DeadlineExceeded) {
 			return true, nil
 		}
 		return false, err
