@@ -16,15 +16,18 @@ import (
 
 // explainResult holds the discovery-based explanation for a resource.
 type explainResult struct {
-	Kind         string   `json:"kind"`
-	APIVersion   string   `json:"apiVersion"`
-	Resource     string   `json:"resource"`
-	Namespaced   bool     `json:"namespaced"`
-	Verbs        []string `json:"verbs"`
-	ShortNames   []string `json:"shortNames,omitempty"`
-	FieldPath    string   `json:"fieldPath,omitempty"`
-	Description  string   `json:"description"`
-	SubResources []string `json:"subResources,omitempty"`
+	Kind             string      `json:"kind"`
+	APIVersion       string      `json:"apiVersion"`
+	Resource         string      `json:"resource"`
+	Namespaced       bool        `json:"namespaced"`
+	Verbs            []string    `json:"verbs"`
+	ShortNames       []string    `json:"shortNames,omitempty"`
+	FieldPath        string      `json:"fieldPath,omitempty"`
+	Description      string      `json:"description"`
+	FieldDescription string      `json:"fieldDescription,omitempty"`
+	FieldType        string      `json:"fieldType,omitempty"`
+	Fields           []fieldInfo `json:"fields,omitempty"`
+	SubResources     []string    `json:"subResources,omitempty"`
 }
 
 func registerExplainResource(s *server.MCPServer, pool *kube.ClientPool) {
@@ -88,6 +91,15 @@ func registerExplainResource(s *server.MCPServer, pool *kube.ClientPool) {
 			FieldPath:    fieldPath,
 			Description:  buildDescription(apiRes, gv, fieldPath),
 			SubResources: subResources,
+		}
+
+		// Enrich with OpenAPI v3 schema field information.
+		parsedGV, _ := schema.ParseGroupVersion(gv)
+		fd, schemaErr := fetchFieldDetail(cc.Discovery, parsedGV.Group, parsedGV.Version, apiRes.Kind, fieldPath)
+		if schemaErr == nil && fd != nil {
+			result.FieldDescription = fd.Description
+			result.FieldType = fd.Type
+			result.Fields = fd.Fields
 		}
 
 		out, err := json.MarshalIndent(result, "", "  ")

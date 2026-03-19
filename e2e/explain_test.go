@@ -81,6 +81,76 @@ func TestExplainResource(t *testing.T) {
 				if obj["fieldPath"] != "spec.replicas" {
 					t.Errorf("expected fieldPath=spec.replicas, got: %v", obj["fieldPath"])
 				}
+				// Should have field-level description from OpenAPI schema.
+				if fd, ok := obj["fieldDescription"].(string); !ok || fd == "" {
+					t.Errorf("expected non-empty fieldDescription, got: %v", obj["fieldDescription"])
+				}
+				if ft, ok := obj["fieldType"].(string); !ok || ft == "" {
+					t.Errorf("expected non-empty fieldType, got: %v", obj["fieldType"])
+				}
+			})
+
+			t.Run("explain_object_field_has_children", func(t *testing.T) {
+				result := callTool(t, c, "explain_resource", map[string]any{
+					"resource": "Deployment.spec.strategy",
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("error: %s", text)
+				}
+				obj := jsonObjectFromResult(t, text)
+
+				// strategy is an object type — should have child fields.
+				fields, ok := obj["fields"].([]any)
+				if !ok || len(fields) == 0 {
+					t.Fatalf("expected non-empty fields array for object type, got: %v", obj["fields"])
+				}
+
+				// Should contain "type" and "rollingUpdate" as child fields.
+				fieldNames := make(map[string]bool)
+				for _, f := range fields {
+					fm, _ := f.(map[string]any)
+					if name, ok := fm["name"].(string); ok {
+						fieldNames[name] = true
+					}
+				}
+				if !fieldNames["type"] {
+					t.Error("expected 'type' in child fields of spec.strategy")
+				}
+				if !fieldNames["rollingUpdate"] {
+					t.Error("expected 'rollingUpdate' in child fields of spec.strategy")
+				}
+			})
+
+			t.Run("explain_top_level_kind_has_fields", func(t *testing.T) {
+				result := callTool(t, c, "explain_resource", map[string]any{
+					"resource": "Deployment",
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("error: %s", text)
+				}
+				obj := jsonObjectFromResult(t, text)
+
+				// Top-level kind should have child fields (apiVersion, kind, metadata, spec, status).
+				fields, ok := obj["fields"].([]any)
+				if !ok || len(fields) == 0 {
+					t.Fatalf("expected non-empty fields for top-level kind, got: %v", obj["fields"])
+				}
+
+				fieldNames := make(map[string]bool)
+				for _, f := range fields {
+					fm, _ := f.(map[string]any)
+					if name, ok := fm["name"].(string); ok {
+						fieldNames[name] = true
+					}
+				}
+				if !fieldNames["spec"] {
+					t.Error("expected 'spec' in top-level fields")
+				}
+				if !fieldNames["metadata"] {
+					t.Error("expected 'metadata' in top-level fields")
+				}
 			})
 
 			t.Run("unknown_resource_returns_error", func(t *testing.T) {
