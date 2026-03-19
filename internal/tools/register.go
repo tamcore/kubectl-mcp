@@ -10,7 +10,7 @@ import (
 
 // writeTools lists tool names gated behind --allow-write.
 var writeTools = []string{
-	"apply_resource", "patch_resource", "scale_resource",
+	"apply_resource", "create_resource", "patch_resource", "scale_resource",
 	"restart_rollout", "cordon_node", "uncordon_node", "exec_pod",
 	"rollout_undo",
 	"rollout_pause", "rollout_resume",
@@ -48,6 +48,7 @@ func RegisterAll(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config)
 	// Write tools (require --allow-write).
 	if cfg.AllowWrite {
 		registerApplyResource(s, pool, cfg)
+		registerCreateResource(s, pool, cfg)
 		registerPatchResource(s, pool, cfg)
 		registerScaleResource(s, pool)
 		registerRestartRollout(s, pool)
