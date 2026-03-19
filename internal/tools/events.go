@@ -16,7 +16,7 @@ import (
 
 func registerGetEvents(s *server.MCPServer, pool *kube.ClientPool) {
 	tool := mcp.NewTool("get_events",
-		mcp.WithDescription("Get Kubernetes events"),
+		mcp.WithDescription("Get Kubernetes events. Supports cross-namespace listing via allNamespaces."),
 		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithDestructiveHintAnnotation(false),
 		mcp.WithIdempotentHintAnnotation(true),
@@ -25,7 +25,10 @@ func registerGetEvents(s *server.MCPServer, pool *kube.ClientPool) {
 			mcp.Description("Kubernetes context to use (defaults to current context)"),
 		),
 		mcp.WithString("namespace",
-			mcp.Description("Namespace to get events from (omit for all namespaces)"),
+			mcp.Description("Namespace to get events from. Cannot be combined with allNamespaces."),
+		),
+		mcp.WithBoolean("allNamespaces",
+			mcp.Description("Return events across all namespaces. When true, the namespace parameter is ignored (returns an error if namespace is also set)."),
 		),
 		mcp.WithString("fieldSelector",
 			mcp.Description("Field selector to filter events (e.g. involvedObject.kind=Pod)"),
@@ -47,8 +50,16 @@ func registerGetEvents(s *server.MCPServer, pool *kube.ClientPool) {
 		}
 
 		namespace := req.GetString("namespace", "")
+		allNamespaces := req.GetBool("allNamespaces", false)
 		fieldSelector := req.GetString("fieldSelector", "")
 		limit := int64(req.GetFloat("limit", 50))
+
+		if allNamespaces && namespace != "" {
+			return mcp.NewToolResultError("allNamespaces and namespace cannot be combined: set allNamespaces=true to list across all namespaces, or omit allNamespaces to list within a specific namespace"), nil
+		}
+		if allNamespaces {
+			namespace = ""
+		}
 
 		opts := metav1.ListOptions{
 			FieldSelector: fieldSelector,

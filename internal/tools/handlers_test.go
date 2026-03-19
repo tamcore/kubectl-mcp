@@ -1850,6 +1850,128 @@ func TestHandlerContextErrors(t *testing.T) {
 	}
 }
 
+// --- list_resources allNamespaces ---
+
+func TestListResourcesAllNamespaces(t *testing.T) {
+	pod1 := testPod("pod-a", "ns-one")
+	pod2 := testPod("pod-b", "ns-two")
+
+	cfg := defaultCfg()
+	fakeCS := fake.NewClientset()
+	dynClient := newFakeDynClient(pod1, pod2)
+	pool := buildPool(cfg, defaultRawConfig(), dynClient, fakeCS)
+
+	handler := getHandler(t, "list_resources", func(s *server.MCPServer) {
+		registerListResources(s, pool, cfg)
+	})
+
+	t.Run("allNamespaces returns resources from all namespaces", func(t *testing.T) {
+		res, err := handler(context.Background(), callToolReq(map[string]any{
+			"kind":          "Pod",
+			"allNamespaces": true,
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.IsError {
+			t.Fatalf("unexpected error: %s", resultText(t, res))
+		}
+		text := resultText(t, res)
+		if !strings.Contains(text, "pod-a") || !strings.Contains(text, "pod-b") {
+			t.Error("expected pods from both namespaces in output")
+		}
+	})
+
+	t.Run("allNamespaces with namespace returns error", func(t *testing.T) {
+		res, err := handler(context.Background(), callToolReq(map[string]any{
+			"kind":          "Pod",
+			"allNamespaces": true,
+			"namespace":     "ns-one",
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !res.IsError {
+			t.Error("expected error when allNamespaces=true and namespace is set")
+		}
+		text := resultText(t, res)
+		if !strings.Contains(text, "namespace") {
+			t.Errorf("expected error message to mention namespace conflict, got: %s", text)
+		}
+	})
+}
+
+// --- get_events allNamespaces ---
+
+func TestGetEventsAllNamespaces(t *testing.T) {
+	cfg := defaultCfg()
+
+	t.Run("allNamespaces returns events from all namespaces", func(t *testing.T) {
+		event1 := &corev1.Event{
+			ObjectMeta:     metav1.ObjectMeta{Name: "evt-a", Namespace: "ns-one"},
+			InvolvedObject: corev1.ObjectReference{Kind: "Pod", Name: "pod-a"},
+			Type:           "Normal",
+			Reason:         "Started",
+			Message:        "Started container",
+			LastTimestamp:  metav1.Now(),
+		}
+		event2 := &corev1.Event{
+			ObjectMeta:     metav1.ObjectMeta{Name: "evt-b", Namespace: "ns-two"},
+			InvolvedObject: corev1.ObjectReference{Kind: "Pod", Name: "pod-b"},
+			Type:           "Warning",
+			Reason:         "BackOff",
+			Message:        "Back-off restarting",
+			LastTimestamp:  metav1.Now(),
+		}
+		fakeCS := fake.NewClientset(event1, event2)
+		dynClient := newFakeDynClient()
+		pool := buildPool(cfg, defaultRawConfig(), dynClient, fakeCS)
+
+		handler := getHandler(t, "get_events", func(s *server.MCPServer) {
+			registerGetEvents(s, pool)
+		})
+
+		res, err := handler(context.Background(), callToolReq(map[string]any{
+			"allNamespaces": true,
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.IsError {
+			t.Fatalf("unexpected error: %s", resultText(t, res))
+		}
+		text := resultText(t, res)
+		if !strings.Contains(text, "pod-a") || !strings.Contains(text, "pod-b") {
+			t.Error("expected events from both namespaces in output")
+		}
+	})
+
+	t.Run("allNamespaces with namespace returns error", func(t *testing.T) {
+		fakeCS := fake.NewClientset()
+		dynClient := newFakeDynClient()
+		pool := buildPool(cfg, defaultRawConfig(), dynClient, fakeCS)
+
+		handler := getHandler(t, "get_events", func(s *server.MCPServer) {
+			registerGetEvents(s, pool)
+		})
+
+		res, err := handler(context.Background(), callToolReq(map[string]any{
+			"allNamespaces": true,
+			"namespace":     "ns-one",
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !res.IsError {
+			t.Error("expected error when allNamespaces=true and namespace is set")
+		}
+		text := resultText(t, res)
+		if !strings.Contains(text, "namespace") {
+			t.Errorf("expected error message to mention namespace conflict, got: %s", text)
+		}
+	})
+}
+
 // --- List with Deployment (tests formatResourceList enrichment) ---
 
 func TestListResourcesDeployment(t *testing.T) {
