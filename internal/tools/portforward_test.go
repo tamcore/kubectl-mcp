@@ -8,6 +8,10 @@ import (
 	"time"
 
 	"github.com/mark3labs/mcp-go/server"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
@@ -50,7 +54,7 @@ func TestPortForward_HappyPath(t *testing.T) {
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
 		"namespace":  "default",
-		"pod":        "my-pod",
+		"resource":   "my-pod",
 		"remotePort": float64(8080),
 	}))
 	if err != nil {
@@ -95,7 +99,7 @@ func TestPortForward_WithLocalPort(t *testing.T) {
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
 		"namespace":  "default",
-		"pod":        "my-pod",
+		"resource":   "my-pod",
 		"remotePort": float64(8080),
 		"localPort":  float64(9090),
 	}))
@@ -135,7 +139,7 @@ func TestPortForward_TimeoutClamped(t *testing.T) {
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
 		"namespace":  "default",
-		"pod":        "my-pod",
+		"resource":   "my-pod",
 		"remotePort": float64(8080),
 		"timeout":    float64(9999),
 	}))
@@ -173,7 +177,7 @@ func TestPortForward_ForwardError(t *testing.T) {
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
 		"namespace":  "default",
-		"pod":        "my-pod",
+		"resource":   "my-pod",
 		"remotePort": float64(8080),
 	}))
 	if err != nil {
@@ -203,7 +207,7 @@ func TestPortForward_ContextNotAllowed(t *testing.T) {
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
 		"namespace":  "default",
-		"pod":        "my-pod",
+		"resource":   "my-pod",
 		"remotePort": float64(8080),
 	}))
 	if err != nil {
@@ -231,7 +235,7 @@ func TestPortForward_InvalidPort(t *testing.T) {
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
 		"namespace":  "default",
-		"pod":        "my-pod",
+		"resource":   "my-pod",
 		"remotePort": float64(0),
 	}))
 	if err != nil {
@@ -245,4 +249,500 @@ func TestPortForward_InvalidPort(t *testing.T) {
 	if !strings.Contains(text, "remotePort") {
 		t.Errorf("expected remotePort error, got: %s", text)
 	}
+}
+
+// --- resource parameter tests ---
+
+func TestParseResource(t *testing.T) {
+	tests := []struct {
+		input    string
+		wantKind string
+		wantName string
+	}{
+		{"my-pod", "pod", "my-pod"},
+		{"pod/my-pod", "pod", "my-pod"},
+		{"Pod/my-pod", "pod", "my-pod"},
+		{"svc/my-svc", "service", "my-svc"},
+		{"service/my-svc", "service", "my-svc"},
+		{"Service/my-svc", "service", "my-svc"},
+		{"deploy/my-deploy", "deployment", "my-deploy"},
+		{"deployment/my-deploy", "deployment", "my-deploy"},
+		{"Deployment/my-deploy", "deployment", "my-deploy"},
+		{"sts/my-sts", "statefulset", "my-sts"},
+		{"statefulset/my-sts", "statefulset", "my-sts"},
+		{"StatefulSet/my-sts", "statefulset", "my-sts"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			kind, name := parseResource(tt.input)
+			if kind != tt.wantKind {
+				t.Errorf("parseResource(%q) kind = %q, want %q", tt.input, kind, tt.wantKind)
+			}
+			if name != tt.wantName {
+				t.Errorf("parseResource(%q) name = %q, want %q", tt.input, name, tt.wantName)
+			}
+		})
+	}
+}
+
+func TestParseResource_UnknownKind(t *testing.T) {
+	kind, name := parseResource("job/my-job")
+	if kind != "job" {
+		t.Errorf("expected kind=job, got %q", kind)
+	}
+	if name != "my-job" {
+		t.Errorf("expected name=my-job, got %q", name)
+	}
+}
+
+func TestPortForward_ResourceBareName(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+	fakeCS := fake.NewClientset()
+	dynClient := newWriteFakeDynClient(testPod("my-pod", "default"))
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	fwd := &fakePortForwarder{localPort: 12345, stopCh: stopCh}
+
+	handler := getHandler(t, "port_forward", func(s *server.MCPServer) {
+		registerPortForward(s, pool, fwd)
+	})
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"namespace":  "default",
+		"resource":   "my-pod",
+		"remotePort": float64(8080),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.IsError {
+		t.Fatalf("unexpected error: %s", resultText(t, res))
+	}
+
+	text := resultText(t, res)
+	var result map[string]interface{}
+	if err := json.Unmarshal([]byte(text), &result); err != nil {
+		t.Fatalf("expected JSON output, got: %s", text)
+	}
+	if result["pod"] != "my-pod" {
+		t.Errorf("expected pod=my-pod, got %v", result["pod"])
+	}
+}
+
+func TestPortForward_ResourceExplicitPod(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+	fakeCS := fake.NewClientset()
+	dynClient := newWriteFakeDynClient(testPod("my-pod", "default"))
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	fwd := &fakePortForwarder{localPort: 12345, stopCh: stopCh}
+
+	handler := getHandler(t, "port_forward", func(s *server.MCPServer) {
+		registerPortForward(s, pool, fwd)
+	})
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"namespace":  "default",
+		"resource":   "pod/my-pod",
+		"remotePort": float64(8080),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.IsError {
+		t.Fatalf("unexpected error: %s", resultText(t, res))
+	}
+
+	text := resultText(t, res)
+	var result map[string]interface{}
+	if err := json.Unmarshal([]byte(text), &result); err != nil {
+		t.Fatalf("expected JSON output, got: %s", text)
+	}
+	if result["pod"] != "my-pod" {
+		t.Errorf("expected pod=my-pod, got %v", result["pod"])
+	}
+}
+
+func TestPortForward_ResourceService(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+
+	// Create a ready pod matching the service selector.
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "svc-pod",
+			Namespace: "default",
+			Labels:    map[string]string{"app": "my-svc"},
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+			Conditions: []corev1.PodCondition{
+				{Type: corev1.PodReady, Status: corev1.ConditionTrue},
+			},
+		},
+	}
+	// Create a Service with a selector and named port.
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-svc",
+			Namespace: "default",
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{"app": "my-svc"},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       80,
+					TargetPort: intstr.FromInt32(8080),
+				},
+			},
+		},
+	}
+	fakeCS := fake.NewClientset(pod, svc)
+	dynClient := newWriteFakeDynClient()
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	fwd := &fakePortForwarder{localPort: 12345, stopCh: stopCh}
+
+	handler := getHandler(t, "port_forward", func(s *server.MCPServer) {
+		registerPortForward(s, pool, fwd)
+	})
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"namespace":  "default",
+		"resource":   "svc/my-svc",
+		"remotePort": float64(8080),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.IsError {
+		t.Fatalf("unexpected error: %s", resultText(t, res))
+	}
+
+	text := resultText(t, res)
+	var result map[string]interface{}
+	if err := json.Unmarshal([]byte(text), &result); err != nil {
+		t.Fatalf("expected JSON output, got: %s", text)
+	}
+	if result["pod"] != "svc-pod" {
+		t.Errorf("expected pod=svc-pod (resolved from service), got %v", result["pod"])
+	}
+}
+
+func TestPortForward_ResourceServiceNamedPort(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "svc-pod",
+			Namespace: "default",
+			Labels:    map[string]string{"app": "my-svc"},
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+			Conditions: []corev1.PodCondition{
+				{Type: corev1.PodReady, Status: corev1.ConditionTrue},
+			},
+		},
+	}
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-svc",
+			Namespace: "default",
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{"app": "my-svc"},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       80,
+					TargetPort: intstr.FromInt32(8080),
+				},
+			},
+		},
+	}
+	fakeCS := fake.NewClientset(pod, svc)
+	dynClient := newWriteFakeDynClient()
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+
+	var capturedReq PortForwardRequest
+	fwd := &capturingPortForwarder{localPort: 12345, stopCh: stopCh, captured: &capturedReq}
+
+	handler := getHandler(t, "port_forward", func(s *server.MCPServer) {
+		registerPortForward(s, pool, fwd)
+	})
+
+	// remotePort=80 matches the named port "http" whose targetPort=8080.
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"namespace":  "default",
+		"resource":   "svc/my-svc",
+		"remotePort": float64(80),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.IsError {
+		t.Fatalf("unexpected error: %s", resultText(t, res))
+	}
+
+	// The port forwarder should have been called with targetPort=8080.
+	if capturedReq.RemotePort != 8080 {
+		t.Errorf("expected resolved targetPort=8080, got %d", capturedReq.RemotePort)
+	}
+}
+
+func TestPortForward_ResourceDeployment(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "deploy-pod",
+			Namespace: "default",
+			Labels:    map[string]string{"app": "my-deploy"},
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+			Conditions: []corev1.PodCondition{
+				{Type: corev1.PodReady, Status: corev1.ConditionTrue},
+			},
+		},
+	}
+
+	deploy := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-deploy",
+			Namespace: "default",
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": "my-deploy"},
+			},
+		},
+	}
+	fakeCS := fake.NewClientset(pod, deploy)
+	dynClient := newWriteFakeDynClient()
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	fwd := &fakePortForwarder{localPort: 12345, stopCh: stopCh}
+
+	handler := getHandler(t, "port_forward", func(s *server.MCPServer) {
+		registerPortForward(s, pool, fwd)
+	})
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"namespace":  "default",
+		"resource":   "deploy/my-deploy",
+		"remotePort": float64(8080),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.IsError {
+		t.Fatalf("unexpected error: %s", resultText(t, res))
+	}
+
+	text := resultText(t, res)
+	var result map[string]interface{}
+	if err := json.Unmarshal([]byte(text), &result); err != nil {
+		t.Fatalf("expected JSON output, got: %s", text)
+	}
+	if result["pod"] != "deploy-pod" {
+		t.Errorf("expected pod=deploy-pod (resolved from deployment), got %v", result["pod"])
+	}
+}
+
+func TestPortForward_ResourceStatefulSet(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+
+	// StatefulSet prefers pod-0.
+	pod0 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-sts-0",
+			Namespace: "default",
+			Labels:    map[string]string{"app": "my-sts"},
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+			Conditions: []corev1.PodCondition{
+				{Type: corev1.PodReady, Status: corev1.ConditionTrue},
+			},
+		},
+	}
+	pod1 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-sts-1",
+			Namespace: "default",
+			Labels:    map[string]string{"app": "my-sts"},
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+			Conditions: []corev1.PodCondition{
+				{Type: corev1.PodReady, Status: corev1.ConditionTrue},
+			},
+		},
+	}
+
+	sts := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-sts",
+			Namespace: "default",
+		},
+		Spec: appsv1.StatefulSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": "my-sts"},
+			},
+		},
+	}
+	fakeCS := fake.NewClientset(pod0, pod1, sts)
+	dynClient := newWriteFakeDynClient()
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	fwd := &fakePortForwarder{localPort: 12345, stopCh: stopCh}
+
+	handler := getHandler(t, "port_forward", func(s *server.MCPServer) {
+		registerPortForward(s, pool, fwd)
+	})
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"namespace":  "default",
+		"resource":   "sts/my-sts",
+		"remotePort": float64(8080),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.IsError {
+		t.Fatalf("unexpected error: %s", resultText(t, res))
+	}
+
+	text := resultText(t, res)
+	var result map[string]interface{}
+	if err := json.Unmarshal([]byte(text), &result); err != nil {
+		t.Fatalf("expected JSON output, got: %s", text)
+	}
+	// Should prefer my-sts-0 over my-sts-1.
+	if result["pod"] != "my-sts-0" {
+		t.Errorf("expected pod=my-sts-0 (preferred pod-0 for StatefulSet), got %v", result["pod"])
+	}
+}
+
+func TestPortForward_ResourceUnknownKind(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+	fakeCS := fake.NewClientset()
+	dynClient := newWriteFakeDynClient()
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+
+	fwd := &fakePortForwarder{}
+
+	handler := getHandler(t, "port_forward", func(s *server.MCPServer) {
+		registerPortForward(s, pool, fwd)
+	})
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"namespace":  "default",
+		"resource":   "job/my-job",
+		"remotePort": float64(8080),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.IsError {
+		t.Error("expected error for unknown kind")
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "unsupported") {
+		t.Errorf("expected 'unsupported' error, got: %s", text)
+	}
+}
+
+func TestPortForward_NoReadyPods(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+
+	// Pod exists but is not ready.
+	notReadyPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pending-pod",
+			Namespace: "default",
+			Labels:    map[string]string{"app": "my-svc"},
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodPending,
+			Conditions: []corev1.PodCondition{
+				{Type: corev1.PodReady, Status: corev1.ConditionFalse},
+			},
+		},
+	}
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-svc",
+			Namespace: "default",
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{"app": "my-svc"},
+			Ports: []corev1.ServicePort{
+				{Port: 80, TargetPort: intstr.FromInt32(8080)},
+			},
+		},
+	}
+	fakeCS := fake.NewClientset(notReadyPod, svc)
+	dynClient := newWriteFakeDynClient()
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+
+	fwd := &fakePortForwarder{}
+
+	handler := getHandler(t, "port_forward", func(s *server.MCPServer) {
+		registerPortForward(s, pool, fwd)
+	})
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"namespace":  "default",
+		"resource":   "svc/my-svc",
+		"remotePort": float64(8080),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.IsError {
+		t.Error("expected error when no ready pods found")
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "no ready pod") {
+		t.Errorf("expected 'no ready pod' error, got: %s", text)
+	}
+}
+
+// capturingPortForwarder records the PortForwardRequest it was called with.
+type capturingPortForwarder struct {
+	localPort uint16
+	stopCh    chan struct{}
+	captured  *PortForwardRequest
+}
+
+func (c *capturingPortForwarder) Forward(_ context.Context, _ kubernetes.Interface, _ *rest.Config, req PortForwardRequest) (*PortForwardResult, error) {
+	*c.captured = req
+	return &PortForwardResult{
+		LocalPort: c.localPort,
+		StopCh:    c.stopCh,
+	}, nil
 }
