@@ -39,6 +39,9 @@ func registerDrainNode(s *server.MCPServer, pool *kube.ClientPool) {
 		mcp.WithNumber("gracePeriodSeconds",
 			mcp.Description("Grace period for pod eviction in seconds (default: -1 for pod's default)"),
 		),
+		mcp.WithBoolean("dryRun",
+			mcp.Description("If true, validate the drain without actually cordoning or evicting (server-side dry run)"),
+		),
 	)
 
 	s.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -53,15 +56,18 @@ func registerDrainNode(s *server.MCPServer, pool *kube.ClientPool) {
 		}
 
 		node, _ := req.RequireString("node")
+		dryRun := req.GetBool("dryRun", false)
 
-		// Request elicitation confirmation before draining.
-		confirmed, confirmErr := confirmDestructiveAction(ctx, mcpServer,
-			fmt.Sprintf("Are you sure you want to drain node %q? This will cordon the node and evict all eligible pods.", node))
-		if confirmErr != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("elicitation error: %v", confirmErr)), nil
-		}
-		if !confirmed {
-			return mcp.NewToolResultText("Drain cancelled by user"), nil
+		// Skip elicitation for dry-run since no real action is taken.
+		if !dryRun {
+			confirmed, confirmErr := confirmDestructiveAction(ctx, mcpServer,
+				fmt.Sprintf("Are you sure you want to drain node %q? This will cordon the node and evict all eligible pods.", node))
+			if confirmErr != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("elicitation error: %v", confirmErr)), nil
+			}
+			if !confirmed {
+				return mcp.NewToolResultText("Drain cancelled by user"), nil
+			}
 		}
 
 		ignoreDaemonSets := req.GetBool("ignoreDaemonSets", true)
@@ -70,7 +76,9 @@ func registerDrainNode(s *server.MCPServer, pool *kube.ClientPool) {
 		// Step 1: Cordon the node.
 		cordonPatch := `{"spec":{"unschedulable":true}}`
 		_, err = cc.Dynamic.Resource(nodeGVR).Patch(
-			ctx, node, types.MergePatchType, []byte(cordonPatch), metav1.PatchOptions{},
+			ctx, node, types.MergePatchType, []byte(cordonPatch), metav1.PatchOptions{
+				DryRun: dryRunOption(dryRun),
+			},
 		)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to cordon node %q: %v", node, err)), nil
@@ -109,11 +117,12 @@ func registerDrainNode(s *server.MCPServer, pool *kube.ClientPool) {
 					Name:      pod.Name,
 					Namespace: pod.Namespace,
 				},
+				DeleteOptions: &metav1.DeleteOptions{
+					DryRun: dryRunOption(dryRun),
+				},
 			}
 			if gracePeriod >= 0 {
-				eviction.DeleteOptions = &metav1.DeleteOptions{
-					GracePeriodSeconds: &gracePeriod,
-				}
+				eviction.DeleteOptions.GracePeriodSeconds = &gracePeriod
 			}
 
 			evictErr := cc.Clientset.CoreV1().Pods(pod.Namespace).EvictV1(ctx, eviction)
@@ -125,8 +134,13 @@ func registerDrainNode(s *server.MCPServer, pool *kube.ClientPool) {
 		}
 
 		var sb strings.Builder
-		fmt.Fprintf(&sb, "Drained node %q (context: %s)\n\n", node, ctxName)
-		fmt.Fprintf(&sb, "Evicted: %d pods\n", len(evicted))
+		if dryRun {
+			fmt.Fprintf(&sb, "DRY RUN: would drain node %q (context: %s)\n\n", node, ctxName)
+			fmt.Fprintf(&sb, "Would evict: %d pods\n", len(evicted))
+		} else {
+			fmt.Fprintf(&sb, "Drained node %q (context: %s)\n\n", node, ctxName)
+			fmt.Fprintf(&sb, "Evicted: %d pods\n", len(evicted))
+		}
 		for _, e := range evicted {
 			fmt.Fprintf(&sb, "  - %s\n", e)
 		}

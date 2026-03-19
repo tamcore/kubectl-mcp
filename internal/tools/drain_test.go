@@ -213,6 +213,46 @@ func TestDrainNode_ContextNotAllowed(t *testing.T) {
 	}
 }
 
+func TestDrainNode_DryRun(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+	cfg.AllowDestructive = true
+
+	pods := []runtime.Object{
+		&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: "pod-1", Namespace: "default"},
+			Spec:       corev1.PodSpec{NodeName: "node-1"},
+		},
+	}
+
+	fakeCS := fake.NewClientset(pods...)
+	fakeCS.PrependReactor("create", "pods/eviction", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		return true, nil, nil
+	})
+	dynClient := newWriteFakeDynClient(testNode("node-1"))
+
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+	handler := getHandler(t, "drain_node", func(s *server.MCPServer) {
+		registerDrainNode(s, pool)
+	})
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"node":   "node-1",
+		"dryRun": true,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	text := resultText(t, res)
+	if !strings.Contains(text, "DRY RUN") {
+		t.Errorf("expected DRY RUN in output, got: %s", text)
+	}
+	if !strings.Contains(text, "Would evict") {
+		t.Errorf("expected 'Would evict' in output, got: %s", text)
+	}
+}
+
 func TestDrainNode_NoPods(t *testing.T) {
 	cfg := defaultCfg()
 	cfg.AllowWrite = true

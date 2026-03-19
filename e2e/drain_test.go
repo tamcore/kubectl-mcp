@@ -26,6 +26,27 @@ func TestDrain(t *testing.T) {
 				callTool(t, c, "uncordon_node", map[string]any{"node": nodeName})
 			})
 
+			t.Run("dry_run", func(t *testing.T) {
+				result := callTool(t, c, "drain_node", map[string]any{
+					"node":             nodeName,
+					"ignoreDaemonSets": true,
+					"dryRun":           true,
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("drain dry-run error: %s", text)
+				}
+				if !strings.Contains(text, "DRY RUN") {
+					t.Errorf("expected DRY RUN in output, got: %s", text)
+				}
+
+				// Verify node is NOT cordoned after dry-run.
+				out, _ := kubectlOutput("get", "node", nodeName, "-o", "jsonpath={.spec.unschedulable}")
+				if out == "true" {
+					t.Error("node should NOT be cordoned after dry-run")
+				}
+			})
+
 			t.Run("drain_and_uncordon", func(t *testing.T) {
 				// Create a standalone pod that will be evicted.
 				podName := "e2e-drain-pod"
