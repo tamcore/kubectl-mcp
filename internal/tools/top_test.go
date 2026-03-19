@@ -9,6 +9,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
@@ -679,5 +680,161 @@ func TestTopNodes_MetricsServerNotAvailable(t *testing.T) {
 	text := resultText(t, res)
 	if !strings.Contains(text, "metrics-server") {
 		t.Errorf("expected metrics-server error, got: %s", text)
+	}
+}
+
+// testNodeWithLabels creates a Node unstructured object with the given labels
+// and allocatable resources, for use in label selector tests.
+func testNodeWithLabels(name, cpu, memory string, lbls map[string]string) *unstructured.Unstructured {
+	labelsMap := make(map[string]interface{}, len(lbls))
+	for k, v := range lbls {
+		labelsMap[k] = v
+	}
+	return &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Node",
+		"metadata": map[string]interface{}{
+			"name":              name,
+			"creationTimestamp": "2024-01-01T00:00:00Z",
+			"labels":            labelsMap,
+		},
+		"status": map[string]interface{}{
+			"allocatable": map[string]interface{}{
+				"cpu":    cpu,
+				"memory": memory,
+			},
+		},
+	}}
+}
+
+// labelSelectorReactor returns a PrependReactor func that filters the node list
+// by label selector, enabling label-aware tests with the fake dynamic client.
+func labelSelectorReactor(allNodes []*unstructured.Unstructured) func(clienttesting.Action) (bool, runtime.Object, error) {
+	return func(action clienttesting.Action) (bool, runtime.Object, error) {
+		if action.GetResource().Group != "" || action.GetResource().Resource != "nodes" {
+			return false, nil, nil
+		}
+		listAction, ok := action.(clienttesting.ListAction)
+		if !ok {
+			return false, nil, nil
+		}
+		sel := listAction.GetListRestrictions().Labels
+		if sel == nil || sel.Empty() {
+			return false, nil, nil // let default handler return all
+		}
+		result := &unstructured.UnstructuredList{}
+		for _, n := range allNodes {
+			if sel.Matches(labels.Set(n.GetLabels())) {
+				result.Items = append(result.Items, *n)
+			}
+		}
+		return true, result, nil
+	}
+}
+
+func TestTopNodes_LabelSelector(t *testing.T) {
+	cfg := defaultCfg()
+
+	worker1 := testNodeWithLabels("worker-1", "4000m", "8Gi", map[string]string{"role": "worker"})
+	worker2 := testNodeWithLabels("worker-2", "4000m", "8Gi", map[string]string{"role": "worker"})
+	control := testNodeWithLabels("control-1", "4000m", "8Gi", map[string]string{"role": "control-plane"})
+
+	dynClient := newMetricsFakeDynClient(
+		testNodeMetrics("worker-1", "500m", "2Gi"),
+		testNodeMetrics("worker-2", "300m", "1Gi"),
+		testNodeMetrics("control-1", "100m", "512Mi"),
+		worker1, worker2, control,
+	)
+	dynClient.PrependReactor("list", "nodes", labelSelectorReactor([]*unstructured.Unstructured{worker1, worker2, control}))
+
+	fakeCS := fake.NewClientset()
+	pool := buildPool(cfg, defaultRawConfig(), dynClient, fakeCS)
+	handler := getHandler(t, "top_nodes", func(s *server.MCPServer) {
+		registerTopNodes(s, pool)
+	})
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"labelSelector": "role=worker",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	text := resultText(t, res)
+	if res.IsError {
+		t.Fatalf("expected success, got error: %s", text)
+	}
+
+	var items []map[string]interface{}
+	if err := json.Unmarshal([]byte(text), &items); err != nil {
+		t.Fatalf("expected JSON array, got: %s", text)
+	}
+	if len(items) != 2 {
+		t.Fatalf("expected 2 worker node items, got %d: %s", len(items), text)
+	}
+	names := []string{items[0]["name"].(string), items[1]["name"].(string)}
+	for _, name := range names {
+		if name != "worker-1" && name != "worker-2" {
+			t.Errorf("unexpected node %q in result (only workers expected)", name)
+		}
+	}
+}
+
+func TestTopNodes_LabelSelector_EmptyMatch(t *testing.T) {
+	cfg := defaultCfg()
+
+	worker1 := testNodeWithLabels("worker-1", "4000m", "8Gi", map[string]string{"role": "worker"})
+	dynClient := newMetricsFakeDynClient(
+		testNodeMetrics("worker-1", "500m", "2Gi"),
+		worker1,
+	)
+	// Reactor returns no nodes for the "gpu" label.
+	dynClient.PrependReactor("list", "nodes", labelSelectorReactor([]*unstructured.Unstructured{worker1}))
+
+	fakeCS := fake.NewClientset()
+	pool := buildPool(cfg, defaultRawConfig(), dynClient, fakeCS)
+	handler := getHandler(t, "top_nodes", func(s *server.MCPServer) {
+		registerTopNodes(s, pool)
+	})
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"labelSelector": "role=gpu",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	text := resultText(t, res)
+	if res.IsError {
+		t.Fatalf("expected a text message (not error) for empty match, got: %s", text)
+	}
+	if !strings.Contains(text, "no nodes") {
+		t.Errorf("expected 'no nodes' message for empty match, got: %s", text)
+	}
+}
+
+func TestTopNodes_LabelSelector_And_Name_Error(t *testing.T) {
+	cfg := defaultCfg()
+	dynClient := newMetricsFakeDynClient()
+	fakeCS := fake.NewClientset()
+	pool := buildPool(cfg, defaultRawConfig(), dynClient, fakeCS)
+	handler := getHandler(t, "top_nodes", func(s *server.MCPServer) {
+		registerTopNodes(s, pool)
+	})
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"name":          "node-1",
+		"labelSelector": "role=worker",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	text := resultText(t, res)
+	if !res.IsError {
+		t.Fatalf("expected error when both name and labelSelector provided, got: %s", text)
+	}
+	if !strings.Contains(text, "mutually exclusive") {
+		t.Errorf("expected 'mutually exclusive' error, got: %s", text)
 	}
 }

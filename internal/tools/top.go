@@ -273,7 +273,10 @@ func registerTopNodes(s *server.MCPServer, pool *kube.ClientPool) {
 			mcp.Description("Kubernetes context to use (defaults to current context)"),
 		),
 		mcp.WithString("name",
-			mcp.Description("Filter by node name"),
+			mcp.Description("Filter by node name (mutually exclusive with labelSelector)"),
+		),
+		mcp.WithString("labelSelector",
+			mcp.Description("Kubernetes label selector to filter nodes, e.g. \"node-role.kubernetes.io/worker\" or \"cloud.google.com/gke-nodepool=gpu-pool\" (mutually exclusive with name)"),
 		),
 	)
 
@@ -289,8 +292,13 @@ func registerTopNodes(s *server.MCPServer, pool *kube.ClientPool) {
 		}
 
 		name := req.GetString("name", "")
+		labelSelector := req.GetString("labelSelector", "")
 
-		// Fetch node metrics first — fail fast if metrics-server is missing.
+		if name != "" && labelSelector != "" {
+			return mcp.NewToolResultError("name and labelSelector are mutually exclusive"), nil
+		}
+
+		// Fetch node metrics — fail fast if metrics-server is missing.
 		var metricsList []unstructured.Unstructured
 		if name != "" {
 			obj, err := cc.Dynamic.Resource(nodeMetricsGVR).Get(ctx, name, metav1.GetOptions{})
@@ -301,6 +309,26 @@ func registerTopNodes(s *server.MCPServer, pool *kube.ClientPool) {
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get node metrics: %v", err)), nil
 			}
 			metricsList = []unstructured.Unstructured{*obj}
+		} else if labelSelector != "" {
+			// List nodes matching the selector, then fetch metrics for each.
+			nodeList, err := cc.Dynamic.Resource(nodeGVR).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("failed to list nodes: %v", err)), nil
+			}
+			if len(nodeList.Items) == 0 {
+				return mcp.NewToolResultText("no nodes match the given labelSelector"), nil
+			}
+			for _, node := range nodeList.Items {
+				obj, err := cc.Dynamic.Resource(nodeMetricsGVR).Get(ctx, node.GetName(), metav1.GetOptions{})
+				if err != nil {
+					if isMetricsNotAvailable(err) {
+						return mcp.NewToolResultError(metricsNotAvailableMsg), nil
+					}
+					// Node exists but no metrics yet — skip silently.
+					continue
+				}
+				metricsList = append(metricsList, *obj)
+			}
 		} else {
 			list, err := cc.Dynamic.Resource(nodeMetricsGVR).List(ctx, metav1.ListOptions{})
 			if err != nil {

@@ -78,6 +78,47 @@ func TestTopNodes(t *testing.T) {
 				// May error (no metrics-server) — just verify param is accepted.
 				_ = result
 			})
+
+			t.Run("with_label_selector", func(t *testing.T) {
+				result := callTool(t, c, "top_nodes", map[string]any{
+					"labelSelector": "kubernetes.io/os=linux",
+				})
+				text := resultText(result)
+				if result.IsError {
+					if !strings.Contains(text, "metrics-server") && !strings.Contains(text, "metrics.k8s.io") {
+						t.Errorf("unexpected error with labelSelector: %s", text)
+					}
+				} else {
+					t.Log("top_nodes with labelSelector returned data")
+				}
+			})
+
+			t.Run("label_selector_no_match", func(t *testing.T) {
+				result := callTool(t, c, "top_nodes", map[string]any{
+					"labelSelector": "nonexistent-label=nonexistent-value",
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Errorf("expected graceful message for empty match, got error: %s", text)
+				}
+				if !strings.Contains(text, "no nodes") {
+					t.Errorf("expected 'no nodes' message, got: %s", text)
+				}
+			})
+
+			t.Run("name_and_label_selector_error", func(t *testing.T) {
+				result := callTool(t, c, "top_nodes", map[string]any{
+					"name":          "some-node",
+					"labelSelector": "role=worker",
+				})
+				text := resultText(result)
+				if !result.IsError {
+					t.Errorf("expected error when both name and labelSelector provided, got: %s", text)
+				}
+				if !strings.Contains(text, "mutually exclusive") {
+					t.Errorf("expected 'mutually exclusive' error, got: %s", text)
+				}
+			})
 		})
 	}
 }
