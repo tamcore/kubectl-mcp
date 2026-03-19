@@ -80,6 +80,14 @@ func startSSEServerWithConfig(t *testing.T, cfg *config.Config) string {
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
+		// mcp-go v0.45.0 SSEServer.Shutdown panics with "close of closed
+		// channel" when a client has already disconnected. Recover so the
+		// test result is not masked by the library bug.
+		defer func() {
+			if r := recover(); r != nil {
+				t.Logf("recovered panic during SSE shutdown: %v", r)
+			}
+		}()
 		_ = sseServer.Shutdown(ctx)
 	})
 
