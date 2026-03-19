@@ -69,6 +69,11 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 		mcp.WithString("format",
 			mcp.Description("Output format: 'summary' (default, compact fields), 'table' (server-side columnar, incompatible with filter), 'json' (full objects with noisy metadata stripped)"),
 		),
+		mcp.WithString("sortBy",
+			mcp.Description("Sort results by a field path using dot-notation (e.g. '.metadata.name', '.metadata.creationTimestamp', '.status.phase'). "+
+				"Prefix with '-' for descending order (e.g. '-.metadata.creationTimestamp'). "+
+				"Leading dot is optional. Sorting is applied client-side after the API response."),
+		),
 	)
 
 	s.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -96,6 +101,7 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 		labelSelector := req.GetString("labelSelector", "")
 		filter := req.GetString("filter", "")
 		format := req.GetString("format", "summary")
+		sortByRaw := req.GetString("sortBy", "")
 
 		// Validate format.
 		switch format {
@@ -160,6 +166,14 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 			return mcp.NewToolResultError(fmt.Sprintf("invalid filter: %v", err)), nil
 		}
 		items := applyFilters(list.Items, filters)
+
+		// Apply client-side sorting when requested.
+		if sortByRaw != "" {
+			fieldPath, descending := parseSortBy(sortByRaw)
+			if err := sortUnstructured(items, fieldPath, descending); err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("sortBy error: %v", err)), nil
+			}
+		}
 
 		if len(items) == 0 {
 			if len(filters) > 0 {
