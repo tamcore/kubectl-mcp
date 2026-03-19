@@ -42,6 +42,9 @@ func registerDeleteResource(s *server.MCPServer, pool *kube.ClientPool) { //noli
 		mcp.WithNumber("gracePeriodSeconds",
 			mcp.Description("Grace period in seconds before forceful deletion. 0 means immediate. Omit for the resource's default grace period."),
 		),
+		mcp.WithBoolean("force",
+			mcp.Description("Force immediate deletion. Sets grace period to 0 and bypasses normal graceful termination. Use with caution — skips pre-delete hooks. Cannot be combined with gracePeriodSeconds > 0."),
+		),
 	)
 
 	s.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -66,6 +69,12 @@ func registerDeleteResource(s *server.MCPServer, pool *kube.ClientPool) { //noli
 		}
 
 		dryRun := req.GetBool("dryRun", false)
+		force := req.GetBool("force", false)
+
+		gracePeriod := int64(req.GetFloat("gracePeriodSeconds", -1))
+		if force && gracePeriod > 0 {
+			return mcp.NewToolResultError("force and gracePeriodSeconds are mutually exclusive: force sets the grace period to 0, but gracePeriodSeconds > 0 was also specified"), nil
+		}
 
 		// Request elicitation confirmation for non-dry-run deletes.
 		if !dryRun {
@@ -73,8 +82,11 @@ func registerDeleteResource(s *server.MCPServer, pool *kube.ClientPool) { //noli
 			if namespace != "" {
 				target += fmt.Sprintf(" in namespace %q", namespace)
 			}
-			confirmed, err := confirmDestructiveAction(ctx, mcpServer,
-				fmt.Sprintf("Are you sure you want to delete %s?", target))
+			prompt := fmt.Sprintf("Are you sure you want to delete %s?", target)
+			if force {
+				prompt = fmt.Sprintf("Are you sure you want to force delete %s? This bypasses graceful termination and skips pre-delete hooks.", target)
+			}
+			confirmed, err := confirmDestructiveAction(ctx, mcpServer, prompt)
 			if err != nil {
 				return mcp.NewToolResultError(fmt.Sprintf("elicitation error: %v", err)), nil
 			}
@@ -86,8 +98,10 @@ func registerDeleteResource(s *server.MCPServer, pool *kube.ClientPool) { //noli
 		deleteOpts := metav1.DeleteOptions{
 			DryRun: dryRunOption(dryRun),
 		}
-		gracePeriod := int64(req.GetFloat("gracePeriodSeconds", -1))
-		if gracePeriod >= 0 {
+		if force {
+			zero := int64(0)
+			deleteOpts.GracePeriodSeconds = &zero
+		} else if gracePeriod >= 0 {
 			deleteOpts.GracePeriodSeconds = &gracePeriod
 		}
 

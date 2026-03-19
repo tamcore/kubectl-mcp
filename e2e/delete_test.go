@@ -86,6 +86,50 @@ func TestDelete(t *testing.T) {
 	}
 }
 
+func TestDelete_ForceParam(t *testing.T) {
+	for _, tc := range allTransports {
+		t.Run(tc.name, func(t *testing.T) {
+			base := tc.startFunc(t, defaultConfig())
+			c := tc.clientFunc(t, base)
+
+			t.Run("force_param_accepted", func(t *testing.T) {
+				// force=true with dryRun=true should succeed without actually deleting anything.
+				result := callTool(t, c, "delete_resource", map[string]any{
+					"kind":      "ConfigMap",
+					"name":      "any-cm",
+					"namespace": testNamespace,
+					"force":     true,
+					"dryRun":    true,
+				})
+				// A dry-run force delete of a non-existent resource may return an error
+				// from the API server ("not found"), but the tool itself must not reject
+				// the force parameter — the error must not be about an unknown parameter.
+				text := resultText(result)
+				if strings.Contains(text, "unknown parameter") || strings.Contains(text, "invalid parameter") {
+					t.Errorf("force param should be accepted, got: %s", text)
+				}
+			})
+
+			t.Run("force_and_grace_period_conflict", func(t *testing.T) {
+				result := callTool(t, c, "delete_resource", map[string]any{
+					"kind":               "ConfigMap",
+					"name":               "any-cm",
+					"namespace":          testNamespace,
+					"force":              true,
+					"gracePeriodSeconds": float64(30),
+				})
+				if !result.IsError {
+					t.Error("expected error when force=true and gracePeriodSeconds>0 are both set")
+				}
+				text := resultText(result)
+				if !strings.Contains(text, "force") || !strings.Contains(text, "gracePeriodSeconds") {
+					t.Errorf("expected error to mention force and gracePeriodSeconds, got: %s", text)
+				}
+			})
+		})
+	}
+}
+
 func TestDelete_RejectedWithoutAllowDestructive(t *testing.T) {
 	for _, tc := range allTransports {
 		t.Run(tc.name, func(t *testing.T) {
