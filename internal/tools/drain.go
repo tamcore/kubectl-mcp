@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -18,7 +19,8 @@ import (
 func registerDrainNode(s *server.MCPServer, pool *kube.ClientPool) {
 	mcpServer := s
 	tool := mcp.NewTool("drain_node",
-		mcp.WithDescription("Drain a Kubernetes node: cordon it and evict all eligible pods. Requires --allow-destructive."),
+		mcp.WithDescription("Drain a Kubernetes node: cordon it and evict all eligible pods. Requires --allow-destructive. "+
+			"WARNING: force=true will delete unmanaged pods (not controlled by a ReplicaSet, Job, DaemonSet, or StatefulSet); those pods will be permanently lost."),
 		mcp.WithReadOnlyHintAnnotation(false),
 		mcp.WithDestructiveHintAnnotation(true),
 		mcp.WithIdempotentHintAnnotation(false),
@@ -41,6 +43,14 @@ func registerDrainNode(s *server.MCPServer, pool *kube.ClientPool) {
 		),
 		mcp.WithBoolean("dryRun",
 			mcp.Description("If true, validate the drain without actually cordoning or evicting (server-side dry run)"),
+		),
+		mcp.WithBoolean("force",
+			mcp.Description("Continue even if there are pods not managed by a ReplicaSet, Job, DaemonSet, or StatefulSet. "+
+				"WARNING: these unmanaged pods will be deleted and permanently lost (default: false)"),
+		),
+		mcp.WithNumber("timeout",
+			mcp.Description("Maximum seconds to wait for all pods to be evicted. 0 means wait indefinitely (default: 0). "+
+				"If the timeout is reached, the tool returns an error listing remaining pods."),
 		),
 	)
 
@@ -72,6 +82,15 @@ func registerDrainNode(s *server.MCPServer, pool *kube.ClientPool) {
 
 		ignoreDaemonSets := req.GetBool("ignoreDaemonSets", true)
 		gracePeriod := int64(req.GetFloat("gracePeriodSeconds", -1))
+		force := req.GetBool("force", false)
+		timeoutFloat := req.GetFloat("timeout", 0)
+
+		// Build an optional deadline for the drain operation.
+		// timeout is in seconds and may be fractional (e.g. 0.5 = 500ms).
+		var deadline time.Time
+		if timeoutFloat > 0 {
+			deadline = time.Now().Add(time.Duration(float64(time.Second) * timeoutFloat))
+		}
 
 		// Step 1: Cordon the node.
 		cordonPatch := `{"spec":{"unschedulable":true}}`
@@ -93,10 +112,31 @@ func registerDrainNode(s *server.MCPServer, pool *kube.ClientPool) {
 		}
 
 		var evicted []string
+		var forceDeleted []string
 		var skipped []string
 		var errors []string
 
 		for i := range pods.Items {
+			// Check timeout before processing each pod.
+			if !deadline.IsZero() && time.Now().After(deadline) {
+				// Collect remaining pod names for the timeout error message.
+				var remaining []string
+				for j := i; j < len(pods.Items); j++ {
+					p := &pods.Items[j]
+					if _, isMirror := p.Annotations["kubernetes.io/config.mirror"]; isMirror {
+						continue
+					}
+					if ignoreDaemonSets && isDaemonSetPod(p) {
+						continue
+					}
+					remaining = append(remaining, fmt.Sprintf("%s/%s", p.Namespace, p.Name))
+				}
+				return mcp.NewToolResultError(fmt.Sprintf(
+					"drain timed out after %.3gs waiting for pods to be evicted; remaining pods: %s",
+					timeoutFloat, strings.Join(remaining, ", "),
+				)), nil
+			}
+
 			pod := &pods.Items[i]
 
 			// Skip mirror pods (static pods).
@@ -127,7 +167,22 @@ func registerDrainNode(s *server.MCPServer, pool *kube.ClientPool) {
 
 			evictErr := cc.Clientset.CoreV1().Pods(pod.Namespace).EvictV1(ctx, eviction)
 			if evictErr != nil {
-				errors = append(errors, fmt.Sprintf("%s/%s: %v", pod.Namespace, pod.Name, evictErr))
+				if force && !dryRun {
+					// Force-delete the pod directly when eviction fails.
+					deleteOpts := metav1.DeleteOptions{}
+					if gracePeriod >= 0 {
+						gp := gracePeriod
+						deleteOpts.GracePeriodSeconds = &gp
+					}
+					delErr := cc.Clientset.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, deleteOpts)
+					if delErr != nil {
+						errors = append(errors, fmt.Sprintf("%s/%s: force-delete failed: %v", pod.Namespace, pod.Name, delErr))
+					} else {
+						forceDeleted = append(forceDeleted, fmt.Sprintf("%s/%s", pod.Namespace, pod.Name))
+					}
+				} else {
+					errors = append(errors, fmt.Sprintf("%s/%s: %v", pod.Namespace, pod.Name, evictErr))
+				}
 			} else {
 				evicted = append(evicted, fmt.Sprintf("%s/%s", pod.Namespace, pod.Name))
 			}
@@ -143,6 +198,12 @@ func registerDrainNode(s *server.MCPServer, pool *kube.ClientPool) {
 		}
 		for _, e := range evicted {
 			fmt.Fprintf(&sb, "  - %s\n", e)
+		}
+		if len(forceDeleted) > 0 {
+			fmt.Fprintf(&sb, "Force-deleted: %d pods\n", len(forceDeleted))
+			for _, e := range forceDeleted {
+				fmt.Fprintf(&sb, "  - %s\n", e)
+			}
 		}
 		if len(skipped) > 0 {
 			fmt.Fprintf(&sb, "Skipped: %d pods\n", len(skipped))

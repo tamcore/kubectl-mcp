@@ -86,6 +86,74 @@ func TestDrain(t *testing.T) {
 	}
 }
 
+// TestDrain_ForceAndTimeoutParams verifies that the new force and timeout
+// parameters are accepted by the tool without parameter-level errors.
+// These are smoke tests — they use dryRun=true so no actual drain happens.
+func TestDrain_ForceAndTimeoutParams(t *testing.T) {
+	for _, tc := range allTransports {
+		t.Run(tc.name, func(t *testing.T) {
+			base := tc.startFunc(t, defaultConfig())
+			c := tc.clientFunc(t, base)
+
+			listResult := callTool(t, c, "list_resources", map[string]any{"kind": "Node"})
+			nodes := jsonArrayFromResult(t, resultText(listResult))
+			if len(nodes) == 0 {
+				t.Fatal("no nodes found")
+			}
+			nodeName := nodes[0]["name"].(string)
+
+			t.Run("force_param_accepted", func(t *testing.T) {
+				result := callTool(t, c, "drain_node", map[string]any{
+					"node":             nodeName,
+					"ignoreDaemonSets": true,
+					"dryRun":           true,
+					"force":            true,
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("force param caused unexpected error: %s", text)
+				}
+				if !strings.Contains(text, "DRY RUN") {
+					t.Errorf("expected DRY RUN in output, got: %s", text)
+				}
+			})
+
+			t.Run("timeout_param_accepted", func(t *testing.T) {
+				result := callTool(t, c, "drain_node", map[string]any{
+					"node":             nodeName,
+					"ignoreDaemonSets": true,
+					"dryRun":           true,
+					"timeout":          float64(30),
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("timeout param caused unexpected error: %s", text)
+				}
+				if !strings.Contains(text, "DRY RUN") {
+					t.Errorf("expected DRY RUN in output, got: %s", text)
+				}
+			})
+
+			t.Run("force_and_timeout_together", func(t *testing.T) {
+				result := callTool(t, c, "drain_node", map[string]any{
+					"node":             nodeName,
+					"ignoreDaemonSets": true,
+					"dryRun":           true,
+					"force":            true,
+					"timeout":          float64(60),
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("force+timeout params caused unexpected error: %s", text)
+				}
+				if !strings.Contains(text, "DRY RUN") {
+					t.Errorf("expected DRY RUN in output, got: %s", text)
+				}
+			})
+		})
+	}
+}
+
 func TestDrain_RejectedWithoutAllowDestructive(t *testing.T) {
 	for _, tc := range allTransports {
 		t.Run(tc.name, func(t *testing.T) {
