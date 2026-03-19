@@ -56,6 +56,27 @@ func TestNodeLogs(t *testing.T) {
 				_ = result
 			})
 
+			t.Run("root_listing_no_raw_html", func(t *testing.T) {
+				nodeOut, err := kubectlOutput("get", "nodes", "-o", "jsonpath={.items[0].metadata.name}")
+				if err != nil {
+					t.Fatalf("failed to get node name: %v", err)
+				}
+				nodeName := strings.TrimSpace(nodeOut)
+
+				result := callTool(t, c, "node_logs", map[string]any{
+					"node": nodeName,
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Skipf("node_logs unavailable on this cluster: %s", text)
+				}
+				// If the kubelet returns a directory listing, the tool should
+				// convert it to a helpful message — NOT pass through raw HTML.
+				if strings.Contains(text, "<!doctype") || strings.Contains(text, "<html") {
+					t.Errorf("response contains raw HTML — should be converted to directory listing:\n%s", text)
+				}
+			})
+
 			t.Run("valid_node_name", func(t *testing.T) {
 				// Get an actual node name from the cluster.
 				nodeOut, err := kubectlOutput("get", "nodes", "-o", "jsonpath={.items[0].metadata.name}")

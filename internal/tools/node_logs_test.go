@@ -123,6 +123,82 @@ func TestNodeLogs_ValidatesLogPath(t *testing.T) {
 	}
 }
 
+func TestIsHTMLDirListing(t *testing.T) {
+	tests := []struct {
+		name string
+		data string
+		want bool
+	}{
+		{"k3s HTML listing", `<!doctype html>
+<meta name="viewport" content="width=device-width">
+<pre>
+<a href="94a8f22fe29e4261b8e2f12d13ab3c2a/">94a8f22fe29e4261b8e2f12d13ab3c2a/</a>
+</pre>`, true},
+		{"kubelet pre listing", `<pre>
+<a href="syslog">syslog</a>
+<a href="journal/">journal/</a>
+</pre>`, true},
+		{"plain text logs", "Mar 19 06:00:01 node kubelet[1234]: started\nMar 19 06:00:02 node kubelet[1234]: ready", false},
+		{"empty", "", false},
+		{"json output", `{"kind":"Status","apiVersion":"v1"}`, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isHTMLDirListing([]byte(tt.data))
+			if got != tt.want {
+				t.Errorf("isHTMLDirListing() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseHTMLDirLinks(t *testing.T) {
+	html := `<!doctype html>
+<meta name="viewport" content="width=device-width">
+<pre>
+<a href="94a8f22fe29e4261b8e2f12d13ab3c2a/">94a8f22fe29e4261b8e2f12d13ab3c2a/</a>
+<a href="syslog">syslog</a>
+<a href="messages">messages</a>
+</pre>`
+
+	links := parseHTMLDirLinks([]byte(html))
+	if len(links) != 3 {
+		t.Fatalf("expected 3 links, got %d: %v", len(links), links)
+	}
+
+	want := []string{"94a8f22fe29e4261b8e2f12d13ab3c2a/", "syslog", "messages"}
+	for i, w := range want {
+		if links[i] != w {
+			t.Errorf("link[%d] = %q, want %q", i, links[i], w)
+		}
+	}
+}
+
+func TestParseHTMLDirLinks_Empty(t *testing.T) {
+	links := parseHTMLDirLinks([]byte("no links here"))
+	if len(links) != 0 {
+		t.Errorf("expected 0 links, got %d", len(links))
+	}
+}
+
+func TestFormatDirListing(t *testing.T) {
+	links := []string{"journal/", "syslog", "messages"}
+	result := formatDirListing("", links)
+	if !strings.Contains(result, "directory listing") {
+		t.Errorf("expected 'directory listing' in output, got: %s", result)
+	}
+	if !strings.Contains(result, "syslog") {
+		t.Errorf("expected 'syslog' in output, got: %s", result)
+	}
+
+	// With parent path prefix.
+	result = formatDirListing("journal", links)
+	if !strings.Contains(result, "journal/syslog") {
+		t.Errorf("expected 'journal/syslog' in output, got: %s", result)
+	}
+}
+
 func TestValidateLogPath(t *testing.T) {
 	tests := []struct {
 		path    string

@@ -1,9 +1,11 @@
 package tools
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -78,8 +80,62 @@ func registerNodeLogs(s *server.MCPServer, pool *kube.ClientPool) {
 		if len(data) == 0 {
 			return mcp.NewToolResultText("(no logs)"), nil
 		}
+
+		// Detect HTML directory listings returned by the kubelet and convert
+		// them to a helpful message listing available log paths.
+		if isHTMLDirListing(data) {
+			links := parseHTMLDirLinks(data)
+			if len(links) > 0 {
+				return mcp.NewToolResultText(formatDirListing(logPath, links)), nil
+			}
+		}
+
 		return mcp.NewToolResultText(string(data)), nil
 	})
+}
+
+// isHTMLDirListing returns true if the data looks like an HTML directory listing
+// from the kubelet's /var/log/ proxy endpoint.
+func isHTMLDirListing(data []byte) bool {
+	lower := bytes.ToLower(data)
+	return (bytes.Contains(lower, []byte("<!doctype html")) || bytes.Contains(lower, []byte("<pre>"))) &&
+		bytes.Contains(lower, []byte("<a href="))
+}
+
+// hrefRe matches href="..." attributes in HTML anchor tags.
+var hrefRe = regexp.MustCompile(`<a\s+href="([^"]+)"`)
+
+// parseHTMLDirLinks extracts href values from an HTML directory listing.
+func parseHTMLDirLinks(data []byte) []string {
+	matches := hrefRe.FindAllSubmatch(data, -1)
+	links := make([]string, 0, len(matches))
+	for _, m := range matches {
+		links = append(links, string(m[1]))
+	}
+	return links
+}
+
+// formatDirListing builds a human-readable message from a directory listing,
+// prefixing each entry with the parent logPath so users can call back with the full path.
+func formatDirListing(logPath string, links []string) string {
+	var sb strings.Builder
+	sb.WriteString("The requested path returned a directory listing instead of log content.\n\n")
+	sb.WriteString("Available entries:\n")
+
+	prefix := ""
+	if logPath != "" {
+		prefix = strings.TrimSuffix(logPath, "/") + "/"
+	}
+
+	for _, link := range links {
+		sb.WriteString("  - ")
+		sb.WriteString(prefix)
+		sb.WriteString(link)
+		sb.WriteString("\n")
+	}
+
+	sb.WriteString("\nUse one of these paths as the logPath parameter to view the log content.")
+	return sb.String()
 }
 
 // validateLogPath checks for path traversal attempts in the log path.
