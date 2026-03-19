@@ -9,6 +9,8 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"github.com/tamcore/kubectl-mcp/internal/kube"
 )
@@ -35,7 +37,7 @@ type PortForwardResult struct {
 
 // PortForwarder abstracts the port-forward setup for testability.
 type PortForwarder interface {
-	Forward(ctx context.Context, req PortForwardRequest) (*PortForwardResult, error)
+	Forward(ctx context.Context, clientset kubernetes.Interface, cfg *rest.Config, req PortForwardRequest) (*PortForwardResult, error)
 }
 
 // activeForwards tracks live port-forward sessions for cleanup.
@@ -49,14 +51,6 @@ type portForwardResponse struct {
 	RemotePort uint16  `json:"remotePort"`
 	Timeout    float64 `json:"timeout"`
 	Message    string  `json:"message"`
-}
-
-// spdyPortForwarder is a placeholder production PortForwarder.
-// A full SPDY-based implementation would use k8s.io/client-go/tools/portforward.
-type spdyPortForwarder struct{}
-
-func (s *spdyPortForwarder) Forward(_ context.Context, _ PortForwardRequest) (*PortForwardResult, error) {
-	return nil, fmt.Errorf("SPDY port forwarding not yet implemented; use a test double")
 }
 
 func registerPortForward(s *server.MCPServer, pool *kube.ClientPool, forwarder PortForwarder) {
@@ -98,7 +92,7 @@ func registerPortForward(s *server.MCPServer, pool *kube.ClientPool, forwarder P
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 
-		_, err = pool.ClientFor(ctxName)
+		cc, err := pool.ClientFor(ctxName)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to get client: %v", err)), nil
 		}
@@ -121,7 +115,7 @@ func registerPortForward(s *server.MCPServer, pool *kube.ClientPool, forwarder P
 			Timeout:    timeout,
 		}
 
-		result, err := forwarder.Forward(ctx, pfReq)
+		result, err := forwarder.Forward(ctx, cc.Clientset, cc.RestConfig, pfReq)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to start port forward: %v", err)), nil
 		}

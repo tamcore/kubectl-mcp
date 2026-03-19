@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/mark3labs/mcp-go/server"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/rest"
 
 	"github.com/tamcore/kubectl-mcp/internal/config"
 )
@@ -20,7 +22,7 @@ type fakePortForwarder struct {
 	stopCh    chan struct{}
 }
 
-func (f *fakePortForwarder) Forward(_ context.Context, _ PortForwardRequest) (*PortForwardResult, error) {
+func (f *fakePortForwarder) Forward(_ context.Context, _ kubernetes.Interface, _ *rest.Config, _ PortForwardRequest) (*PortForwardResult, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
