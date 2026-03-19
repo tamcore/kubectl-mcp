@@ -20,7 +20,7 @@ func TestPortForward(t *testing.T) {
 			t.Run("remote_port_zero_returns_error", func(t *testing.T) {
 				result := callTool(t, c, "port_forward", map[string]any{
 					"namespace":  testNamespace,
-					"pod":        "any-pod",
+					"resource":   "any-pod",
 					"remotePort": float64(0),
 				})
 				if !result.IsError {
@@ -35,7 +35,7 @@ func TestPortForward(t *testing.T) {
 			t.Run("nonexistent_pod", func(t *testing.T) {
 				result := callTool(t, c, "port_forward", map[string]any{
 					"namespace":  testNamespace,
-					"pod":        "no-such-pod-xyz",
+					"resource":   "no-such-pod-xyz",
 					"remotePort": float64(8080),
 				})
 				if !result.IsError {
@@ -46,13 +46,62 @@ func TestPortForward(t *testing.T) {
 			t.Run("nonexistent_pod_with_localPort_and_timeout", func(t *testing.T) {
 				result := callTool(t, c, "port_forward", map[string]any{
 					"namespace":  testNamespace,
-					"pod":        "no-such-pod-xyz",
+					"resource":   "no-such-pod-xyz",
 					"remotePort": float64(8080),
 					"localPort":  float64(9090),
 					"timeout":    float64(5),
 				})
 				if !result.IsError {
 					t.Error("expected error for nonexistent pod")
+				}
+			})
+
+			// Backwards compatibility: bare name (no slash) treated as Pod.
+			t.Run("resource_as_bare_pod_name", func(t *testing.T) {
+				result := callTool(t, c, "port_forward", map[string]any{
+					"namespace":  testNamespace,
+					"resource":   "no-such-pod-xyz",
+					"remotePort": float64(8080),
+				})
+				// Should attempt pod resolution (and fail), not an unknown-kind error.
+				if !result.IsError {
+					t.Error("expected error for nonexistent pod via bare name")
+				}
+				text := resultText(result)
+				if strings.Contains(text, "unsupported") {
+					t.Errorf("bare name should not produce unsupported-kind error, got: %s", text)
+				}
+			})
+
+			// Explicit "pod/" prefix works.
+			t.Run("resource_as_pod_kind", func(t *testing.T) {
+				result := callTool(t, c, "port_forward", map[string]any{
+					"namespace":  testNamespace,
+					"resource":   "pod/no-such-pod-xyz",
+					"remotePort": float64(8080),
+				})
+				if !result.IsError {
+					t.Error("expected error for nonexistent pod")
+				}
+				text := resultText(result)
+				if strings.Contains(text, "unsupported") {
+					t.Errorf("pod/ prefix should not produce unsupported-kind error, got: %s", text)
+				}
+			})
+
+			// Unknown kind returns a clear error.
+			t.Run("invalid_kind_returns_error", func(t *testing.T) {
+				result := callTool(t, c, "port_forward", map[string]any{
+					"namespace":  testNamespace,
+					"resource":   "job/my-job",
+					"remotePort": float64(8080),
+				})
+				if !result.IsError {
+					t.Error("expected error for unknown kind 'job'")
+				}
+				text := resultText(result)
+				if !strings.Contains(text, "unsupported") {
+					t.Errorf("expected unsupported-kind error, got: %s", text)
 				}
 			})
 
@@ -67,7 +116,7 @@ func TestPortForward(t *testing.T) {
 			t.Run("forward_auto_port_and_stop", func(t *testing.T) {
 				result := callTool(t, c, "port_forward", map[string]any{
 					"namespace":  testNamespace,
-					"pod":        podName,
+					"resource":   podName,
 					"remotePort": float64(80),
 					"timeout":    float64(60),
 				})
@@ -133,7 +182,7 @@ func TestPortForward(t *testing.T) {
 
 				result := callTool(t, c, "port_forward", map[string]any{
 					"namespace":  testNamespace,
-					"pod":        podName,
+					"resource":   podName,
 					"remotePort": float64(80),
 					"localPort":  float64(freePort),
 					"timeout":    float64(30),
@@ -182,7 +231,7 @@ func TestPortForward_RejectedWithoutAllowWrite(t *testing.T) {
 
 			_, err := callToolMayFail(t, c, "port_forward", map[string]any{
 				"namespace":  testNamespace,
-				"pod":        "any-pod",
+				"resource":   "any-pod",
 				"remotePort": float64(8080),
 			})
 			if err == nil {
