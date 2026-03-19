@@ -40,6 +40,25 @@ func dryRunOption(dryRun bool) []string {
 	return nil
 }
 
+// resolveFieldValidation maps the user-facing validate parameter to the
+// Kubernetes API fieldValidation value. Accepted inputs (case-insensitive):
+//
+//	"strict"       → "Strict"  (default)
+//	"warn"         → "Warn"
+//	"ignore"/"none" → "Ignore"
+func resolveFieldValidation(v string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "strict", "":
+		return "Strict", nil
+	case "warn":
+		return "Warn", nil
+	case "ignore", "none":
+		return "Ignore", nil
+	default:
+		return "", fmt.Errorf("invalid validate value %q: must be one of strict, warn, ignore, none", v)
+	}
+}
+
 // parseDuration parses a human-friendly duration string like "5m", "1h", "30s", "2d".
 func parseDuration(s string) (time.Duration, error) {
 	s = strings.TrimSpace(s)

@@ -173,6 +173,105 @@ data:
 	}
 }
 
+func TestApply_Validate(t *testing.T) {
+	for _, tc := range allTransports {
+		t.Run(tc.name, func(t *testing.T) {
+			base := tc.startFunc(t, defaultConfig())
+			c := tc.clientFunc(t, base)
+
+			t.Run("validate_strict_accepts_valid_manifest", func(t *testing.T) {
+				name := "e2e-apply-validate-strict"
+				manifest := configMapManifest(name, testNamespace, map[string]string{"k": "v"})
+				result := callTool(t, c, "apply_resource", map[string]any{
+					"manifest": manifest,
+					"validate": "strict",
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("validate=strict on valid manifest: %s", text)
+				}
+				if !strings.Contains(text, "Applied ConfigMap/"+name) {
+					t.Errorf("expected apply confirmation, got: %s", text)
+				}
+				t.Cleanup(func() { deleteViaKubectl(t, "configmap", name, testNamespace) })
+			})
+
+			t.Run("validate_warn_accepts_valid_manifest", func(t *testing.T) {
+				name := "e2e-apply-validate-warn"
+				manifest := configMapManifest(name, testNamespace, map[string]string{"k": "v"})
+				result := callTool(t, c, "apply_resource", map[string]any{
+					"manifest": manifest,
+					"validate": "warn",
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("validate=warn on valid manifest: %s", text)
+				}
+				if !strings.Contains(text, "Applied ConfigMap/"+name) {
+					t.Errorf("expected apply confirmation, got: %s", text)
+				}
+				t.Cleanup(func() { deleteViaKubectl(t, "configmap", name, testNamespace) })
+			})
+
+			t.Run("validate_ignore_skips_validation", func(t *testing.T) {
+				name := "e2e-apply-validate-ignore"
+				manifest := configMapManifest(name, testNamespace, map[string]string{"k": "v"})
+				result := callTool(t, c, "apply_resource", map[string]any{
+					"manifest": manifest,
+					"validate": "ignore",
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("validate=ignore on valid manifest: %s", text)
+				}
+				if !strings.Contains(text, "Applied ConfigMap/"+name) {
+					t.Errorf("expected apply confirmation, got: %s", text)
+				}
+				t.Cleanup(func() { deleteViaKubectl(t, "configmap", name, testNamespace) })
+			})
+
+			t.Run("validate_with_dry_run", func(t *testing.T) {
+				name := "e2e-apply-validate-dryrun"
+				manifest := configMapManifest(name, testNamespace, map[string]string{"k": "v"})
+				result := callTool(t, c, "apply_resource", map[string]any{
+					"manifest": manifest,
+					"validate": "warn",
+					"dryRun":   true,
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("validate=warn dryRun=true: %s", text)
+				}
+				if !strings.Contains(text, "DRY RUN") {
+					t.Errorf("expected DRY RUN prefix, got: %s", text)
+				}
+				// Verify not persisted.
+				out, _ := kubectlOutput("get", "configmap", name, "-n", testNamespace,
+					"--ignore-not-found", "-o", "name")
+				if out != "" {
+					t.Errorf("dry-run should not persist resource, but found: %s", out)
+					t.Cleanup(func() { deleteViaKubectl(t, "configmap", name, testNamespace) })
+				}
+			})
+
+			t.Run("invalid_validate_returns_error", func(t *testing.T) {
+				manifest := configMapManifest("e2e-apply-bad-validate", testNamespace, map[string]string{"k": "v"})
+				result := callTool(t, c, "apply_resource", map[string]any{
+					"manifest": manifest,
+					"validate": "bogus",
+				})
+				if !result.IsError {
+					t.Error("expected error for invalid validate value")
+				}
+				text := resultText(result)
+				if !strings.Contains(text, "invalid validate") {
+					t.Errorf("expected 'invalid validate' error, got: %s", text)
+				}
+			})
+		})
+	}
+}
+
 func TestApply_RejectedWithoutAllowWrite(t *testing.T) {
 	for _, tc := range allTransports {
 		t.Run(tc.name, func(t *testing.T) {

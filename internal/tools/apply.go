@@ -34,6 +34,9 @@ func registerApplyResource(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 		mcp.WithBoolean("dryRun",
 			mcp.Description("If true, validate the request without persisting the change (server-side dry run)"),
 		),
+		mcp.WithString("validate",
+			mcp.Description(`Server-side field validation mode: "strict" (default), "warn", "ignore", or "none" (alias for ignore)`),
+		),
 	)
 
 	s.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -78,8 +81,13 @@ func registerApplyResource(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 
 		dryRun := dryRunOption(req.GetBool("dryRun", false))
 
+		fieldValidation, err := resolveFieldValidation(req.GetString("validate", "strict"))
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+
 		// Try Create first; if the resource already exists, Update it.
-		result, err = res.Create(ctx, obj, metav1.CreateOptions{DryRun: dryRun})
+		result, err = res.Create(ctx, obj, metav1.CreateOptions{DryRun: dryRun, FieldValidation: fieldValidation})
 		if err != nil {
 			if !isAlreadyExists(err) {
 				return mcp.NewToolResultError(fmt.Sprintf("failed to apply %s/%s: %v", kind, name, err)), nil
@@ -90,7 +98,7 @@ func registerApplyResource(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get existing %s/%s: %v", kind, name, getErr)), nil
 			}
 			obj.SetResourceVersion(existing.GetResourceVersion())
-			result, err = res.Update(ctx, obj, metav1.UpdateOptions{DryRun: dryRun})
+			result, err = res.Update(ctx, obj, metav1.UpdateOptions{DryRun: dryRun, FieldValidation: fieldValidation})
 			if err != nil {
 				return mcp.NewToolResultError(fmt.Sprintf("failed to update %s/%s: %v", kind, name, err)), nil
 			}

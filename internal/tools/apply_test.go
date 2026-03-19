@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
+	clienttesting "k8s.io/client-go/testing"
 
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	fakedynamic "k8s.io/client-go/dynamic/fake"
@@ -269,6 +270,262 @@ func TestParseManifest_MissingAPIVersion(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "apiVersion") {
 		t.Errorf("expected apiVersion error, got: %v", err)
+	}
+}
+
+func TestApplyResource_ValidateStrict(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+
+	fakeCS := fake.NewClientset()
+	dynClient := newWriteFakeDynClient()
+
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+	handler := getHandler(t, "apply_resource", func(s *server.MCPServer) {
+		registerApplyResource(s, pool, cfg)
+	})
+
+	var capturedFieldValidation string
+	dynClient.PrependReactor("create", "configmaps", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		if ua, ok := action.(interface{ GetCreateOptions() metav1.CreateOptions }); ok {
+			capturedFieldValidation = ua.GetCreateOptions().FieldValidation
+		}
+		return false, nil, nil
+	})
+
+	manifest := `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"strict-cm","namespace":"default"}}`
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"manifest": manifest,
+		"validate": "strict",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.IsError {
+		t.Fatalf("expected success, got error: %s", resultText(t, res))
+	}
+	if capturedFieldValidation != "Strict" {
+		t.Errorf("expected fieldValidation=Strict, got %q", capturedFieldValidation)
+	}
+}
+
+func TestApplyResource_ValidateWarn(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+
+	fakeCS := fake.NewClientset()
+	dynClient := newWriteFakeDynClient()
+
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+	handler := getHandler(t, "apply_resource", func(s *server.MCPServer) {
+		registerApplyResource(s, pool, cfg)
+	})
+
+	var capturedFieldValidation string
+	dynClient.PrependReactor("create", "configmaps", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		if ua, ok := action.(interface{ GetCreateOptions() metav1.CreateOptions }); ok {
+			capturedFieldValidation = ua.GetCreateOptions().FieldValidation
+		}
+		return false, nil, nil
+	})
+
+	manifest := `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"warn-cm","namespace":"default"}}`
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"manifest": manifest,
+		"validate": "warn",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.IsError {
+		t.Fatalf("expected success, got error: %s", resultText(t, res))
+	}
+	if capturedFieldValidation != "Warn" {
+		t.Errorf("expected fieldValidation=Warn, got %q", capturedFieldValidation)
+	}
+}
+
+func TestApplyResource_ValidateIgnore(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+
+	fakeCS := fake.NewClientset()
+	dynClient := newWriteFakeDynClient()
+
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+	handler := getHandler(t, "apply_resource", func(s *server.MCPServer) {
+		registerApplyResource(s, pool, cfg)
+	})
+
+	var capturedFieldValidation string
+	dynClient.PrependReactor("create", "configmaps", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		if ua, ok := action.(interface{ GetCreateOptions() metav1.CreateOptions }); ok {
+			capturedFieldValidation = ua.GetCreateOptions().FieldValidation
+		}
+		return false, nil, nil
+	})
+
+	manifest := `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"ignore-cm","namespace":"default"}}`
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"manifest": manifest,
+		"validate": "ignore",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.IsError {
+		t.Fatalf("expected success, got error: %s", resultText(t, res))
+	}
+	if capturedFieldValidation != "Ignore" {
+		t.Errorf("expected fieldValidation=Ignore, got %q", capturedFieldValidation)
+	}
+}
+
+func TestApplyResource_ValidateNoneAliasesIgnore(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+
+	fakeCS := fake.NewClientset()
+	dynClient := newWriteFakeDynClient()
+
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+	handler := getHandler(t, "apply_resource", func(s *server.MCPServer) {
+		registerApplyResource(s, pool, cfg)
+	})
+
+	var capturedFieldValidation string
+	dynClient.PrependReactor("create", "configmaps", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		if ua, ok := action.(interface{ GetCreateOptions() metav1.CreateOptions }); ok {
+			capturedFieldValidation = ua.GetCreateOptions().FieldValidation
+		}
+		return false, nil, nil
+	})
+
+	manifest := `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"none-cm","namespace":"default"}}`
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"manifest": manifest,
+		"validate": "none",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.IsError {
+		t.Fatalf("expected success, got error: %s", resultText(t, res))
+	}
+	if capturedFieldValidation != "Ignore" {
+		t.Errorf("expected fieldValidation=Ignore for validate=none, got %q", capturedFieldValidation)
+	}
+}
+
+func TestApplyResource_ValidateDefault(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+
+	fakeCS := fake.NewClientset()
+	dynClient := newWriteFakeDynClient()
+
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+	handler := getHandler(t, "apply_resource", func(s *server.MCPServer) {
+		registerApplyResource(s, pool, cfg)
+	})
+
+	var capturedFieldValidation string
+	dynClient.PrependReactor("create", "configmaps", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		if ua, ok := action.(interface{ GetCreateOptions() metav1.CreateOptions }); ok {
+			capturedFieldValidation = ua.GetCreateOptions().FieldValidation
+		}
+		return false, nil, nil
+	})
+
+	// No validate param — should default to Strict.
+	manifest := `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"default-cm","namespace":"default"}}`
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"manifest": manifest,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.IsError {
+		t.Fatalf("expected success, got error: %s", resultText(t, res))
+	}
+	if capturedFieldValidation != "Strict" {
+		t.Errorf("expected fieldValidation=Strict (default), got %q", capturedFieldValidation)
+	}
+}
+
+func TestApplyResource_ValidateInvalid(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+
+	fakeCS := fake.NewClientset()
+	dynClient := newWriteFakeDynClient()
+
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+	handler := getHandler(t, "apply_resource", func(s *server.MCPServer) {
+		registerApplyResource(s, pool, cfg)
+	})
+
+	manifest := `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"bad-cm","namespace":"default"}}`
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"manifest": manifest,
+		"validate": "bogus",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.IsError {
+		t.Fatal("expected error for invalid validate value")
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "invalid validate") {
+		t.Errorf("expected 'invalid validate' error, got: %s", text)
+	}
+}
+
+func TestApplyResource_ValidateWithDryRun(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+
+	fakeCS := fake.NewClientset()
+	dynClient := newWriteFakeDynClient()
+
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+	handler := getHandler(t, "apply_resource", func(s *server.MCPServer) {
+		registerApplyResource(s, pool, cfg)
+	})
+
+	var capturedFieldValidation string
+	var capturedDryRun []string
+	dynClient.PrependReactor("create", "configmaps", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		if ua, ok := action.(interface{ GetCreateOptions() metav1.CreateOptions }); ok {
+			opts := ua.GetCreateOptions()
+			capturedFieldValidation = opts.FieldValidation
+			capturedDryRun = opts.DryRun
+		}
+		return false, nil, nil
+	})
+
+	manifest := `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"dryrun-warn-cm","namespace":"default"}}`
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"manifest": manifest,
+		"validate": "warn",
+		"dryRun":   true,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.IsError {
+		t.Fatalf("expected success, got error: %s", resultText(t, res))
+	}
+	if capturedFieldValidation != "Warn" {
+		t.Errorf("expected fieldValidation=Warn, got %q", capturedFieldValidation)
+	}
+	if len(capturedDryRun) == 0 || capturedDryRun[0] != "All" {
+		t.Errorf("expected dryRun=[All], got %v", capturedDryRun)
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "DRY RUN") {
+		t.Errorf("expected DRY RUN prefix, got: %s", text)
 	}
 }
 
