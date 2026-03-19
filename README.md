@@ -291,6 +291,26 @@ kubectl-mcp serve --transport streamable-http &
 }
 ```
 
+## Companion Skill (Claude Code)
+
+kubectl-mcp ships with a companion skill file that teaches Claude Code
+effective Kubernetes workflows, safety patterns, and auto-issue reporting.
+
+Install it:
+
+```bash
+cp skills/kubectl-mcp.md ~/.claude/skills/
+```
+
+The skill provides:
+- **Diagnosis workflows** — step-by-step patterns for debugging pods, deployments, and nodes
+- **Safety patterns** — dry-run-first, multi-cluster awareness, common mistakes to avoid
+- **Auto-issue reporting** — when Claude encounters a server bug, it will offer to file an
+  anonymized GitHub issue via `gh` CLI (always asks for your confirmation first)
+
+> The server also embeds concise instructions in the MCP `initialize` response, so all
+> MCP clients get baseline guidance automatically — even without the skill file.
+
 ## Known Limitations
 
 ### Follow / streaming logs

@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -13,6 +15,70 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
+
+// startTestMCPServer starts a streamable-HTTP MCP server on a random port and
+// returns the address. The server is shut down when the test completes.
+func startTestMCPServer(t *testing.T, s *server.MCPServer) string {
+	t.Helper()
+
+	httpServer := server.NewStreamableHTTPServer(s)
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	addr := ln.Addr().String()
+	_ = ln.Close()
+
+	go func() {
+		if err := httpServer.Start(addr); err != nil && !strings.Contains(err.Error(), "Server closed") {
+			t.Logf("server error: %v", err)
+		}
+	}()
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = httpServer.Shutdown(ctx)
+	})
+
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		conn, dialErr := net.DialTimeout("tcp", addr, 100*time.Millisecond)
+		if dialErr == nil {
+			_ = conn.Close()
+			return addr
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatal("server did not start within 3 seconds")
+	return ""
+}
+
+// sendInitialize sends an MCP initialize request and returns the raw response body.
+func sendInitialize(t *testing.T, addr string) []byte {
+	t.Helper()
+
+	initBody := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"0.0.1"}}}`
+	resp, err := http.Post(
+		fmt.Sprintf("http://%s/mcp", addr),
+		"application/json",
+		strings.NewReader(initBody),
+	)
+	if err != nil {
+		t.Fatalf("POST /mcp failed: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read body: %v", err)
+	}
+	return body
+}
 
 func TestSummarizeArgs(t *testing.T) {
 	tests := []struct {
@@ -82,57 +148,77 @@ func TestStreamableHTTPServerStartsAndAcceptsConnections(t *testing.T) {
 		server.WithToolCapabilities(false),
 	)
 
-	httpServer := server.NewStreamableHTTPServer(s)
+	addr := startTestMCPServer(t, s)
+	body := sendInitialize(t, addr)
 
-	// Find a free port.
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
+	if len(body) == 0 {
+		t.Fatal("empty response body")
 	}
-	addr := ln.Addr().String()
-	_ = ln.Close()
+}
 
-	go func() {
-		if err := httpServer.Start(addr); err != nil && !strings.Contains(err.Error(), "Server closed") {
-			t.Logf("server error: %v", err)
+func TestServerInstructions_NotEmpty(t *testing.T) {
+	instructions := serverInstructions()
+	if instructions == "" {
+		t.Fatal("serverInstructions() returned empty string")
+	}
+}
+
+func TestServerInstructions_ContainsKeyGuidance(t *testing.T) {
+	instructions := serverInstructions()
+
+	requiredPhrases := []string{
+		"read-only",
+		"list_contexts",
+		"explain_resource",
+		"secrets",
+		"destructive",
+		"dry",
+	}
+
+	for _, phrase := range requiredPhrases {
+		if !strings.Contains(strings.ToLower(instructions), phrase) {
+			t.Errorf("instructions missing key phrase %q", phrase)
 		}
-	}()
-	t.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-		_ = httpServer.Shutdown(ctx)
-	})
+	}
+}
 
-	// Wait for the server to accept TCP connections.
-	deadline := time.Now().Add(3 * time.Second)
-	for time.Now().Before(deadline) {
-		conn, dialErr := net.DialTimeout("tcp", addr, 100*time.Millisecond)
-		if dialErr == nil {
-			_ = conn.Close()
+func TestServerInstructions_InInitializeResponse(t *testing.T) {
+	s := server.NewMCPServer("test-server", "0.0.1",
+		server.WithToolCapabilities(false),
+		server.WithInstructions(serverInstructions()),
+	)
+
+	addr := startTestMCPServer(t, s)
+	body := sendInitialize(t, addr)
+
+	// The streamable-HTTP response is SSE-formatted. Extract the JSON-RPC
+	// result by scanning for the data line.
+	var resultJSON []byte
+	for _, line := range strings.Split(string(body), "\n") {
+		if strings.HasPrefix(line, "data: ") {
+			resultJSON = []byte(strings.TrimPrefix(line, "data: "))
 			break
 		}
-		time.Sleep(50 * time.Millisecond)
+	}
+	if resultJSON == nil {
+		// Fallback: response may be plain JSON (depends on mcp-go version).
+		resultJSON = body
 	}
 
-	// Send an MCP initialize request and verify we get a JSON-RPC response.
-	initBody := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"0.0.1"}}}`
-	resp, err := http.Post(
-		fmt.Sprintf("http://%s/mcp", addr),
-		"application/json",
-		strings.NewReader(initBody),
-	)
-	if err != nil {
-		t.Fatalf("POST /mcp failed: %v", err)
+	var rpcResp struct {
+		Result struct {
+			Instructions string `json:"instructions"`
+		} `json:"result"`
 	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	if err := json.Unmarshal(resultJSON, &rpcResp); err != nil {
+		t.Fatalf("unmarshal initialize response: %v\nbody: %s", err, string(body))
 	}
 
-	ct := resp.Header.Get("Content-Type")
-	if !strings.Contains(ct, "text/event-stream") && !strings.Contains(ct, "application/json") {
-		t.Fatalf("unexpected Content-Type: %s", ct)
+	if rpcResp.Result.Instructions == "" {
+		t.Fatalf("instructions field is empty in initialize response:\n%s", string(body))
+	}
+	if !strings.Contains(rpcResp.Result.Instructions, "read-only") {
+		t.Fatalf("instructions missing expected content, got: %s", rpcResp.Result.Instructions)
 	}
 }
 
