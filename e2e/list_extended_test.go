@@ -190,7 +190,6 @@ func TestListResourcesSortBy(t *testing.T) {
 				result := callTool(t, c, "list_resources", map[string]any{
 					"kind":          "ConfigMap",
 					"namespace":     testNamespace,
-					"labelSelector": "k=v",
 					"sortBy":        ".metadata.name",
 				})
 				text := resultText(result)
@@ -220,7 +219,6 @@ func TestListResourcesSortBy(t *testing.T) {
 				result := callTool(t, c, "list_resources", map[string]any{
 					"kind":          "ConfigMap",
 					"namespace":     testNamespace,
-					"labelSelector": "k=v",
 					"sortBy":        "-.metadata.name",
 				})
 				text := resultText(result)
