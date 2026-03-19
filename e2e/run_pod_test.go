@@ -84,6 +84,90 @@ func TestRunPod(t *testing.T) {
 					t.Errorf("expected 'invalid restartPolicy' message, got: %s", text)
 				}
 			})
+
+			t.Run("with_single_port", func(t *testing.T) {
+				name := "e2e-run-port-" + strings.ToLower(tc.name)
+				result := callTool(t, c, "run_pod", map[string]any{
+					"namespace": testNamespace,
+					"name":      name,
+					"image":     "nginx:latest",
+					"ports":     "80",
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("error: %s", text)
+				}
+				if !strings.Contains(text, "Created Pod") {
+					t.Errorf("expected 'Created Pod', got: %s", text)
+				}
+
+				out, err := kubectlOutput("get", "pod", name, "-n", testNamespace,
+					"-o", "jsonpath={.spec.containers[0].ports[0].containerPort}")
+				if err != nil {
+					t.Fatalf("kubectl get: %v", err)
+				}
+				if out != "80" {
+					t.Errorf("expected containerPort=80, got: %s", out)
+				}
+				t.Cleanup(func() { deleteViaKubectl(t, "pod", name, testNamespace) })
+			})
+
+			t.Run("with_multiple_ports_and_protocols", func(t *testing.T) {
+				name := "e2e-run-ports2-" + strings.ToLower(tc.name)
+				result := callTool(t, c, "run_pod", map[string]any{
+					"namespace": testNamespace,
+					"name":      name,
+					"image":     "nginx:latest",
+					"ports":     "8080/TCP,9090/UDP",
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("error: %s", text)
+				}
+				out, err := kubectlOutput("get", "pod", name, "-n", testNamespace,
+					"-o", "jsonpath={.spec.containers[0].ports[1].protocol}")
+				if err != nil {
+					t.Fatalf("kubectl get: %v", err)
+				}
+				if out != "UDP" {
+					t.Errorf("expected second port protocol=UDP, got: %s", out)
+				}
+				t.Cleanup(func() { deleteViaKubectl(t, "pod", name, testNamespace) })
+			})
+
+			t.Run("invalid_port_returns_error", func(t *testing.T) {
+				result := callTool(t, c, "run_pod", map[string]any{
+					"namespace": testNamespace,
+					"name":      "e2e-run-badport",
+					"image":     "nginx:latest",
+					"ports":     "99999",
+				})
+				if !result.IsError {
+					t.Error("expected error for out-of-range port")
+					t.Cleanup(func() { deleteViaKubectl(t, "pod", "e2e-run-badport", testNamespace) })
+				}
+				text := resultText(result)
+				if !strings.Contains(text, "invalid port") {
+					t.Errorf("expected 'invalid port' error, got: %s", text)
+				}
+			})
+
+			t.Run("invalid_protocol_returns_error", func(t *testing.T) {
+				result := callTool(t, c, "run_pod", map[string]any{
+					"namespace": testNamespace,
+					"name":      "e2e-run-badproto",
+					"image":     "nginx:latest",
+					"ports":     "8080/HTTP",
+				})
+				if !result.IsError {
+					t.Error("expected error for invalid protocol")
+					t.Cleanup(func() { deleteViaKubectl(t, "pod", "e2e-run-badproto", testNamespace) })
+				}
+				text := resultText(result)
+				if !strings.Contains(text, "invalid protocol") {
+					t.Errorf("expected 'invalid protocol' error, got: %s", text)
+				}
+			})
 		})
 	}
 }

@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -51,6 +53,9 @@ func registerRunPod(s *server.MCPServer, pool *kube.ClientPool) {
 		mcp.WithString("restartPolicy",
 			mcp.Description("Restart policy: Never (default), OnFailure, or Always"),
 		),
+		mcp.WithString("ports",
+			mcp.Description("Comma-separated container ports to expose, e.g. \"80\", \"80,443\", or \"8080/TCP,9090/UDP\". Protocol defaults to TCP. Valid protocols: TCP, UDP, SCTP."),
+		),
 	)
 
 	s.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -69,9 +74,15 @@ func registerRunPod(s *server.MCPServer, pool *kube.ClientPool) {
 		image, _ := req.RequireString("image")
 		commandStr := req.GetString("command", "")
 		restartPolicy := req.GetString("restartPolicy", "Never")
+		portsStr := req.GetString("ports", "")
 
 		if !validRestartPolicies[restartPolicy] {
 			return mcp.NewToolResultError(fmt.Sprintf("invalid restartPolicy %q (must be Never, OnFailure, or Always)", restartPolicy)), nil
+		}
+
+		containerPorts, err := parsePortsString(portsStr)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
 		}
 
 		container := map[string]interface{}{
@@ -89,6 +100,14 @@ func registerRunPod(s *server.MCPServer, pool *kube.ClientPool) {
 				cmdSlice[i] = p
 			}
 			container["command"] = cmdSlice
+		}
+
+		if len(containerPorts) > 0 {
+			portsSlice := make([]interface{}, len(containerPorts))
+			for i, p := range containerPorts {
+				portsSlice[i] = p
+			}
+			container["ports"] = portsSlice
 		}
 
 		pod := &unstructured.Unstructured{
@@ -124,4 +143,58 @@ func registerRunPod(s *server.MCPServer, pool *kube.ClientPool) {
 		return mcp.NewToolResultText(fmt.Sprintf("Created Pod %q in namespace %q (context: %s)\n\n%s",
 			name, namespace, ctxName, string(out))), nil
 	})
+}
+
+// validProtocols is the set of port protocols accepted by Kubernetes.
+var validProtocols = map[string]bool{
+	"TCP":  true,
+	"UDP":  true,
+	"SCTP": true,
+}
+
+// parsePortsString parses a comma-separated ports string like "80", "80,443",
+// or "8080/TCP,9090/UDP" into a slice of container port maps ready for an
+// unstructured Pod spec.
+func parsePortsString(ports string) ([]map[string]interface{}, error) {
+	ports = strings.TrimSpace(ports)
+	if ports == "" {
+		return nil, nil
+	}
+
+	parts := strings.Split(ports, ",")
+	result := make([]map[string]interface{}, 0, len(parts))
+
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+
+		portStr := part
+		protocol := "TCP"
+
+		if idx := strings.Index(part, "/"); idx >= 0 {
+			portStr = part[:idx]
+			protocol = strings.ToUpper(part[idx+1:])
+		}
+
+		if !validProtocols[protocol] {
+			return nil, fmt.Errorf("invalid protocol %q in port %q (must be TCP, UDP, or SCTP)", protocol, part)
+		}
+
+		portNum, err := strconv.ParseInt(strings.TrimSpace(portStr), 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("invalid port %q: not a valid integer", part)
+		}
+		if portNum < 1 || portNum > 65535 {
+			return nil, fmt.Errorf("invalid port %d: must be between 1 and 65535", portNum)
+		}
+
+		result = append(result, map[string]interface{}{
+			"containerPort": portNum,
+			"protocol":      protocol,
+		})
+	}
+
+	return result, nil
 }
