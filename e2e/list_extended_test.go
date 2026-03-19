@@ -45,9 +45,6 @@ func TestListResourcesWithLimit(t *testing.T) {
 				if len(items) > 2 {
 					t.Errorf("expected at most 2 items with limit=2, got %d", len(items))
 				}
-				// If more resources exist than the limit, there should be a continue token.
-				// The test namespace may have a kube-root-ca.crt ConfigMap plus our 3, so
-				// pagination is likely.
 				if strings.Contains(text, "continue=") {
 					t.Log("pagination token present as expected")
 				}
@@ -76,7 +73,6 @@ func TestListResourcesWithFieldSelector(t *testing.T) {
 				if len(items) == 0 {
 					t.Error("expected at least one running pod in kube-system")
 				}
-				// All items should have status Running.
 				for _, item := range items {
 					status, _ := item["status"].(string)
 					if status != "" && status != "Running" {
@@ -86,7 +82,6 @@ func TestListResourcesWithFieldSelector(t *testing.T) {
 			})
 
 			t.Run("field_selector_by_name", func(t *testing.T) {
-				// Create a ConfigMap and find it by fieldSelector on metadata.name.
 				suffix := strings.ToLower(tc.name)
 				name := "e2e-list-fs-" + suffix
 				manifest := configMapManifest(name, testNamespace, map[string]string{"k": "v"})
@@ -145,7 +140,6 @@ func TestListResourcesAllNamespaces(t *testing.T) {
 				if result.IsError {
 					t.Fatalf("error: %s", text)
 				}
-				// Both ConfigMaps from different namespaces should appear.
 				if !strings.Contains(text, nameA) {
 					t.Errorf("expected ConfigMap %s from %s namespace", nameA, testNamespace)
 				}
@@ -162,6 +156,91 @@ func TestListResourcesAllNamespaces(t *testing.T) {
 				})
 				if !result.IsError {
 					t.Error("expected error when allNamespaces=true and namespace is set")
+				}
+			})
+		})
+	}
+}
+
+func TestListResourcesSortBy(t *testing.T) {
+	for _, tc := range allTransports {
+		t.Run(tc.name, func(t *testing.T) {
+			base := tc.startFunc(t, defaultConfig())
+			c := tc.clientFunc(t, base)
+
+			suffix := strings.ToLower(tc.name)
+
+			// Create 3 ConfigMaps with distinct names so ordering is predictable.
+			names := []string{
+				"e2e-sort-charlie-" + suffix,
+				"e2e-sort-alpha-" + suffix,
+				"e2e-sort-bravo-" + suffix,
+			}
+			for _, name := range names {
+				manifest := configMapManifest(name, testNamespace, map[string]string{"k": "v"})
+				callTool(t, c, "apply_resource", map[string]any{"manifest": manifest})
+			}
+			t.Cleanup(func() {
+				for _, name := range names {
+					deleteViaKubectl(t, "configmap", name, testNamespace)
+				}
+			})
+
+			t.Run("sort_by_name", func(t *testing.T) {
+				result := callTool(t, c, "list_resources", map[string]any{
+					"kind":          "ConfigMap",
+					"namespace":     testNamespace,
+					"sortBy":        ".metadata.name",
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("error: %s", text)
+				}
+				items := jsonArrayFromResult(t, text)
+				var ourNames []string
+				for _, item := range items {
+					if n, ok := item["name"].(string); ok {
+						if strings.HasPrefix(n, "e2e-sort-") && strings.HasSuffix(n, "-"+suffix) {
+							ourNames = append(ourNames, n)
+						}
+					}
+				}
+				if len(ourNames) < 3 {
+					t.Fatalf("expected at least 3 sort test ConfigMaps, got %d: %v", len(ourNames), ourNames)
+				}
+				for i := 1; i < len(ourNames); i++ {
+					if ourNames[i-1] > ourNames[i] {
+						t.Errorf("not sorted ascending: %s > %s", ourNames[i-1], ourNames[i])
+					}
+				}
+			})
+
+			t.Run("sort_descending", func(t *testing.T) {
+				result := callTool(t, c, "list_resources", map[string]any{
+					"kind":          "ConfigMap",
+					"namespace":     testNamespace,
+					"sortBy":        "-.metadata.name",
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("error: %s", text)
+				}
+				items := jsonArrayFromResult(t, text)
+				var ourNames []string
+				for _, item := range items {
+					if n, ok := item["name"].(string); ok {
+						if strings.HasPrefix(n, "e2e-sort-") && strings.HasSuffix(n, "-"+suffix) {
+							ourNames = append(ourNames, n)
+						}
+					}
+				}
+				if len(ourNames) < 3 {
+					t.Fatalf("expected at least 3 sort test ConfigMaps, got %d: %v", len(ourNames), ourNames)
+				}
+				for i := 1; i < len(ourNames); i++ {
+					if ourNames[i-1] < ourNames[i] {
+						t.Errorf("not sorted descending: %s < %s", ourNames[i-1], ourNames[i])
+					}
 				}
 			})
 		})
