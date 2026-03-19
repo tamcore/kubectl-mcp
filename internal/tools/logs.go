@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -15,6 +16,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/tamcore/kubectl-mcp/internal/kube"
+)
+
+const (
+	followMaxLines = 10_000
+	followMaxBytes = 1024 * 1024 // 1 MB
 )
 
 func registerGetLogs(s *server.MCPServer, pool *kube.ClientPool) {
@@ -41,7 +47,7 @@ func registerGetLogs(s *server.MCPServer, pool *kube.ClientPool) {
 			mcp.Description("Container name (required if pod has multiple containers)"),
 		),
 		mcp.WithNumber("tail",
-			mcp.Description("Number of lines from the end to return per pod (default 100)"),
+			mcp.Description("Number of lines from the end to return per pod (default 100). Cannot be used with follow=true."),
 		),
 		mcp.WithString("since",
 			mcp.Description("Only return logs newer than a relative duration (e.g. 5m, 1h)"),
@@ -57,6 +63,12 @@ func registerGetLogs(s *server.MCPServer, pool *kube.ClientPool) {
 		),
 		mcp.WithString("resource",
 			mcp.Description("Resource reference (e.g. 'deployment/nginx', 'job/my-job'). Resolves to pod label selector. Supported: Deployment, Job, StatefulSet, ReplicaSet, DaemonSet. Mutually exclusive with pod and labelSelector."),
+		),
+		mcp.WithBoolean("follow",
+			mcp.Description("Stream log output for up to followTimeout seconds, then return all accumulated lines. Cannot be combined with tail."),
+		),
+		mcp.WithNumber("followTimeout",
+			mcp.Description("Maximum seconds to follow before returning (default 30, range 1-120). Only used when follow=true."),
 		),
 	)
 
@@ -77,6 +89,20 @@ func registerGetLogs(s *server.MCPServer, pool *kube.ClientPool) {
 		resource := req.GetString("resource", "")
 		container := req.GetString("container", "")
 		previous := req.GetBool("previous", false)
+		follow := req.GetBool("follow", false)
+		followTimeout := int(req.GetFloat("followTimeout", 30))
+
+		// Validate follow constraints before any other processing.
+		if follow {
+			tailRaw := req.GetFloat("tail", 0)
+			if tailRaw != 0 {
+				return mcp.NewToolResultError("follow and tail are mutually exclusive — cannot use tail when follow=true"), nil
+			}
+			if followTimeout < 1 || followTimeout > 120 {
+				return mcp.NewToolResultError(fmt.Sprintf("followTimeout must be between 1 and 120 seconds (got %d)", followTimeout)), nil
+			}
+		}
+
 		tailLines := int64(req.GetFloat("tail", 100))
 
 		// Exactly one of pod, labelSelector, or resource must be provided.
@@ -106,9 +132,12 @@ func registerGetLogs(s *server.MCPServer, pool *kube.ClientPool) {
 		}
 
 		opts := &corev1.PodLogOptions{
-			TailLines:  &tailLines,
 			Previous:   previous,
 			Timestamps: timestamps,
+			Follow:     follow,
+		}
+		if !follow {
+			opts.TailLines = &tailLines
 		}
 		if container != "" {
 			opts.Container = container
@@ -133,6 +162,9 @@ func registerGetLogs(s *server.MCPServer, pool *kube.ClientPool) {
 
 		// Single-pod path.
 		if podName != "" {
+			if follow {
+				return fetchFollowLogs(ctx, cc, namespace, podName, opts, followTimeout)
+			}
 			return fetchPodLogs(ctx, cc, namespace, podName, opts)
 		}
 
@@ -158,8 +190,13 @@ func registerGetLogs(s *server.MCPServer, pool *kube.ClientPool) {
 			if i > 0 {
 				sb.WriteString("\n")
 			}
-			res, _ := fetchPodLogs(ctx, cc, namespace, pod.GetName(), opts)
-			text := extractText(res)
+			var podRes *mcp.CallToolResult
+			if follow {
+				podRes, _ = fetchFollowLogs(ctx, cc, namespace, pod.GetName(), opts, followTimeout)
+			} else {
+				podRes, _ = fetchPodLogs(ctx, cc, namespace, pod.GetName(), opts)
+			}
+			text := extractText(podRes)
 			// Prefix each line with pod name.
 			for _, line := range strings.Split(text, "\n") {
 				if line == "" {
@@ -176,7 +213,7 @@ func registerGetLogs(s *server.MCPServer, pool *kube.ClientPool) {
 	})
 }
 
-// fetchPodLogs fetches logs for a single pod.
+// fetchPodLogs fetches logs for a single pod (non-follow mode).
 func fetchPodLogs(ctx context.Context, cc *kube.ContextClient, namespace, pod string, opts *corev1.PodLogOptions) (*mcp.CallToolResult, error) {
 	stream, err := cc.Clientset.CoreV1().Pods(namespace).GetLogs(pod, opts).Stream(ctx)
 	if err != nil {
@@ -193,6 +230,95 @@ func fetchPodLogs(ctx context.Context, cc *kube.ContextClient, namespace, pod st
 		return mcp.NewToolResultText("(no logs)"), nil
 	}
 	return mcp.NewToolResultText(string(data)), nil
+}
+
+// fetchFollowLogs opens a follow stream for a single pod, accumulates lines
+// up to followTimeout seconds (or until the stream closes), then returns.
+func fetchFollowLogs(ctx context.Context, cc *kube.ContextClient, namespace, pod string, opts *corev1.PodLogOptions, timeoutSecs int) (*mcp.CallToolResult, error) {
+	streamCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	stream, err := cc.Clientset.CoreV1().Pods(namespace).GetLogs(pod, opts).Stream(streamCtx)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("[%s] failed to get logs: %v", pod, err)), nil
+	}
+
+	timeout := time.Duration(timeoutSecs) * time.Second
+	lines, truncated, _ := readFollowStream(stream, timeout)
+
+	// Cancel the stream context to release server-side resources.
+	cancel()
+	_ = stream.Close()
+
+	if len(lines) == 0 {
+		return mcp.NewToolResultText("(no logs)"), nil
+	}
+
+	var sb strings.Builder
+	if truncated {
+		sb.WriteString("[truncated: buffer limit reached — showing first 10000 lines / 1 MB]\n")
+	}
+	sb.WriteString(strings.Join(lines, "\n"))
+	sb.WriteString("\n")
+
+	return mcp.NewToolResultText(sb.String()), nil
+}
+
+// readFollowStream reads lines from r until the stream closes, timeout fires,
+// or a buffer cap (followMaxLines lines or followMaxBytes bytes) is hit.
+// It returns the accumulated lines, a truncation flag, and any non-EOF read error.
+//
+// Implementation note: lines are sent to an unbuffered channel by a scanning
+// goroutine. The main goroutine collects from that channel until timeout or
+// the channel is closed, so lines accumulated before the timeout are never lost.
+func readFollowStream(r io.Reader, timeout time.Duration) (lines []string, truncated bool, err error) {
+	type lineMsg struct {
+		text string
+		err  error
+	}
+
+	ch := make(chan lineMsg)
+
+	go func() {
+		defer close(ch)
+		scanner := bufio.NewScanner(r)
+		for scanner.Scan() {
+			ch <- lineMsg{text: scanner.Text()}
+		}
+		if scanErr := scanner.Err(); scanErr != nil {
+			ch <- lineMsg{err: scanErr}
+		}
+	}()
+
+	timer := time.After(timeout)
+	var (
+		acc        []string
+		totalBytes int
+		trunc      bool
+		readErr    error
+	)
+
+	for {
+		select {
+		case msg, ok := <-ch:
+			if !ok {
+				// Channel closed: stream finished naturally.
+				return acc, trunc, readErr
+			}
+			if msg.err != nil {
+				readErr = msg.err
+				return acc, trunc, readErr
+			}
+			totalBytes += len(msg.text) + 1 // +1 for newline
+			acc = append(acc, msg.text)
+			if len(acc) >= followMaxLines || totalBytes >= followMaxBytes {
+				trunc = true
+				return acc, trunc, nil
+			}
+		case <-timer:
+			return acc, trunc, nil
+		}
+	}
 }
 
 // countSpecified returns the number of non-empty string arguments.

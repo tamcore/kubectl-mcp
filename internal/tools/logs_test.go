@@ -2,8 +2,11 @@ package tools
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mark3labs/mcp-go/server"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -223,5 +226,178 @@ func TestGetLogs_PodStillWorksAlone(t *testing.T) {
 	text := resultText(t, res)
 	if strings.Contains(text, "pod") && strings.Contains(text, "labelSelector") {
 		t.Errorf("should not get validation error when pod is provided, got: %s", text)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Tests for follow/streaming support (issue #14)
+// ---------------------------------------------------------------------------
+
+func TestGetLogs_FollowAndTailConflict(t *testing.T) {
+	cfg := defaultCfg()
+	fakeCS := fake.NewClientset()
+	dynClient := newFakeDynClient()
+	pool := buildPool(cfg, defaultRawConfig(), dynClient, fakeCS)
+
+	handler := getHandler(t, "get_logs", func(s *server.MCPServer) {
+		registerGetLogs(s, pool)
+	})
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"namespace": "default",
+		"pod":       "my-pod",
+		"follow":    true,
+		"tail":      float64(10),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.IsError {
+		t.Error("expected error when follow=true and tail are both set")
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "tail") || !strings.Contains(text, "follow") {
+		t.Errorf("expected error mentioning follow and tail, got: %s", text)
+	}
+}
+
+func TestGetLogs_FollowTimeoutTooLow(t *testing.T) {
+	cfg := defaultCfg()
+	fakeCS := fake.NewClientset()
+	dynClient := newFakeDynClient()
+	pool := buildPool(cfg, defaultRawConfig(), dynClient, fakeCS)
+
+	handler := getHandler(t, "get_logs", func(s *server.MCPServer) {
+		registerGetLogs(s, pool)
+	})
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"namespace":     "default",
+		"pod":           "my-pod",
+		"follow":        true,
+		"followTimeout": float64(0),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.IsError {
+		t.Error("expected error when followTimeout=0 (out of range)")
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "followTimeout") {
+		t.Errorf("expected error mentioning followTimeout, got: %s", text)
+	}
+}
+
+func TestGetLogs_FollowTimeoutTooHigh(t *testing.T) {
+	cfg := defaultCfg()
+	fakeCS := fake.NewClientset()
+	dynClient := newFakeDynClient()
+	pool := buildPool(cfg, defaultRawConfig(), dynClient, fakeCS)
+
+	handler := getHandler(t, "get_logs", func(s *server.MCPServer) {
+		registerGetLogs(s, pool)
+	})
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"namespace":     "default",
+		"pod":           "my-pod",
+		"follow":        true,
+		"followTimeout": float64(200),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.IsError {
+		t.Error("expected error when followTimeout=200 (out of range)")
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "followTimeout") {
+		t.Errorf("expected error mentioning followTimeout, got: %s", text)
+	}
+}
+
+// TestGetLogs_ReadFollowStream_Basic verifies that readFollowStream reads lines
+// from a stream that closes naturally.
+func TestGetLogs_ReadFollowStream_Basic(t *testing.T) {
+	logBody := "line-one\nline-two\nline-three\n"
+	pr, pw := io.Pipe()
+	go func() {
+		_, _ = fmt.Fprint(pw, logBody)
+		_ = pw.Close()
+	}()
+
+	lines, truncated, err := readFollowStream(pr, 2*time.Second)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if truncated {
+		t.Error("expected no truncation for small stream")
+	}
+	result := strings.Join(lines, "\n")
+	if !strings.Contains(result, "line-one") || !strings.Contains(result, "line-two") {
+		t.Errorf("expected all lines in output, got: %s", result)
+	}
+}
+
+// TestGetLogs_ReadFollowStream_Timeout verifies readFollowStream returns after
+// the timeout even if the stream doesn't close.
+func TestGetLogs_ReadFollowStream_Timeout(t *testing.T) {
+	pr, pw := io.Pipe()
+	defer func() { _ = pw.Close() }()
+
+	// Write a couple of lines then block (don't close).
+	go func() {
+		_, _ = fmt.Fprintln(pw, "line-before-timeout")
+	}()
+
+	start := time.Now()
+	lines, _, _ := readFollowStream(pr, 200*time.Millisecond)
+	elapsed := time.Since(start)
+
+	// Should return in roughly 200ms, not hang.
+	if elapsed > 2*time.Second {
+		t.Errorf("readFollowStream took too long: %v", elapsed)
+	}
+	result := strings.Join(lines, "\n")
+	if !strings.Contains(result, "line-before-timeout") {
+		t.Errorf("expected accumulated lines before timeout, got: %q", result)
+	}
+}
+
+// TestGetLogs_ReadFollowStream_BufferCapLines verifies that >10000 lines triggers truncation.
+func TestGetLogs_ReadFollowStream_BufferCapLines(t *testing.T) {
+	pr, pw := io.Pipe()
+	go func() {
+		defer func() { _ = pw.Close() }()
+		for i := 0; i < 10100; i++ {
+			_, _ = fmt.Fprintf(pw, "log line %d\n", i)
+		}
+	}()
+
+	lines, truncated, _ := readFollowStream(pr, 5*time.Second)
+	if !truncated {
+		t.Error("expected truncation flag when > 10000 lines")
+	}
+	if len(lines) > 10000 {
+		t.Errorf("expected at most 10000 lines, got %d", len(lines))
+	}
+}
+
+// TestGetLogs_ReadFollowStream_BufferCapBytes verifies that >= 1MB triggers truncation.
+func TestGetLogs_ReadFollowStream_BufferCapBytes(t *testing.T) {
+	pr, pw := io.Pipe()
+	go func() {
+		defer func() { _ = pw.Close() }()
+		// Write lines that total > 1MB.
+		line := strings.Repeat("x", 1000) + "\n"
+		for i := 0; i < 1100; i++ {
+			_, _ = fmt.Fprint(pw, line)
+		}
+	}()
+
+	_, truncated, _ := readFollowStream(pr, 5*time.Second)
+	if !truncated {
+		t.Error("expected truncation flag when > 1MB read")
 	}
 }
