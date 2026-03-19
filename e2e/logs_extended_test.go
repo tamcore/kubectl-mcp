@@ -151,6 +151,89 @@ func TestGetLogsMutualExclusion(t *testing.T) {
 					t.Errorf("expected error about missing pod/labelSelector, got: %s", text)
 				}
 			})
+
+			t.Run("follow_and_tail_conflict", func(t *testing.T) {
+				result := callTool(t, c, "get_logs", map[string]any{
+					"namespace": testNamespace,
+					"pod":       "any-pod",
+					"follow":    true,
+					"tail":      float64(10),
+				})
+				if !result.IsError {
+					t.Error("expected error when follow=true and tail are both set")
+				}
+				text := resultText(result)
+				if !strings.Contains(text, "follow") || !strings.Contains(text, "tail") {
+					t.Errorf("expected error mentioning follow and tail, got: %s", text)
+				}
+			})
+
+			t.Run("follow_timeout_out_of_range_low", func(t *testing.T) {
+				result := callTool(t, c, "get_logs", map[string]any{
+					"namespace":     testNamespace,
+					"pod":           "any-pod",
+					"follow":        true,
+					"followTimeout": float64(0),
+				})
+				if !result.IsError {
+					t.Error("expected error when followTimeout=0")
+				}
+				text := resultText(result)
+				if !strings.Contains(text, "followTimeout") {
+					t.Errorf("expected error mentioning followTimeout, got: %s", text)
+				}
+			})
+
+			t.Run("follow_timeout_out_of_range_high", func(t *testing.T) {
+				result := callTool(t, c, "get_logs", map[string]any{
+					"namespace":     testNamespace,
+					"pod":           "any-pod",
+					"follow":        true,
+					"followTimeout": float64(200),
+				})
+				if !result.IsError {
+					t.Error("expected error when followTimeout=200")
+				}
+				text := resultText(result)
+				if !strings.Contains(text, "followTimeout") {
+					t.Errorf("expected error mentioning followTimeout, got: %s", text)
+				}
+			})
+		})
+	}
+}
+
+func TestGetLogsFollow(t *testing.T) {
+	for _, tc := range allTransports {
+		t.Run(tc.name, func(t *testing.T) {
+			base := tc.startFunc(t, defaultConfig())
+			c := tc.clientFunc(t, base)
+
+			suffix := strings.ToLower(tc.name)
+			podName := "e2e-logs-follow-" + suffix
+
+			// Pod that prints a line then exits — follow should capture it.
+			manifest := podManifest(podName, testNamespace, "busybox:1.36",
+				[]string{"sh", "-c", "echo follow-output-line; sleep 1"})
+			callTool(t, c, "apply_resource", map[string]any{"manifest": manifest})
+			t.Cleanup(func() { deleteViaKubectl(t, "pod", podName, testNamespace) })
+			waitForPodReady(t, podName, testNamespace)
+
+			t.Run("follow_returns_output", func(t *testing.T) {
+				result := callTool(t, c, "get_logs", map[string]any{
+					"namespace":     testNamespace,
+					"pod":           podName,
+					"follow":        true,
+					"followTimeout": float64(10),
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("unexpected error: %s", text)
+				}
+				if !strings.Contains(text, "follow-output-line") {
+					t.Errorf("expected 'follow-output-line' in output, got: %s", text)
+				}
+			})
 		})
 	}
 }
