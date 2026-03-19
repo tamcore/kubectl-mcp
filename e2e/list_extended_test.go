@@ -116,6 +116,58 @@ func TestListResourcesWithFieldSelector(t *testing.T) {
 	}
 }
 
+func TestListResourcesAllNamespaces(t *testing.T) {
+	for _, tc := range allTransports {
+		t.Run(tc.name, func(t *testing.T) {
+			base := tc.startFunc(t, defaultConfig())
+			c := tc.clientFunc(t, base)
+
+			suffix := strings.ToLower(tc.name)
+
+			// Create ConfigMaps in two different namespaces.
+			nameA := "e2e-all-ns-a-" + suffix
+			nameB := "e2e-all-ns-b-" + suffix
+			manifestA := configMapManifest(nameA, testNamespace, map[string]string{"k": "v"})
+			manifestB := configMapManifest(nameB, "kube-system", map[string]string{"k": "v"})
+			callTool(t, c, "apply_resource", map[string]any{"manifest": manifestA})
+			callTool(t, c, "apply_resource", map[string]any{"manifest": manifestB})
+			t.Cleanup(func() {
+				deleteViaKubectl(t, "configmap", nameA, testNamespace)
+				deleteViaKubectl(t, "configmap", nameB, "kube-system")
+			})
+
+			t.Run("list_all_namespaces", func(t *testing.T) {
+				result := callTool(t, c, "list_resources", map[string]any{
+					"kind":          "ConfigMap",
+					"allNamespaces": true,
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("error: %s", text)
+				}
+				// Both ConfigMaps from different namespaces should appear.
+				if !strings.Contains(text, nameA) {
+					t.Errorf("expected ConfigMap %s from %s namespace", nameA, testNamespace)
+				}
+				if !strings.Contains(text, nameB) {
+					t.Errorf("expected ConfigMap %s from kube-system namespace", nameB)
+				}
+			})
+
+			t.Run("all_namespaces_with_namespace_errors", func(t *testing.T) {
+				result := callTool(t, c, "list_resources", map[string]any{
+					"kind":          "ConfigMap",
+					"allNamespaces": true,
+					"namespace":     testNamespace,
+				})
+				if !result.IsError {
+					t.Error("expected error when allNamespaces=true and namespace is set")
+				}
+			})
+		})
+	}
+}
+
 func TestListResourcesWithLabelSelector(t *testing.T) {
 	for _, tc := range allTransports {
 		t.Run(tc.name, func(t *testing.T) {

@@ -20,7 +20,7 @@ const defaultListLimit int64 = 100
 
 func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config) {
 	tool := mcp.NewTool("list_resources",
-		mcp.WithDescription("List Kubernetes resources of a given kind"),
+		mcp.WithDescription("List Kubernetes resources of a given kind. Supports cross-namespace listing via allNamespaces."),
 		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithDestructiveHintAnnotation(false),
 		mcp.WithIdempotentHintAnnotation(true),
@@ -36,7 +36,10 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 			mcp.Description("Resource kind (e.g. Pod, Deployment, Service)"),
 		),
 		mcp.WithString("namespace",
-			mcp.Description("Namespace to list in (omit for cluster-scoped or all namespaces)"),
+			mcp.Description("Namespace to list in (omit for cluster-scoped resources). Cannot be combined with allNamespaces."),
+		),
+		mcp.WithBoolean("allNamespaces",
+			mcp.Description("List resources across all namespaces. When true, the namespace parameter is ignored (returns an error if namespace is also set)."),
 		),
 		mcp.WithString("labelSelector",
 			mcp.Description("Label selector (e.g. app=nginx). Preferred way to filter by labels."),
@@ -81,7 +84,15 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 
 		kind, _ := req.RequireString("kind")
 		namespace := req.GetString("namespace", "")
+		allNamespaces := req.GetBool("allNamespaces", false)
 		apiVersion := req.GetString("apiVersion", "")
+
+		if allNamespaces && namespace != "" {
+			return mcp.NewToolResultError("allNamespaces and namespace cannot be combined: set allNamespaces=true to list across all namespaces, or omit allNamespaces to list within a specific namespace"), nil
+		}
+		if allNamespaces {
+			namespace = ""
+		}
 		labelSelector := req.GetString("labelSelector", "")
 		filter := req.GetString("filter", "")
 		format := req.GetString("format", "summary")
