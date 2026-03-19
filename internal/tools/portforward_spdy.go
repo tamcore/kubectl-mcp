@@ -1,10 +1,12 @@
 package tools
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"io"
+	"net"
 	"net/http"
+	"time"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -36,7 +38,9 @@ func (s *spdyPortForwarder) Forward(ctx context.Context, clientset kubernetes.In
 	stopCh := make(chan struct{})
 	readyCh := make(chan struct{})
 
-	fw, err := portforward.New(dialer, []string{portSpec}, stopCh, readyCh, io.Discard, io.Discard)
+	// Capture stderr for diagnostics if the tunnel fails.
+	var errBuf bytes.Buffer
+	fw, err := portforward.New(dialer, []string{portSpec}, stopCh, readyCh, nil, &errBuf)
 	if err != nil {
 		return nil, fmt.Errorf("creating port forwarder: %w", err)
 	}
@@ -49,8 +53,12 @@ func (s *spdyPortForwarder) Forward(ctx context.Context, clientset kubernetes.In
 
 	select {
 	case <-readyCh:
-		// Port forward is active.
+		// Port forward is active — check for immediate failure below.
 	case err := <-errCh:
+		detail := errBuf.String()
+		if detail != "" {
+			return nil, fmt.Errorf("port forward failed: %w\n%s", err, detail)
+		}
 		return nil, fmt.Errorf("port forward failed: %w", err)
 	case <-ctx.Done():
 		close(stopCh)
@@ -67,8 +75,24 @@ func (s *spdyPortForwarder) Forward(ctx context.Context, clientset kubernetes.In
 		return nil, fmt.Errorf("no ports returned from port forwarder")
 	}
 
+	localPort := ports[0].Local
+
+	// Verify the local listener is actually reachable. On some distributions
+	// (e.g., k3s) the SPDY tunnel may die immediately after readyCh fires.
+	addr := fmt.Sprintf("127.0.0.1:%d", localPort)
+	conn, dialErr := net.DialTimeout("tcp", addr, 2*time.Second)
+	if dialErr != nil {
+		close(stopCh)
+		detail := errBuf.String()
+		if detail != "" {
+			return nil, fmt.Errorf("port forward listener not reachable at %s: %v\n%s", addr, dialErr, detail)
+		}
+		return nil, fmt.Errorf("port forward listener not reachable at %s: %v", addr, dialErr)
+	}
+	_ = conn.Close()
+
 	return &PortForwardResult{
-		LocalPort: ports[0].Local,
+		LocalPort: localPort,
 		StopCh:    stopCh,
 	}, nil
 }
