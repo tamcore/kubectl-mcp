@@ -3,6 +3,7 @@ package tools
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -182,6 +183,11 @@ func requireCommand(req mcp.CallToolRequest) ([]string, error) {
 
 	switch v := val.(type) {
 	case string:
+		// Some MCP clients stringify JSON arrays due to the WithString schema.
+		// Detect and parse them before falling through to shell splitting.
+		if cmd, ok := tryParseJSONArray(v); ok {
+			return cmd, nil
+		}
 		parts, err := shellSplit(v)
 		if err != nil {
 			return nil, fmt.Errorf("invalid command string: %w", err)
@@ -206,4 +212,22 @@ func requireCommand(req mcp.CallToolRequest) ([]string, error) {
 	default:
 		return nil, fmt.Errorf("command must be a string or array of strings")
 	}
+}
+
+// tryParseJSONArray attempts to parse s as a JSON array of strings.
+// Returns the parsed slice and true on success, or nil and false if s
+// is not a valid JSON string array (in which case the caller should
+// fall through to shell splitting).
+func tryParseJSONArray(s string) ([]string, bool) {
+	if len(s) < 2 || s[0] != '[' {
+		return nil, false
+	}
+	var arr []string
+	if err := json.Unmarshal([]byte(s), &arr); err != nil {
+		return nil, false
+	}
+	if len(arr) == 0 {
+		return nil, false
+	}
+	return arr, true
 }

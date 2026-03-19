@@ -379,6 +379,52 @@ func TestRequireCommand_ArrayWithNonStringElement(t *testing.T) {
 	}
 }
 
+func TestRequireCommand_StringifiedJSONArray(t *testing.T) {
+	req := mcp.CallToolRequest{}
+	req.Params.Arguments = map[string]any{"command": `["sh", "-c", "hostname && uname -a"]`}
+	cmd, err := requireCommand(req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{"sh", "-c", "hostname && uname -a"}
+	if len(cmd) != len(want) {
+		t.Fatalf("got %d tokens %v, want %d tokens %v", len(cmd), cmd, len(want), want)
+	}
+	for i := range cmd {
+		if cmd[i] != want[i] {
+			t.Errorf("token[%d] = %q, want %q", i, cmd[i], want[i])
+		}
+	}
+}
+
+func TestRequireCommand_StringifiedJSONArraySimple(t *testing.T) {
+	req := mcp.CallToolRequest{}
+	req.Params.Arguments = map[string]any{"command": `["ls", "-la"]`}
+	cmd, err := requireCommand(req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{"ls", "-la"}
+	if len(cmd) != len(want) {
+		t.Fatalf("got %d tokens %v, want %d tokens %v", len(cmd), cmd, len(want), want)
+	}
+	for i := range cmd {
+		if cmd[i] != want[i] {
+			t.Errorf("token[%d] = %q, want %q", i, cmd[i], want[i])
+		}
+	}
+}
+
+func TestRequireCommand_BracketStringNotJSON(t *testing.T) {
+	// A string starting with [ that is NOT valid JSON should still be shell-split.
+	req := mcp.CallToolRequest{}
+	req.Params.Arguments = map[string]any{"command": `[not json at all`}
+	_, err := requireCommand(req)
+	// This will hit shellSplit, which should return an error for unterminated bracket
+	// or produce tokens — either way, it should not panic.
+	_ = err
+}
+
 func TestRequireCommand_WrongType(t *testing.T) {
 	req := mcp.CallToolRequest{}
 	req.Params.Arguments = map[string]any{"command": 42}

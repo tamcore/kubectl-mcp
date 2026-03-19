@@ -104,6 +104,22 @@ func TestExecPod(t *testing.T) {
 				}
 			})
 
+			t.Run("stringified_json_array_command", func(t *testing.T) {
+				// Reproduces issue #5: LLM sends command as a stringified JSON array.
+				result := callTool(t, c, "exec_pod", map[string]any{
+					"namespace": testNamespace,
+					"pod":       podName,
+					"command":   `["echo", "json-array-mode"]`,
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("error: %s", text)
+				}
+				if !strings.Contains(text, "json-array-mode") {
+					t.Errorf("expected json-array-mode, got: %s", text)
+				}
+			})
+
 			t.Run("nonexistent_pod_returns_error", func(t *testing.T) {
 				result := callTool(t, c, "exec_pod", map[string]any{
 					"namespace": testNamespace,
