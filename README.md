@@ -14,12 +14,13 @@ lets LLMs query and manage your clusters safely.
 - **Three transports** — stdio (default), SSE, and streamable-HTTP
 - **Write operations** — opt-in via `--allow-write` for apply, patch, scale, restart, cordon, uncordon, exec, rollout undo, run, port-forward
 - **Destructive operations** — opt-in via `--allow-destructive` for delete and drain
+- **Raw API access** — opt-in via `--allow-raw` for direct Kubernetes API requests (bypasses secret redaction; non-GET additionally requires `--allow-write`)
 - **Fuzzy kind matching** — resolves short names (`deploy`, `svc`) and suggests corrections for typos
 - **Rate limiting** — configurable per-minute limits for read and write operations
 - **MCP tool annotations** — every tool declares `readOnlyHint`, `destructiveHint`, `idempotentHint`, and `openWorldHint` so MCP clients can make informed decisions
 - **Elicitation confirmation** — destructive operations (delete, drain) prompt for user confirmation via MCP elicitation
 - **Structured content** — get, list, and describe responses include machine-readable structured content alongside text
-- **31 MCP tools** — 16 read-only + 12 write + 3 destructive
+- **35 MCP tools** — 19 read-only + 12 write + 3 destructive + 1 raw
 - **MCP resources** — read any Kubernetes resource via `k8s://` URI scheme (2 resource templates)
 
 ## Installation
@@ -54,6 +55,9 @@ kubectl-mcp serve --allow-write
 
 # Enable all operations including delete and drain
 kubectl-mcp serve --allow-write --allow-destructive
+
+# Enable raw API access (bypasses secret redaction)
+kubectl-mcp serve --allow-write --allow-raw
 ```
 
 ## Configuration
@@ -72,6 +76,7 @@ All flags can also be set via environment variables with a `KUBECTL_MCP_` prefix
 | `--denied-contexts` | `KUBECTL_MCP_DENIED_CONTEXTS` | *(none)* | Comma-separated glob/regex deny patterns |
 | `--allow-write` | `KUBECTL_MCP_ALLOW_WRITE` | `false` | Enable write operations (apply, patch, scale, restart, cordon, uncordon, exec, rollout undo, rollout pause/resume, run, port-forward) |
 | `--allow-destructive` | `KUBECTL_MCP_ALLOW_DESTRUCTIVE` | `false` | Enable destructive operations (delete, drain, cleanup-pods); implies `--allow-write` |
+| `--allow-raw` | `KUBECTL_MCP_ALLOW_RAW` | `false` | Enable raw Kubernetes API requests (`api_raw` tool); non-GET methods additionally require `--allow-write` |
 | `--allow-secrets` | `KUBECTL_MCP_ALLOW_SECRETS` | `false` | Allow reading Secret data |
 | `--rate-limit-read` | `KUBECTL_MCP_RATE_LIMIT_READ` | `120` | Max read tool calls per minute (0 = unlimited) |
 | `--rate-limit-write` | `KUBECTL_MCP_RATE_LIMIT_WRITE` | `30` | Max write tool calls per minute (0 = unlimited) |
@@ -97,10 +102,10 @@ kube-context. If omitted, the configured default context is used.
 | `list_namespaces` | List namespaces |
 | `list_api_resources` | List API resources (kind, apiVersion, namespaced, verbs) |
 | `get_resource` | Get a single resource as JSON |
-| `list_resources` | List resources with label/field selectors, pagination, and client-side filters |
+| `list_resources` | List resources with label/field selectors, pagination, client-side filters, sortBy, and allNamespaces support |
 | `describe_resource` | Rich describe output with conditions, spec, and events |
-| `get_logs` | Get pod/container logs (supports label selectors, timestamps, sinceTime, resource references like deployment/nginx) |
-| `get_events` | Get cluster events |
+| `get_logs` | Get pod/container logs (supports label selectors, timestamps, sinceTime, follow/streaming, multi-pod prefix, resource references like deployment/nginx) |
+| `get_events` | Get cluster events (supports allNamespaces) |
 | `top_pods` | Get CPU/memory usage for pods (requires metrics-server) |
 | `top_nodes` | Get CPU/memory usage for nodes with allocatable percentages |
 | `rollout_status` | Get rollout status of a Deployment, StatefulSet, or DaemonSet |
@@ -109,12 +114,15 @@ kube-context. If omitted, the configured default context is used.
 | `node_logs` | Get logs from a node via the kubelet proxy |
 | `node_stats` | Get node-level resource usage (CPU, memory, filesystem) from the kubelet stats/summary API |
 | `stop_port_forward` | Stop an active port-forward session or list all active sessions |
+| `list_rbac_bindings` | List ClusterRoleBindings or RoleBindings with optional subject/kind filter |
+| `list_rbac_roles` | List ClusterRoles or Roles; get detailed rules for a named role |
+| `list_service_accounts` | List ServiceAccounts or get details (exposes secret names, never token data) |
 
 ### Write tools (require `--allow-write`)
 
 | Tool | Description |
 |------|-------------|
-| `apply_resource` | Apply a JSON/YAML manifest with optional dry-run |
+| `apply_resource` | Apply a JSON/YAML manifest with optional dry-run and field validation level |
 | `patch_resource` | Patch a resource (json, merge, or strategic) with optional dry-run |
 | `scale_resource` | Scale a Deployment, StatefulSet, or ReplicaSet |
 | `restart_rollout` | Restart a Deployment, StatefulSet, or DaemonSet rollout |
@@ -125,15 +133,21 @@ kube-context. If omitted, the configured default context is used.
 | `rollout_pause` | Pause a Deployment rollout |
 | `rollout_resume` | Resume a paused Deployment rollout |
 | `run_pod` | Create and run a pod with a given image (like `kubectl run`) |
-| `port_forward` | Forward a local port to a pod port (with auto-timeout) |
+| `port_forward` | Forward a local port to a pod, service, deployment, or statefulset port (with auto-timeout) |
 
 ### Destructive tools (require `--allow-destructive`)
 
 | Tool | Description |
 |------|-------------|
-| `delete_resource` | Delete a resource with optional dry-run and grace period (with elicitation confirmation) |
-| `drain_node` | Cordon a node and evict all eligible pods (with elicitation confirmation) |
+| `delete_resource` | Delete a resource with optional dry-run, grace period, and force deletion (with elicitation confirmation) |
+| `drain_node` | Cordon a node and evict all eligible pods with optional force and timeout (with elicitation confirmation) |
 | `cleanup_pods` | Delete pods in error states (Evicted, Failed, Succeeded) from a namespace |
+
+### Raw API tools (require `--allow-raw`)
+
+| Tool | Description |
+|------|-------------|
+| `api_raw` | Send a raw HTTP request to the Kubernetes API server (equivalent to `kubectl get --raw`). WARNING: bypasses secret redaction. Non-GET methods also require `--allow-write`. |
 
 ## MCP Resources
 
@@ -310,23 +324,6 @@ The skill provides:
 
 > The server also embeds concise instructions in the MCP `initialize` response, so all
 > MCP clients get baseline guidance automatically — even without the skill file.
-
-## Known Limitations
-
-### Follow / streaming logs
-
-MCP tools use a request-response model — there is no server-to-client
-streaming support. Therefore, `kubectl logs -f` (follow) behaviour cannot
-be replicated. As a workaround, use the `since` or `sinceTime` parameter
-with periodic polling to approximate tailing:
-
-```
-# First call
-get_logs(namespace="default", pod="my-pod", since="1m")
-
-# Subsequent calls
-get_logs(namespace="default", pod="my-pod", sinceTime="<last-seen-timestamp>")
-```
 
 ## License
 
