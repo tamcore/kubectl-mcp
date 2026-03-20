@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/tamcore/kubectl-mcp/internal/kube"
 )
@@ -17,6 +19,7 @@ var supportedResourceKinds = map[string]bool{
 	"statefulset": true,
 	"replicaset":  true,
 	"daemonset":   true,
+	"cronjob":     true,
 }
 
 // parseResourceRef parses a "kind/name" string into kind and name.
@@ -45,7 +48,7 @@ func resolveResourceToLabelSelector(ctx context.Context, cc *kube.ContextClient,
 	}
 
 	if !supportedResourceKinds[lowerKind] {
-		return "", fmt.Errorf("resource kind %q is not supported for log resolution (supported: Deployment, Job, StatefulSet, ReplicaSet, DaemonSet)", kind)
+		return "", fmt.Errorf("resource kind %q is not supported for log resolution (supported: CronJob, DaemonSet, Deployment, Job, ReplicaSet, StatefulSet)", kind)
 	}
 
 	gvr, err := resolveGVR(cc, kind, "")
@@ -58,7 +61,50 @@ func resolveResourceToLabelSelector(ctx context.Context, cc *kube.ContextClient,
 		return "", fmt.Errorf("failed to get %s/%s: %w", kind, name, err)
 	}
 
-	// Extract spec.selector.matchLabels.
+	// CronJobs don't have spec.selector; resolve via their most recent Job.
+	if lowerKind == "cronjob" {
+		return resolveCronJobToLabelSelector(ctx, cc, namespace, obj)
+	}
+
+	// All other supported kinds have spec.selector.matchLabels.
+	return extractMatchLabels(kind, name, obj)
+}
+
+// resolveCronJobToLabelSelector finds the most recent Job owned by a CronJob
+// and returns that Job's spec.selector.matchLabels as a label selector string.
+func resolveCronJobToLabelSelector(ctx context.Context, cc *kube.ContextClient, namespace string, cronJob *unstructured.Unstructured) (string, error) {
+	cronJobName := cronJob.GetName()
+	cronJobUID := string(cronJob.GetUID())
+
+	jobGVR := schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}
+	jobList, err := cc.Dynamic.Resource(jobGVR).Namespace(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to list jobs for CronJob/%s: %w", cronJobName, err)
+	}
+
+	// Find the most recent Job owned by this CronJob.
+	var newest *unstructured.Unstructured
+	for i := range jobList.Items {
+		job := &jobList.Items[i]
+		for _, ref := range job.GetOwnerReferences() {
+			if ref.UID == cronJob.GetUID() {
+				if newest == nil || job.GetCreationTimestamp().After(newest.GetCreationTimestamp().Time) {
+					newest = job
+				}
+			}
+		}
+	}
+
+	if newest == nil {
+		return "", fmt.Errorf("no jobs found owned by CronJob/%s (uid %s)", cronJobName, cronJobUID)
+	}
+
+	return extractMatchLabels("Job", newest.GetName(), newest)
+}
+
+// extractMatchLabels extracts spec.selector.matchLabels from an unstructured
+// resource and returns them as a comma-separated label selector string.
+func extractMatchLabels(kind, name string, obj *unstructured.Unstructured) (string, error) {
 	spec, ok := obj.Object["spec"].(map[string]interface{})
 	if !ok {
 		return "", fmt.Errorf("%s/%s has no spec", kind, name)

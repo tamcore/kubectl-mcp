@@ -545,6 +545,8 @@ func newWriteFakeDynClient(objs ...runtime.Object) *fakedynamic.FakeDynamicClien
 			{Group: "", Version: "v1", Resource: "services"}:                   "ServiceList",
 			{Group: "", Version: "v1", Resource: "configmaps"}:                 "ConfigMapList",
 			{Group: "policy", Version: "v1", Resource: "poddisruptionbudgets"}: "PodDisruptionBudgetList",
+			{Group: "batch", Version: "v1", Resource: "jobs"}:                  "JobList",
+			{Group: "batch", Version: "v1", Resource: "cronjobs"}:              "CronJobList",
 		},
 		objs...,
 	)
@@ -583,6 +585,13 @@ func writeAPIResources() []*metav1.APIResourceList {
 			GroupVersion: "policy/v1",
 			APIResources: []metav1.APIResource{
 				{Name: "poddisruptionbudgets", Kind: "PodDisruptionBudget", Namespaced: true, Verbs: metav1.Verbs{"get", "list", "create", "update", "patch", "delete"}},
+			},
+		},
+		{
+			GroupVersion: "batch/v1",
+			APIResources: []metav1.APIResource{
+				{Name: "jobs", Kind: "Job", Namespaced: true, Verbs: metav1.Verbs{"get", "list", "create", "update", "patch", "delete"}},
+				{Name: "cronjobs", Kind: "CronJob", Namespaced: true, Verbs: metav1.Verbs{"get", "list", "create", "update", "patch", "delete"}},
 			},
 		},
 	}

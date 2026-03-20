@@ -62,7 +62,7 @@ func registerGetLogs(s *server.MCPServer, pool *kube.ClientPool) {
 			mcp.Description("Only return logs after this RFC3339 timestamp (e.g. '2024-01-15T10:00:00Z'). Mutually exclusive with 'since'."),
 		),
 		mcp.WithString("resource",
-			mcp.Description("Resource reference (e.g. 'deployment/nginx', 'job/my-job'). Resolves to pod label selector. Supported: Deployment, Job, StatefulSet, ReplicaSet, DaemonSet. Mutually exclusive with pod and labelSelector."),
+			mcp.Description("Resource reference (e.g. 'deployment/nginx', 'job/my-job'). Resolves to pod label selector. Supported: CronJob, DaemonSet, Deployment, Job, ReplicaSet, StatefulSet. Mutually exclusive with pod and labelSelector."),
 		),
 		mcp.WithBoolean("follow",
 			mcp.Description("Stream log output for up to followTimeout seconds, then return all accumulated lines. Cannot be combined with tail."),
