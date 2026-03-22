@@ -323,6 +323,48 @@ func TestMatchesAny(t *testing.T) {
 	}
 }
 
+func TestValidate_LogLevel(t *testing.T) {
+	tests := []struct {
+		name     string
+		logLevel string
+		wantErr  string
+	}{
+		{"off is valid", "off", ""},
+		{"info is valid", "info", ""},
+		{"debug is valid", "debug", ""},
+		{"empty defaults to info", "", ""},
+		{"invalid level", "trace", "invalid log level"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Config{Transport: "stdio", LogLevel: tt.logLevel}
+			err := c.Validate()
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+			} else {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("got %q, want error containing %q", err.Error(), tt.wantErr)
+				}
+			}
+		})
+	}
+}
+
+func TestValidate_LogLevel_DefaultsToInfo(t *testing.T) {
+	c := &Config{Transport: "stdio"}
+	if err := c.Validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.LogLevel != "info" {
+		t.Fatalf("expected LogLevel to default to 'info', got %q", c.LogLevel)
+	}
+}
+
 func TestIsRegex(t *testing.T) {
 	tests := []struct {
 		input string

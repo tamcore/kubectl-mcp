@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/tamcore/kubectl-mcp/internal/mcplog"
 )
 
 // Config holds all runtime configuration for the MCP server.
@@ -23,6 +25,7 @@ type Config struct {
 	AllowRaw         bool
 	RateLimitRead    int
 	RateLimitWrite   int
+	LogLevel         string
 }
 
 // Validate checks the configuration for consistency.
@@ -34,6 +37,12 @@ func (c *Config) Validate() error {
 	}
 	if c.AllowDestructive {
 		c.AllowWrite = true
+	}
+	if c.LogLevel == "" {
+		c.LogLevel = "info"
+	}
+	if _, err := mcplog.ParseLogLevel(c.LogLevel); err != nil {
+		return err
 	}
 	if c.RateLimitRead < 0 {
 		return fmt.Errorf("invalid rate-limit-read %d: must be >= 0 (0 = unlimited)", c.RateLimitRead)

@@ -45,6 +45,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&cfg.AllowRaw, "allow-raw", false, "Enable raw Kubernetes API requests (api_raw tool)")
 	rootCmd.PersistentFlags().IntVar(&cfg.RateLimitRead, "rate-limit-read", 120, "Max read tool calls per minute (0 = unlimited)")
 	rootCmd.PersistentFlags().IntVar(&cfg.RateLimitWrite, "rate-limit-write", 30, "Max write tool calls per minute (0 = unlimited)")
+	rootCmd.PersistentFlags().StringVar(&cfg.LogLevel, "log-level", "info", "Logging verbosity: off, info, or debug")
 
 	rootCmd.AddCommand(serveCmd)
 }
