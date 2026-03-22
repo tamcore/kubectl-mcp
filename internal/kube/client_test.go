@@ -1,6 +1,7 @@
 package kube
 
 import (
+	"net/http"
 	"sort"
 	"testing"
 
@@ -238,5 +239,42 @@ func TestResolveContext_EmptyDefaultNotInKubeconfig(t *testing.T) {
 	_, err := pool.ResolveContext("")
 	if err == nil {
 		t.Fatal("ResolveContext('') expected error when default context not in kubeconfig")
+	}
+}
+
+// --------------- TransportWrapper ---------------
+
+func TestNewClientPool_WithTransportWrapper(t *testing.T) {
+	called := false
+	wrapper := func(rt http.RoundTripper) http.RoundTripper {
+		called = true
+		return rt
+	}
+
+	pool := newTestPool(
+		&config.Config{AllowedContexts: []string{"*"}},
+		"ctx-a", "ctx-a",
+	)
+	pool.transportWrapper = wrapper
+
+	if pool.transportWrapper == nil {
+		t.Fatal("expected transportWrapper to be set")
+	}
+
+	// Call the wrapper to verify it's the one we set.
+	pool.transportWrapper(http.DefaultTransport)
+	if !called {
+		t.Fatal("expected transportWrapper to be called")
+	}
+}
+
+func TestNewClientPool_WithoutTransportWrapper(t *testing.T) {
+	pool := newTestPool(
+		&config.Config{AllowedContexts: []string{"*"}},
+		"ctx-a", "ctx-a",
+	)
+
+	if pool.transportWrapper != nil {
+		t.Fatal("expected transportWrapper to be nil by default")
 	}
 }

@@ -4,7 +4,9 @@ package e2e
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"strings"
@@ -17,6 +19,7 @@ import (
 
 	"github.com/tamcore/kubectl-mcp/internal/config"
 	"github.com/tamcore/kubectl-mcp/internal/kube"
+	"github.com/tamcore/kubectl-mcp/internal/mcplog"
 	"github.com/tamcore/kubectl-mcp/internal/resources"
 	"github.com/tamcore/kubectl-mcp/internal/tools"
 )
@@ -50,10 +53,17 @@ func startSSEServerWithConfig(t *testing.T, cfg *config.Config) string {
 		t.Fatalf("NewClientPool: %v", err)
 	}
 
-	s := server.NewMCPServer("kubectl-mcp-e2e", "test",
+	var s *server.MCPServer
+	opts := []server.ServerOption{
 		server.WithToolCapabilities(false),
 		server.WithResourceCapabilities(false, false),
-	)
+	}
+	hooks := buildE2ELoggingHooks(t, &s, cfg)
+	if hooks != nil {
+		opts = append(opts, server.WithLogging(), server.WithHooks(hooks))
+	}
+
+	s = server.NewMCPServer("kubectl-mcp-e2e", "test", opts...)
 	tools.RegisterAll(s, pool, cfg)
 	resources.RegisterAll(s, pool, cfg)
 
@@ -102,10 +112,17 @@ func startStreamableHTTPServerWithConfig(t *testing.T, cfg *config.Config) strin
 		t.Fatalf("NewClientPool: %v", err)
 	}
 
-	s := server.NewMCPServer("kubectl-mcp-e2e", "test",
+	var s *server.MCPServer
+	opts := []server.ServerOption{
 		server.WithToolCapabilities(false),
 		server.WithResourceCapabilities(false, false),
-	)
+	}
+	hooks := buildE2ELoggingHooks(t, &s, cfg)
+	if hooks != nil {
+		opts = append(opts, server.WithLogging(), server.WithHooks(hooks))
+	}
+
+	s = server.NewMCPServer("kubectl-mcp-e2e", "test", opts...)
 	tools.RegisterAll(s, pool, cfg)
 	resources.RegisterAll(s, pool, cfg)
 
@@ -263,4 +280,89 @@ type transportCase struct {
 var allTransports = []transportCase{
 	{"SSE", startSSEServerWithConfig, newSSEClient},
 	{"HTTP", startStreamableHTTPServerWithConfig, newHTTPClient},
+}
+
+// ---------------------------------------------------------------------------
+// Logging hooks for E2E (mirrors internal/cmd/serve.go logic)
+// ---------------------------------------------------------------------------
+
+// buildE2ELoggingHooks creates logging hooks for E2E tests matching the
+// given config's LogLevel. Returns nil for empty/unset levels.
+func buildE2ELoggingHooks(t *testing.T, sPtr **server.MCPServer, cfg *config.Config) *server.Hooks {
+	t.Helper()
+
+	if cfg.LogLevel == "" {
+		return nil
+	}
+
+	level, err := mcplog.ParseLogLevel(cfg.LogLevel)
+	if err != nil {
+		t.Fatalf("invalid log level %q: %v", cfg.LogLevel, err)
+	}
+
+	hooks := &server.Hooks{}
+	if level == mcplog.LogLevelOff {
+		return hooks
+	}
+
+	logger := log.New(os.Stderr, "e2e: ", 0)
+
+	hooks.AddBeforeCallTool(func(ctx context.Context, id any, req *mcp.CallToolRequest) {
+		args := summarizeToolArgs(req.GetArguments())
+		logger.Printf("→ %s(%s)", req.Params.Name, args)
+
+		if level == mcplog.LogLevelDebug && *sPtr != nil {
+			_ = (*sPtr).SendLogMessageToClient(ctx, mcplog.NewNotification(
+				mcp.LoggingLevelDebug,
+				fmt.Sprintf("→ %s(%s)", req.Params.Name, args),
+			))
+		}
+	})
+
+	hooks.AddAfterCallTool(func(ctx context.Context, id any, req *mcp.CallToolRequest, result any) {
+		r, ok := result.(*mcp.CallToolResult)
+		if !ok {
+			return
+		}
+
+		if r.IsError {
+			logger.Printf("✗ %s failed", req.Params.Name)
+			if *sPtr != nil {
+				_ = (*sPtr).SendLogMessageToClient(ctx, mcplog.NewNotification(
+					mcp.LoggingLevelWarning,
+					fmt.Sprintf("%s failed", req.Params.Name),
+				))
+			}
+			return
+		}
+
+		if level == mcplog.LogLevelDebug && *sPtr != nil {
+			_ = (*sPtr).SendLogMessageToClient(ctx, mcplog.NewNotification(
+				mcp.LoggingLevelDebug,
+				fmt.Sprintf("✓ %s done", req.Params.Name),
+			))
+		}
+		logger.Printf("✓ %s done", req.Params.Name)
+	})
+
+	return hooks
+}
+
+func summarizeToolArgs(args map[string]any) string {
+	if len(args) == 0 {
+		return ""
+	}
+	b, err := json.Marshal(args)
+	if err != nil {
+		return "..."
+	}
+	s := string(b)
+	if len(s) > 2 {
+		s = s[1 : len(s)-1]
+	}
+	const maxLen = 120
+	if len(s) > maxLen {
+		s = s[:maxLen] + "…"
+	}
+	return s
 }

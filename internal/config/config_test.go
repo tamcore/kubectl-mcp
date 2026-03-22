@@ -323,6 +323,79 @@ func TestMatchesAny(t *testing.T) {
 	}
 }
 
+func TestValidate_LogLevel(t *testing.T) {
+	tests := []struct {
+		name     string
+		logLevel string
+		wantErr  string
+	}{
+		{"off is valid", "off", ""},
+		{"info is valid", "info", ""},
+		{"debug is valid", "debug", ""},
+		{"empty defaults to info", "", ""},
+		{"invalid level", "trace", "invalid log level"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Config{Transport: "stdio", LogLevel: tt.logLevel}
+			err := c.Validate()
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+			} else {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("got %q, want error containing %q", err.Error(), tt.wantErr)
+				}
+			}
+		})
+	}
+}
+
+func TestValidate_LogLevel_DefaultsToInfo(t *testing.T) {
+	c := &Config{Transport: "stdio"}
+	if err := c.Validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.LogLevel != "info" {
+		t.Fatalf("expected LogLevel to default to 'info', got %q", c.LogLevel)
+	}
+}
+
+func TestValidate_LogFile_DefaultWhenEmpty(t *testing.T) {
+	c := &Config{Transport: "stdio", LogLevel: "info"}
+	if err := c.Validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.LogFile == "" {
+		t.Fatal("expected LogFile to be set to default path, got empty")
+	}
+	if !strings.Contains(c.LogFile, ".kubectl-mcp") {
+		t.Fatalf("expected default LogFile to contain .kubectl-mcp, got %q", c.LogFile)
+	}
+}
+
+func TestValidate_LogFile_PreservedWhenSet(t *testing.T) {
+	c := &Config{Transport: "stdio", LogLevel: "info", LogFile: "/tmp/custom.log"}
+	if err := c.Validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.LogFile != "/tmp/custom.log" {
+		t.Fatalf("expected LogFile to be preserved, got %q", c.LogFile)
+	}
+}
+
+func TestValidate_LogFile_SkippedWhenOff(t *testing.T) {
+	c := &Config{Transport: "stdio", LogLevel: "off"}
+	if err := c.Validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// When log level is off, LogFile doesn't need to be set.
+}
+
 func TestIsRegex(t *testing.T) {
 	tests := []struct {
 		input string
