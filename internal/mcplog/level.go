@@ -39,11 +39,14 @@ func ParseLogLevel(s string) (LogLevel, error) {
 	}
 }
 
-// DefaultLogPath returns the default log file path: ~/.kubectl-mcp/server.log.
+// DefaultLogPath returns the default log file path:
+// ~/.kubectl-mcp/server-<pid>.log. The PID suffix ensures multiple
+// concurrent server instances do not conflict on the same file.
 func DefaultLogPath() string {
+	name := fmt.Sprintf("server-%d.log", os.Getpid())
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return filepath.Join(os.TempDir(), "kubectl-mcp", "server.log")
+		return filepath.Join(os.TempDir(), "kubectl-mcp", name)
 	}
-	return filepath.Join(home, ".kubectl-mcp", "server.log")
+	return filepath.Join(home, ".kubectl-mcp", name)
 }

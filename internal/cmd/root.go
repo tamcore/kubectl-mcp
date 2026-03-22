@@ -46,7 +46,7 @@ func init() {
 	rootCmd.PersistentFlags().IntVar(&cfg.RateLimitRead, "rate-limit-read", 120, "Max read tool calls per minute (0 = unlimited)")
 	rootCmd.PersistentFlags().IntVar(&cfg.RateLimitWrite, "rate-limit-write", 30, "Max write tool calls per minute (0 = unlimited)")
 	rootCmd.PersistentFlags().StringVar(&cfg.LogLevel, "log-level", "info", "Logging verbosity: off, info, or debug")
-	rootCmd.PersistentFlags().StringVar(&cfg.LogFile, "log-file", "", "Log file path (default: ~/.kubectl-mcp/server.log)")
+	rootCmd.PersistentFlags().StringVar(&cfg.LogFile, "log-file", "", "Log file path (default: ~/.kubectl-mcp/server-<pid>.log)")
 
 	rootCmd.AddCommand(serveCmd)
 }

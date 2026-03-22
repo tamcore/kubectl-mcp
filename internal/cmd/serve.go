@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -35,7 +36,19 @@ var serveCmd = &cobra.Command{
 		// Use a pointer so hooks can reference the server after creation.
 		var s *server.MCPServer
 		logLevel, _ := mcplog.ParseLogLevel(cfg.LogLevel)
-		logger := log.New(os.Stderr, "", log.LstdFlags)
+
+		// Set up file-based logger (skip when logging is off).
+		var logger *log.Logger
+		if logLevel != mcplog.LogLevelOff {
+			logFile, err := openLogFile(cfg.LogFile)
+			if err != nil {
+				return fmt.Errorf("failed to open log file %q: %w", cfg.LogFile, err)
+			}
+			defer func() { _ = logFile.Close() }()
+			logger = log.New(logFile, "", log.LstdFlags)
+			logger.Printf("kubectl-mcp %s started (log-level=%s)", appVersion, logLevel)
+		}
+
 		hooks := newLoggingHooks(&s, logLevel, logger)
 
 		if logLevel == mcplog.LogLevelDebug {
@@ -201,4 +214,14 @@ func extractResultText(r *mcp.CallToolResult) string {
 		}
 	}
 	return strings.Join(parts, "\n")
+}
+
+// openLogFile creates the parent directory if needed and opens the log file
+// for appending. The caller is responsible for closing the returned file.
+func openLogFile(path string) (*os.File, error) {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		return nil, fmt.Errorf("creating log directory %q: %w", dir, err)
+	}
+	return os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o640)
 }

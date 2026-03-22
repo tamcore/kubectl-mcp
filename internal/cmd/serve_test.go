@@ -10,6 +10,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -370,5 +372,57 @@ func TestLoggingHooks_Debug(t *testing.T) {
 	}
 	if !strings.Contains(output, "apiVersion") {
 		t.Fatalf("expected result content in debug after log, got: %s", output)
+	}
+}
+
+func TestOpenLogFile_CreatesDirectoryAndFile(t *testing.T) {
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "subdir", "test.log")
+
+	f, err := openLogFile(logPath)
+	if err != nil {
+		t.Fatalf("openLogFile(%q) error: %v", logPath, err)
+	}
+	defer func() { _ = f.Close() }()
+
+	// Write something to verify it's writable.
+	if _, err := f.WriteString("test\n"); err != nil {
+		t.Fatalf("failed to write to log file: %v", err)
+	}
+
+	// Verify the file exists.
+	info, err := os.Stat(logPath)
+	if err != nil {
+		t.Fatalf("log file does not exist: %v", err)
+	}
+	if info.Size() == 0 {
+		t.Fatal("log file is empty after write")
+	}
+}
+
+func TestOpenLogFile_AppendsToExisting(t *testing.T) {
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "test.log")
+
+	// Create a file with existing content.
+	if err := os.WriteFile(logPath, []byte("existing\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := openLogFile(logPath)
+	if err != nil {
+		t.Fatalf("openLogFile(%q) error: %v", logPath, err)
+	}
+	if _, err := f.WriteString("new\n"); err != nil {
+		t.Fatalf("write error: %v", err)
+	}
+	_ = f.Close()
+
+	content, _ := os.ReadFile(logPath)
+	if !strings.Contains(string(content), "existing") {
+		t.Fatal("existing content was overwritten")
+	}
+	if !strings.Contains(string(content), "new") {
+		t.Fatal("new content not appended")
 	}
 }
