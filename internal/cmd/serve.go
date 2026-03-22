@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
+	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -32,7 +34,15 @@ var serveCmd = &cobra.Command{
 
 		// Use a pointer so hooks can reference the server after creation.
 		var s *server.MCPServer
-		hooks := newLoggingHooks(&s)
+		logLevel, _ := mcplog.ParseLogLevel(cfg.LogLevel)
+		logger := log.New(os.Stderr, "", log.LstdFlags)
+		hooks := newLoggingHooks(&s, logLevel, logger)
+
+		if logLevel == mcplog.LogLevelDebug {
+			pool.SetTransportWrapper(func(rt http.RoundTripper) http.RoundTripper {
+				return mcplog.NewLoggingTransport(rt, logger)
+			})
+		}
 
 		s = server.NewMCPServer(
 			"kubectl-mcp",
@@ -65,15 +75,23 @@ var serveCmd = &cobra.Command{
 	},
 }
 
-func newLoggingHooks(sPtr **server.MCPServer) *server.Hooks {
-	logger := log.New(os.Stderr, "", log.LstdFlags)
+func newLoggingHooks(sPtr **server.MCPServer, level mcplog.LogLevel, logger *log.Logger) *server.Hooks {
 	hooks := &server.Hooks{}
 
+	if level == mcplog.LogLevelOff {
+		return hooks
+	}
+
 	hooks.AddBeforeCallTool(func(ctx context.Context, id any, req *mcp.CallToolRequest) {
-		args := summarizeArgs(req.GetArguments())
+		var args string
+		if level == mcplog.LogLevelDebug {
+			args = fullArgs(req.GetArguments())
+		} else {
+			args = summarizeArgs(req.GetArguments())
+		}
 		logger.Printf("→ %s(%s)", req.Params.Name, args)
 
-		if *sPtr != nil {
+		if level == mcplog.LogLevelDebug && *sPtr != nil {
 			_ = (*sPtr).SendLogMessageToClient(ctx, mcplog.NewNotification(
 				mcp.LoggingLevelDebug,
 				fmt.Sprintf("→ %s(%s)", req.Params.Name, args),
@@ -82,14 +100,30 @@ func newLoggingHooks(sPtr **server.MCPServer) *server.Hooks {
 	})
 
 	hooks.AddAfterCallTool(func(ctx context.Context, id any, req *mcp.CallToolRequest, result any) {
-		if r, ok := result.(*mcp.CallToolResult); ok && r.IsError {
-			logger.Printf("✗ %s failed", req.Params.Name)
+		r, ok := result.(*mcp.CallToolResult)
+		if !ok {
+			return
+		}
 
+		if r.IsError {
+			logger.Printf("✗ %s failed", req.Params.Name)
 			if *sPtr != nil {
 				errText := extractErrorText(r)
 				_ = (*sPtr).SendLogMessageToClient(ctx, mcplog.NewNotification(
 					mcp.LoggingLevelWarning,
 					fmt.Sprintf("%s failed: %s", req.Params.Name, errText),
+				))
+			}
+			return
+		}
+
+		if level == mcplog.LogLevelDebug {
+			text := extractResultText(r)
+			logger.Printf("✓ %s done (%dB)\n%s", req.Params.Name, len(text), text)
+			if *sPtr != nil {
+				_ = (*sPtr).SendLogMessageToClient(ctx, mcplog.NewNotification(
+					mcp.LoggingLevelDebug,
+					fmt.Sprintf("✓ %s result: %s", req.Params.Name, text),
 				))
 			}
 		} else {
@@ -139,4 +173,32 @@ func summarizeArgs(args map[string]any) string {
 		s = s[:maxLen] + "…"
 	}
 	return s
+}
+
+func fullArgs(args map[string]any) string {
+	if len(args) == 0 {
+		return ""
+	}
+	b, err := json.Marshal(args)
+	if err != nil {
+		return "..."
+	}
+	s := string(b)
+	if len(s) > 2 {
+		s = s[1 : len(s)-1]
+	}
+	return s
+}
+
+func extractResultText(r *mcp.CallToolResult) string {
+	if len(r.Content) == 0 {
+		return ""
+	}
+	var parts []string
+	for _, c := range r.Content {
+		if tc, ok := c.(mcp.TextContent); ok {
+			parts = append(parts, tc.Text)
+		}
+	}
+	return strings.Join(parts, "\n")
 }

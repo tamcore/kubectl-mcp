@@ -1,11 +1,13 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"strings"
@@ -14,6 +16,8 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+
+	"github.com/tamcore/kubectl-mcp/internal/mcplog"
 )
 
 // startTestMCPServer starts a streamable-HTTP MCP server on a random port and
@@ -223,8 +227,10 @@ func TestServerInstructions_InInitializeResponse(t *testing.T) {
 }
 
 func TestNewLoggingHooks(t *testing.T) {
+	var buf bytes.Buffer
+	logger := log.New(&buf, "", 0)
 	var s *server.MCPServer
-	hooks := newLoggingHooks(&s)
+	hooks := newLoggingHooks(&s, mcplog.LogLevelInfo, logger)
 	if hooks == nil {
 		t.Fatal("newLoggingHooks() returned nil")
 	}
@@ -253,5 +259,116 @@ func TestNewLoggingHooks(t *testing.T) {
 	// Exercise OnError hook.
 	for _, fn := range hooks.OnError {
 		fn(ctx, "id-3", mcp.MethodToolsCall, nil, errors.New("boom"))
+	}
+}
+
+func TestLoggingHooks_Off(t *testing.T) {
+	var buf bytes.Buffer
+	logger := log.New(&buf, "", 0)
+	var s *server.MCPServer
+	hooks := newLoggingHooks(&s, mcplog.LogLevelOff, logger)
+
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+	req.Params.Name = "get_resource"
+	req.Params.Arguments = map[string]any{"kind": "Pod", "name": "nginx"}
+
+	for _, fn := range hooks.OnBeforeCallTool {
+		fn(ctx, "id-1", req)
+	}
+	result := &mcp.CallToolResult{IsError: false}
+	for _, fn := range hooks.OnAfterCallTool {
+		fn(ctx, "id-1", req, result)
+	}
+	for _, fn := range hooks.OnError {
+		fn(ctx, "id-2", mcp.MethodToolsCall, nil, errors.New("boom"))
+	}
+
+	if buf.Len() > 0 {
+		t.Fatalf("expected no log output at off level, got: %s", buf.String())
+	}
+}
+
+func TestLoggingHooks_Info(t *testing.T) {
+	var buf bytes.Buffer
+	logger := log.New(&buf, "", 0)
+	var s *server.MCPServer
+	hooks := newLoggingHooks(&s, mcplog.LogLevelInfo, logger)
+
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+	req.Params.Name = "get_resource"
+	req.Params.Arguments = map[string]any{"kind": "Pod", "name": "nginx"}
+
+	// Before hook should log tool name + summarized args.
+	for _, fn := range hooks.OnBeforeCallTool {
+		fn(ctx, "id-1", req)
+	}
+	output := buf.String()
+	if !strings.Contains(output, "get_resource") {
+		t.Fatalf("expected tool name in log, got: %s", output)
+	}
+
+	// After hook should log success.
+	buf.Reset()
+	result := &mcp.CallToolResult{IsError: false}
+	for _, fn := range hooks.OnAfterCallTool {
+		fn(ctx, "id-1", req, result)
+	}
+	output = buf.String()
+	if !strings.Contains(output, "✓") || !strings.Contains(output, "get_resource") {
+		t.Fatalf("expected success marker in log, got: %s", output)
+	}
+
+	// After hook should log failure.
+	buf.Reset()
+	errorResult := &mcp.CallToolResult{
+		IsError: true,
+		Content: []mcp.Content{mcp.NewTextContent("not found")},
+	}
+	for _, fn := range hooks.OnAfterCallTool {
+		fn(ctx, "id-2", req, errorResult)
+	}
+	output = buf.String()
+	if !strings.Contains(output, "✗") {
+		t.Fatalf("expected failure marker in log, got: %s", output)
+	}
+}
+
+func TestLoggingHooks_Debug(t *testing.T) {
+	var buf bytes.Buffer
+	logger := log.New(&buf, "", 0)
+	var s *server.MCPServer
+	hooks := newLoggingHooks(&s, mcplog.LogLevelDebug, logger)
+
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+	req.Params.Name = "get_resource"
+	req.Params.Arguments = map[string]any{"kind": "Pod", "name": "nginx", "namespace": "default"}
+
+	// Before hook should log full (unsummarized) args.
+	for _, fn := range hooks.OnBeforeCallTool {
+		fn(ctx, "id-1", req)
+	}
+	output := buf.String()
+	if !strings.Contains(output, "get_resource") {
+		t.Fatalf("expected tool name in debug log, got: %s", output)
+	}
+
+	// After hook should log full result text.
+	buf.Reset()
+	result := &mcp.CallToolResult{
+		IsError: false,
+		Content: []mcp.Content{mcp.NewTextContent(`{"apiVersion":"v1","kind":"Pod"}`)},
+	}
+	for _, fn := range hooks.OnAfterCallTool {
+		fn(ctx, "id-1", req, result)
+	}
+	output = buf.String()
+	if !strings.Contains(output, "get_resource") {
+		t.Fatalf("expected tool name in debug after log, got: %s", output)
+	}
+	if !strings.Contains(output, "apiVersion") {
+		t.Fatalf("expected result content in debug after log, got: %s", output)
 	}
 }
