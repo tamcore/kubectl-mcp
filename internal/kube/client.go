@@ -2,6 +2,7 @@ package kube
 
 import (
 	"fmt"
+	"net/http"
 	"sync"
 
 	"k8s.io/client-go/discovery"
@@ -16,10 +17,11 @@ import (
 
 // ClientPool manages lazily-created Kubernetes clients for multiple contexts.
 type ClientPool struct {
-	cfg       *config.Config
-	rawConfig clientcmdapi.Config
-	mu        sync.RWMutex
-	clients   map[string]*ContextClient
+	cfg              *config.Config
+	rawConfig        clientcmdapi.Config
+	mu               sync.RWMutex
+	clients          map[string]*ContextClient
+	transportWrapper func(http.RoundTripper) http.RoundTripper
 }
 
 // ContextClient bundles the clients needed for a single kube-context.
@@ -45,6 +47,13 @@ func NewClientPool(cfg *config.Config) (*ClientPool, error) {
 		rawConfig: *apiConfig,
 		clients:   make(map[string]*ContextClient),
 	}, nil
+}
+
+// SetTransportWrapper sets an HTTP transport wrapper that will be applied to
+// all Kubernetes REST clients created by this pool. Must be called before
+// any ClientFor calls.
+func (p *ClientPool) SetTransportWrapper(wrapper func(http.RoundTripper) http.RoundTripper) {
+	p.transportWrapper = wrapper
 }
 
 // Contexts returns the list of allowed context names.
@@ -134,6 +143,9 @@ func (p *ClientPool) restConfigFor(contextName string) (*rest.Config, error) {
 	restCfg, err := cc.ClientConfig()
 	if err != nil {
 		return nil, fmt.Errorf("building rest config for context %q: %w", contextName, err)
+	}
+	if p.transportWrapper != nil {
+		restCfg.WrapTransport = p.transportWrapper
 	}
 	return restCfg, nil
 }
