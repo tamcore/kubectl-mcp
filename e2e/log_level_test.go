@@ -5,6 +5,7 @@ package e2e
 import (
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 )
@@ -31,6 +32,9 @@ func TestLogLevel(t *testing.T) {
 				if result.IsError {
 					t.Fatalf("list_contexts failed: %s", resultText(result))
 				}
+
+				// Brief wait so any late async notifications arrive.
+				time.Sleep(200 * time.Millisecond)
 
 				mu.Lock()
 				logNotifs := filterLogNotifications(notifications)
@@ -60,6 +64,9 @@ func TestLogLevel(t *testing.T) {
 				if result.IsError {
 					t.Fatalf("list_contexts failed: %s", resultText(result))
 				}
+
+				// Brief wait so any late async notifications arrive.
+				time.Sleep(200 * time.Millisecond)
 
 				mu.Lock()
 				logNotifs := filterLogNotifications(notifications)
@@ -93,9 +100,18 @@ func TestLogLevel(t *testing.T) {
 					t.Fatalf("list_contexts failed: %s", resultText(result))
 				}
 
-				mu.Lock()
-				logNotifs := filterLogNotifications(notifications)
-				mu.Unlock()
+				// Notifications arrive asynchronously; poll briefly.
+				var logNotifs []mcp.JSONRPCNotification
+				deadline := time.Now().Add(2 * time.Second)
+				for time.Now().Before(deadline) {
+					mu.Lock()
+					logNotifs = filterLogNotifications(notifications)
+					mu.Unlock()
+					if len(logNotifs) > 0 {
+						break
+					}
+					time.Sleep(50 * time.Millisecond)
+				}
 
 				if len(logNotifs) == 0 {
 					t.Error("expected logging notifications at debug level, got none")
