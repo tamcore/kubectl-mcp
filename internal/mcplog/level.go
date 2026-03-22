@@ -2,6 +2,8 @@ package mcplog
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -35,4 +37,13 @@ func ParseLogLevel(s string) (LogLevel, error) {
 	default:
 		return "", fmt.Errorf("invalid log level %q: must be off, info, or debug", s)
 	}
+}
+
+// DefaultLogPath returns the default log file path: ~/.kubectl-mcp/server.log.
+func DefaultLogPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(os.TempDir(), "kubectl-mcp", "server.log")
+	}
+	return filepath.Join(home, ".kubectl-mcp", "server.log")
 }

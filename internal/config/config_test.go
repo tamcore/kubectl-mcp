@@ -365,6 +365,37 @@ func TestValidate_LogLevel_DefaultsToInfo(t *testing.T) {
 	}
 }
 
+func TestValidate_LogFile_DefaultWhenEmpty(t *testing.T) {
+	c := &Config{Transport: "stdio", LogLevel: "info"}
+	if err := c.Validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.LogFile == "" {
+		t.Fatal("expected LogFile to be set to default path, got empty")
+	}
+	if !strings.Contains(c.LogFile, ".kubectl-mcp") {
+		t.Fatalf("expected default LogFile to contain .kubectl-mcp, got %q", c.LogFile)
+	}
+}
+
+func TestValidate_LogFile_PreservedWhenSet(t *testing.T) {
+	c := &Config{Transport: "stdio", LogLevel: "info", LogFile: "/tmp/custom.log"}
+	if err := c.Validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.LogFile != "/tmp/custom.log" {
+		t.Fatalf("expected LogFile to be preserved, got %q", c.LogFile)
+	}
+}
+
+func TestValidate_LogFile_SkippedWhenOff(t *testing.T) {
+	c := &Config{Transport: "stdio", LogLevel: "off"}
+	if err := c.Validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// When log level is off, LogFile doesn't need to be set.
+}
+
 func TestIsRegex(t *testing.T) {
 	tests := []struct {
 		input string

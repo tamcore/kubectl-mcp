@@ -1,6 +1,9 @@
 package mcplog
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -56,5 +59,29 @@ func TestLogLevel_String(t *testing.T) {
 				t.Fatalf("LogLevel.String() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestDefaultLogPath(t *testing.T) {
+	got := DefaultLogPath()
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("cannot determine home dir")
+	}
+
+	want := filepath.Join(home, ".kubectl-mcp", "server.log")
+	if got != want {
+		t.Fatalf("DefaultLogPath() = %q, want %q", got, want)
+	}
+}
+
+func TestDefaultLogPath_ContainsDotKubectlMcp(t *testing.T) {
+	got := DefaultLogPath()
+	if !strings.Contains(got, ".kubectl-mcp") {
+		t.Fatalf("DefaultLogPath() = %q, expected to contain .kubectl-mcp", got)
+	}
+	if !strings.HasSuffix(got, "server.log") {
+		t.Fatalf("DefaultLogPath() = %q, expected to end with server.log", got)
 	}
 }

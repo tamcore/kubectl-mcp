@@ -26,6 +26,7 @@ type Config struct {
 	RateLimitRead    int
 	RateLimitWrite   int
 	LogLevel         string
+	LogFile          string
 }
 
 // Validate checks the configuration for consistency.
@@ -43,6 +44,9 @@ func (c *Config) Validate() error {
 	}
 	if _, err := mcplog.ParseLogLevel(c.LogLevel); err != nil {
 		return err
+	}
+	if c.LogLevel != "off" && c.LogFile == "" {
+		c.LogFile = mcplog.DefaultLogPath()
 	}
 	if c.RateLimitRead < 0 {
 		return fmt.Errorf("invalid rate-limit-read %d: must be >= 0 (0 = unlimited)", c.RateLimitRead)
