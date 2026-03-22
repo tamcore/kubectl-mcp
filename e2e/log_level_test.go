@@ -3,6 +3,7 @@
 package e2e
 
 import (
+	"context"
 	"sync"
 	"testing"
 	"time"
@@ -86,6 +87,14 @@ func TestLogLevel(t *testing.T) {
 
 				base := tc.startFunc(t, cfg)
 				c := tc.clientFunc(t, base)
+
+				// Tell the server we want debug-level notifications.
+				err := c.SetLevel(context.Background(), mcp.SetLevelRequest{
+					Params: mcp.SetLevelParams{Level: mcp.LoggingLevelDebug},
+				})
+				if err != nil {
+					t.Fatalf("SetLevel: %v", err)
+				}
 
 				var mu sync.Mutex
 				var notifications []mcp.JSONRPCNotification
