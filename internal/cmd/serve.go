@@ -181,10 +181,6 @@ func summarizeArgs(args map[string]any) string {
 	if len(s) > 2 {
 		s = s[1 : len(s)-1]
 	}
-	const maxLen = 120
-	if len(s) > maxLen {
-		s = s[:maxLen] + "…"
-	}
 	return s
 }
 

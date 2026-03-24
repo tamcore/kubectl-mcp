@@ -137,15 +137,15 @@ func TestSummarizeArgs_MultipleKeys(t *testing.T) {
 	}
 }
 
-func TestSummarizeArgs_Truncation(t *testing.T) {
-	args := map[string]any{"key": strings.Repeat("x", 200)}
+func TestSummarizeArgs_NoTruncation(t *testing.T) {
+	long := strings.Repeat("x", 500)
+	args := map[string]any{"key": long}
 	got := summarizeArgs(args)
-	if !strings.HasSuffix(got, "…") {
-		t.Fatalf("expected truncated string ending with …, got %q", got)
+	if strings.HasSuffix(got, "…") {
+		t.Fatalf("expected full string, got truncated output: %q", got)
 	}
-	// 120 bytes kept + 3 bytes for UTF-8 "…" = 123 max.
-	if len(got) > 123 {
-		t.Fatalf("truncated string too long: %d bytes", len(got))
+	if !strings.Contains(got, long) {
+		t.Fatalf("expected full value in output, got: %q", got)
 	}
 }
 
