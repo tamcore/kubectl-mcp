@@ -58,7 +58,7 @@ func startSSEServerWithConfig(t *testing.T, cfg *config.Config) string {
 		server.WithToolCapabilities(false),
 		server.WithResourceCapabilities(false, false),
 	}
-	hooks := buildE2ELoggingHooks(t, &s, cfg)
+	hooks := buildE2ELoggingHooks(t, &s, cfg, pool)
 	if hooks != nil {
 		opts = append(opts, server.WithLogging(), server.WithHooks(hooks))
 	}
@@ -117,7 +117,7 @@ func startStreamableHTTPServerWithConfig(t *testing.T, cfg *config.Config) strin
 		server.WithToolCapabilities(false),
 		server.WithResourceCapabilities(false, false),
 	}
-	hooks := buildE2ELoggingHooks(t, &s, cfg)
+	hooks := buildE2ELoggingHooks(t, &s, cfg, pool)
 	if hooks != nil {
 		opts = append(opts, server.WithLogging(), server.WithHooks(hooks))
 	}
@@ -287,8 +287,9 @@ var allTransports = []transportCase{
 // ---------------------------------------------------------------------------
 
 // buildE2ELoggingHooks creates logging hooks for E2E tests matching the
-// given config's LogLevel. Returns nil for empty/unset levels.
-func buildE2ELoggingHooks(t *testing.T, sPtr **server.MCPServer, cfg *config.Config) *server.Hooks {
+// given config's LogLevel. When LogDir is set, uses per-context log files
+// via ContextLogWriter. Returns nil for empty/unset levels.
+func buildE2ELoggingHooks(t *testing.T, sPtr **server.MCPServer, cfg *config.Config, pool *kube.ClientPool) *server.Hooks {
 	t.Helper()
 
 	if cfg.LogLevel == "" {
@@ -305,6 +306,19 @@ func buildE2ELoggingHooks(t *testing.T, sPtr **server.MCPServer, cfg *config.Con
 		return hooks
 	}
 
+	// When LogDir is set, use per-context log writer.
+	if cfg.LogDir != "" {
+		clw, clwErr := mcplog.NewContextLogWriter(cfg.LogDir)
+		if clwErr != nil {
+			t.Fatalf("NewContextLogWriter: %v", clwErr)
+		}
+		t.Cleanup(func() { _ = clw.Close() })
+		clw.MainLogger().Printf("e2e server started (log-level=%s)", level)
+
+		return buildContextLoggingHooks(sPtr, level, clw, pool)
+	}
+
+	// Fallback: simple stderr logging for tests without LogDir.
 	logger := log.New(os.Stderr, "e2e: ", 0)
 
 	hooks.AddBeforeCallTool(func(ctx context.Context, id any, req *mcp.CallToolRequest) {
@@ -346,6 +360,75 @@ func buildE2ELoggingHooks(t *testing.T, sPtr **server.MCPServer, cfg *config.Con
 	})
 
 	return hooks
+}
+
+// buildContextLoggingHooks creates hooks that route logs to per-context files.
+func buildContextLoggingHooks(sPtr **server.MCPServer, level mcplog.LogLevel, clw *mcplog.ContextLogWriter, pool *kube.ClientPool) *server.Hooks {
+	hooks := &server.Hooks{}
+
+	hooks.AddBeforeCallTool(func(ctx context.Context, id any, req *mcp.CallToolRequest) {
+		logger := resolveE2ELogger(clw, pool, req)
+		args := summarizeToolArgs(req.GetArguments())
+		logger.Printf("→ %s(%s)", req.Params.Name, args)
+
+		if level == mcplog.LogLevelDebug && *sPtr != nil {
+			_ = (*sPtr).SendLogMessageToClient(ctx, mcplog.NewNotification(
+				mcp.LoggingLevelDebug,
+				fmt.Sprintf("→ %s(%s)", req.Params.Name, args),
+			))
+		}
+	})
+
+	hooks.AddAfterCallTool(func(ctx context.Context, id any, req *mcp.CallToolRequest, result any) {
+		r, ok := result.(*mcp.CallToolResult)
+		if !ok {
+			return
+		}
+
+		logger := resolveE2ELogger(clw, pool, req)
+
+		if r.IsError {
+			logger.Printf("✗ %s failed", req.Params.Name)
+			if *sPtr != nil {
+				_ = (*sPtr).SendLogMessageToClient(ctx, mcplog.NewNotification(
+					mcp.LoggingLevelWarning,
+					fmt.Sprintf("%s failed", req.Params.Name),
+				))
+			}
+			return
+		}
+
+		if level == mcplog.LogLevelDebug && *sPtr != nil {
+			_ = (*sPtr).SendLogMessageToClient(ctx, mcplog.NewNotification(
+				mcp.LoggingLevelDebug,
+				fmt.Sprintf("✓ %s done", req.Params.Name),
+			))
+		}
+		logger.Printf("✓ %s done", req.Params.Name)
+	})
+
+	hooks.AddOnError(func(ctx context.Context, id any, method mcp.MCPMethod, message any, err error) {
+		clw.MainLogger().Printf("✗ error in %s: %v", method, err)
+	})
+
+	return hooks
+}
+
+// resolveE2ELogger extracts the "context" parameter from the request and
+// returns the per-context logger.
+func resolveE2ELogger(clw *mcplog.ContextLogWriter, pool *kube.ClientPool, req *mcp.CallToolRequest) *log.Logger {
+	ctxName := ""
+	if args := req.GetArguments(); args != nil {
+		if v, ok := args["context"]; ok {
+			if s, ok := v.(string); ok {
+				ctxName = s
+			}
+		}
+	}
+	if ctxName == "" {
+		ctxName = pool.DefaultContext()
+	}
+	return clw.LoggerFor(ctxName)
 }
 
 func summarizeToolArgs(args map[string]any) string {

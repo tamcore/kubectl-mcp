@@ -94,3 +94,24 @@ func TestDefaultLogPath_ContainsDotKubectlMcp(t *testing.T) {
 		t.Fatalf("DefaultLogPath() = %q, expected to end with .log", got)
 	}
 }
+
+func TestDefaultLogDir(t *testing.T) {
+	got := DefaultLogDir()
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("cannot determine home dir")
+	}
+
+	want := filepath.Join(home, ".kubectl-mcp")
+	if got != want {
+		t.Fatalf("DefaultLogDir() = %q, want %q", got, want)
+	}
+}
+
+func TestDefaultLogDir_ContainsDotKubectlMcp(t *testing.T) {
+	got := DefaultLogDir()
+	if !strings.Contains(got, ".kubectl-mcp") {
+		t.Fatalf("DefaultLogDir() = %q, expected to contain .kubectl-mcp", got)
+	}
+}

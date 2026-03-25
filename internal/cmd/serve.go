@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -37,23 +35,22 @@ var serveCmd = &cobra.Command{
 		var s *server.MCPServer
 		logLevel, _ := mcplog.ParseLogLevel(cfg.LogLevel)
 
-		// Set up file-based logger (skip when logging is off).
-		var logger *log.Logger
+		// Set up per-context log writer (skip when logging is off).
+		var clw *mcplog.ContextLogWriter
 		if logLevel != mcplog.LogLevelOff {
-			logFile, err := openLogFile(cfg.LogFile)
+			clw, err = mcplog.NewContextLogWriter(cfg.LogDir)
 			if err != nil {
-				return fmt.Errorf("failed to open log file %q: %w", cfg.LogFile, err)
+				return fmt.Errorf("failed to create log writer in %q: %w", cfg.LogDir, err)
 			}
-			defer func() { _ = logFile.Close() }()
-			logger = log.New(logFile, "", log.LstdFlags)
-			logger.Printf("kubectl-mcp %s started (log-level=%s)", appVersion, logLevel)
+			defer func() { _ = clw.Close() }()
+			clw.MainLogger().Printf("kubectl-mcp %s started (log-level=%s, log-dir=%s)", appVersion, logLevel, clw.Dir())
 		}
 
-		hooks := newLoggingHooks(&s, logLevel, logger)
+		hooks := newLoggingHooks(&s, logLevel, clw, pool)
 
-		if logLevel == mcplog.LogLevelDebug {
+		if logLevel == mcplog.LogLevelDebug && clw != nil {
 			pool.SetTransportWrapper(func(rt http.RoundTripper) http.RoundTripper {
-				return mcplog.NewLoggingTransport(rt, logger)
+				return mcplog.NewLoggingTransport(rt, clw.MainLogger())
 			})
 		}
 
@@ -88,14 +85,15 @@ var serveCmd = &cobra.Command{
 	},
 }
 
-func newLoggingHooks(sPtr **server.MCPServer, level mcplog.LogLevel, logger *log.Logger) *server.Hooks {
+func newLoggingHooks(sPtr **server.MCPServer, level mcplog.LogLevel, clw *mcplog.ContextLogWriter, pool *kube.ClientPool) *server.Hooks {
 	hooks := &server.Hooks{}
 
-	if level == mcplog.LogLevelOff {
+	if level == mcplog.LogLevelOff || clw == nil {
 		return hooks
 	}
 
 	hooks.AddBeforeCallTool(func(ctx context.Context, id any, req *mcp.CallToolRequest) {
+		logger := resolveLogger(clw, pool, req)
 		var args string
 		if level == mcplog.LogLevelDebug {
 			args = fullArgs(req.GetArguments())
@@ -117,6 +115,8 @@ func newLoggingHooks(sPtr **server.MCPServer, level mcplog.LogLevel, logger *log
 		if !ok {
 			return
 		}
+
+		logger := resolveLogger(clw, pool, req)
 
 		if r.IsError {
 			logger.Printf("✗ %s failed", req.Params.Name)
@@ -145,7 +145,7 @@ func newLoggingHooks(sPtr **server.MCPServer, level mcplog.LogLevel, logger *log
 	})
 
 	hooks.AddOnError(func(ctx context.Context, id any, method mcp.MCPMethod, message any, err error) {
-		logger.Printf("✗ error in %s: %v", method, err)
+		clw.MainLogger().Printf("✗ error in %s: %v", method, err)
 
 		if *sPtr != nil {
 			_ = (*sPtr).SendLogMessageToClient(ctx, mcplog.NewNotification(
@@ -156,6 +156,24 @@ func newLoggingHooks(sPtr **server.MCPServer, level mcplog.LogLevel, logger *log
 	})
 
 	return hooks
+}
+
+// resolveLogger extracts the "context" parameter from the tool request
+// and returns the per-context logger. Falls back to the default context
+// if the parameter is empty.
+func resolveLogger(clw *mcplog.ContextLogWriter, pool *kube.ClientPool, req *mcp.CallToolRequest) *log.Logger {
+	ctxName := ""
+	if args := req.GetArguments(); args != nil {
+		if v, ok := args["context"]; ok {
+			if s, ok := v.(string); ok {
+				ctxName = s
+			}
+		}
+	}
+	if ctxName == "" {
+		ctxName = pool.DefaultContext()
+	}
+	return clw.LoggerFor(ctxName)
 }
 
 func extractErrorText(r *mcp.CallToolResult) string {
@@ -210,14 +228,4 @@ func extractResultText(r *mcp.CallToolResult) string {
 		}
 	}
 	return strings.Join(parts, "\n")
-}
-
-// openLogFile creates the parent directory if needed and opens the log file
-// for appending. The caller is responsible for closing the returned file.
-func openLogFile(path string) (*os.File, error) {
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o750); err != nil {
-		return nil, fmt.Errorf("creating log directory %q: %w", dir, err)
-	}
-	return os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o640)
 }

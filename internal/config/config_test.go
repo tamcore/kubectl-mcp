@@ -396,6 +396,59 @@ func TestValidate_LogFile_SkippedWhenOff(t *testing.T) {
 	// When log level is off, LogFile doesn't need to be set.
 }
 
+func TestValidate_LogDir_DefaultWhenEmpty(t *testing.T) {
+	c := &Config{Transport: "stdio", LogLevel: "info"}
+	if err := c.Validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.LogDir == "" {
+		t.Fatal("expected LogDir to be set to default, got empty")
+	}
+	if !strings.Contains(c.LogDir, ".kubectl-mcp") {
+		t.Fatalf("expected default LogDir to contain .kubectl-mcp, got %q", c.LogDir)
+	}
+}
+
+func TestValidate_LogDir_PreservedWhenSet(t *testing.T) {
+	c := &Config{Transport: "stdio", LogLevel: "info", LogDir: "/tmp/custom-logs"}
+	if err := c.Validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.LogDir != "/tmp/custom-logs" {
+		t.Fatalf("expected LogDir to be preserved, got %q", c.LogDir)
+	}
+}
+
+func TestValidate_LogDir_DerivedFromLogFile(t *testing.T) {
+	c := &Config{Transport: "stdio", LogLevel: "info", LogFile: "/tmp/custom/server.log"}
+	if err := c.Validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.LogDir != "/tmp/custom" {
+		t.Fatalf("expected LogDir derived from LogFile parent, got %q", c.LogDir)
+	}
+}
+
+func TestValidate_LogDir_SkippedWhenOff(t *testing.T) {
+	c := &Config{Transport: "stdio", LogLevel: "off"}
+	if err := c.Validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.LogDir != "" {
+		t.Fatalf("expected LogDir to remain empty at off level, got %q", c.LogDir)
+	}
+}
+
+func TestValidate_LogDir_TakesPrecedenceOverLogFile(t *testing.T) {
+	c := &Config{Transport: "stdio", LogLevel: "info", LogDir: "/tmp/explicit-dir", LogFile: "/tmp/other/server.log"}
+	if err := c.Validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.LogDir != "/tmp/explicit-dir" {
+		t.Fatalf("LogDir should take precedence, got %q", c.LogDir)
+	}
+}
+
 func TestIsRegex(t *testing.T) {
 	tests := []struct {
 		input string

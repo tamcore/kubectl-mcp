@@ -80,6 +80,23 @@ All flags can also be set via environment variables with a `KUBECTL_MCP_` prefix
 | `--allow-secrets` | `KUBECTL_MCP_ALLOW_SECRETS` | `false` | Allow reading Secret data |
 | `--rate-limit-read` | `KUBECTL_MCP_RATE_LIMIT_READ` | `120` | Max read tool calls per minute (0 = unlimited) |
 | `--rate-limit-write` | `KUBECTL_MCP_RATE_LIMIT_WRITE` | `30` | Max write tool calls per minute (0 = unlimited) |
+| `--log-level` | `KUBECTL_MCP_LOG_LEVEL` | `info` | Logging verbosity: `off`, `info`, or `debug` |
+| `--log-dir` | `KUBECTL_MCP_LOG_DIR` | `~/.kubectl-mcp/` | Directory for per-context log files |
+| `--log-file` | `KUBECTL_MCP_LOG_FILE` | *(auto)* | Deprecated: use `--log-dir` instead |
+
+### Logging
+
+When logging is enabled (`--log-level info` or `debug`), the server writes **per-kubecontext log files** under a PID-scoped subdirectory:
+
+```
+~/.kubectl-mcp/<pid>/
+├── server.log          # Server lifecycle (startup, shutdown, errors)
+├── kind-e2e.log        # Tool calls targeting the kind-e2e context
+├── prod-cluster.log    # Tool calls targeting prod-cluster
+└── staging.log         # Tool calls targeting staging
+```
+
+Each tool call is routed to the log file matching the target kubecontext. The `context` parameter from the tool request determines the file; if omitted, the default context is used.
 
 ### Context Filtering
 

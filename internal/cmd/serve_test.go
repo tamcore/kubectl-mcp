@@ -1,13 +1,11 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -18,7 +16,10 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
+	"github.com/tamcore/kubectl-mcp/internal/config"
+	"github.com/tamcore/kubectl-mcp/internal/kube"
 	"github.com/tamcore/kubectl-mcp/internal/mcplog"
 )
 
@@ -229,10 +230,24 @@ func TestServerInstructions_InInitializeResponse(t *testing.T) {
 }
 
 func TestNewLoggingHooks(t *testing.T) {
-	var buf bytes.Buffer
-	logger := log.New(&buf, "", 0)
+	dir := t.TempDir()
+	clw, err := mcplog.NewContextLogWriter(dir)
+	if err != nil {
+		t.Fatalf("NewContextLogWriter error: %v", err)
+	}
+	defer func() { _ = clw.Close() }()
+
+	pool := kube.NewClientPoolForTest(
+		&config.Config{AllowedContexts: []string{"*"}},
+		clientcmdapi.Config{
+			CurrentContext: "test-ctx",
+			Contexts:       map[string]*clientcmdapi.Context{"test-ctx": {}},
+		},
+		nil,
+	)
+
 	var s *server.MCPServer
-	hooks := newLoggingHooks(&s, mcplog.LogLevelInfo, logger)
+	hooks := newLoggingHooks(&s, mcplog.LogLevelInfo, clw, pool)
 	if hooks == nil {
 		t.Fatal("newLoggingHooks() returned nil")
 	}
@@ -265,10 +280,24 @@ func TestNewLoggingHooks(t *testing.T) {
 }
 
 func TestLoggingHooks_Off(t *testing.T) {
-	var buf bytes.Buffer
-	logger := log.New(&buf, "", 0)
+	dir := t.TempDir()
+	clw, err := mcplog.NewContextLogWriter(dir)
+	if err != nil {
+		t.Fatalf("NewContextLogWriter error: %v", err)
+	}
+	defer func() { _ = clw.Close() }()
+
+	pool := kube.NewClientPoolForTest(
+		&config.Config{AllowedContexts: []string{"*"}},
+		clientcmdapi.Config{
+			CurrentContext: "test-ctx",
+			Contexts:       map[string]*clientcmdapi.Context{"test-ctx": {}},
+		},
+		nil,
+	)
+
 	var s *server.MCPServer
-	hooks := newLoggingHooks(&s, mcplog.LogLevelOff, logger)
+	hooks := newLoggingHooks(&s, mcplog.LogLevelOff, clw, pool)
 
 	ctx := context.Background()
 	req := &mcp.CallToolRequest{}
@@ -286,16 +315,35 @@ func TestLoggingHooks_Off(t *testing.T) {
 		fn(ctx, "id-2", mcp.MethodToolsCall, nil, errors.New("boom"))
 	}
 
-	if buf.Len() > 0 {
-		t.Fatalf("expected no log output at off level, got: %s", buf.String())
+	// At off level, context log files should not be created.
+	contextLogFile := filepath.Join(clw.Dir(), "test-ctx.log")
+	if _, statErr := os.Stat(contextLogFile); statErr == nil {
+		content, _ := os.ReadFile(contextLogFile)
+		if len(content) > 0 {
+			t.Fatalf("expected no log output at off level, got: %s", string(content))
+		}
 	}
 }
 
 func TestLoggingHooks_Info(t *testing.T) {
-	var buf bytes.Buffer
-	logger := log.New(&buf, "", 0)
+	dir := t.TempDir()
+	clw, err := mcplog.NewContextLogWriter(dir)
+	if err != nil {
+		t.Fatalf("NewContextLogWriter error: %v", err)
+	}
+	defer func() { _ = clw.Close() }()
+
+	pool := kube.NewClientPoolForTest(
+		&config.Config{AllowedContexts: []string{"*"}},
+		clientcmdapi.Config{
+			CurrentContext: "test-ctx",
+			Contexts:       map[string]*clientcmdapi.Context{"test-ctx": {}},
+		},
+		nil,
+	)
+
 	var s *server.MCPServer
-	hooks := newLoggingHooks(&s, mcplog.LogLevelInfo, logger)
+	hooks := newLoggingHooks(&s, mcplog.LogLevelInfo, clw, pool)
 
 	ctx := context.Background()
 	req := &mcp.CallToolRequest{}
@@ -306,24 +354,26 @@ func TestLoggingHooks_Info(t *testing.T) {
 	for _, fn := range hooks.OnBeforeCallTool {
 		fn(ctx, "id-1", req)
 	}
-	output := buf.String()
-	if !strings.Contains(output, "get_resource") {
-		t.Fatalf("expected tool name in log, got: %s", output)
+	contextLogFile := filepath.Join(clw.Dir(), "test-ctx.log")
+	content, readErr := os.ReadFile(contextLogFile)
+	if readErr != nil {
+		t.Fatalf("failed to read context log: %v", readErr)
+	}
+	if !strings.Contains(string(content), "get_resource") {
+		t.Fatalf("expected tool name in log, got: %s", string(content))
 	}
 
 	// After hook should log success.
-	buf.Reset()
 	result := &mcp.CallToolResult{IsError: false}
 	for _, fn := range hooks.OnAfterCallTool {
 		fn(ctx, "id-1", req, result)
 	}
-	output = buf.String()
-	if !strings.Contains(output, "✓") || !strings.Contains(output, "get_resource") {
-		t.Fatalf("expected success marker in log, got: %s", output)
+	content, _ = os.ReadFile(contextLogFile)
+	if !strings.Contains(string(content), "✓") || !strings.Contains(string(content), "get_resource") {
+		t.Fatalf("expected success marker in log, got: %s", string(content))
 	}
 
 	// After hook should log failure.
-	buf.Reset()
 	errorResult := &mcp.CallToolResult{
 		IsError: true,
 		Content: []mcp.Content{mcp.NewTextContent("not found")},
@@ -331,17 +381,31 @@ func TestLoggingHooks_Info(t *testing.T) {
 	for _, fn := range hooks.OnAfterCallTool {
 		fn(ctx, "id-2", req, errorResult)
 	}
-	output = buf.String()
-	if !strings.Contains(output, "✗") {
-		t.Fatalf("expected failure marker in log, got: %s", output)
+	content, _ = os.ReadFile(contextLogFile)
+	if !strings.Contains(string(content), "✗") {
+		t.Fatalf("expected failure marker in log, got: %s", string(content))
 	}
 }
 
 func TestLoggingHooks_Debug(t *testing.T) {
-	var buf bytes.Buffer
-	logger := log.New(&buf, "", 0)
+	dir := t.TempDir()
+	clw, err := mcplog.NewContextLogWriter(dir)
+	if err != nil {
+		t.Fatalf("NewContextLogWriter error: %v", err)
+	}
+	defer func() { _ = clw.Close() }()
+
+	pool := kube.NewClientPoolForTest(
+		&config.Config{AllowedContexts: []string{"*"}},
+		clientcmdapi.Config{
+			CurrentContext: "test-ctx",
+			Contexts:       map[string]*clientcmdapi.Context{"test-ctx": {}},
+		},
+		nil,
+	)
+
 	var s *server.MCPServer
-	hooks := newLoggingHooks(&s, mcplog.LogLevelDebug, logger)
+	hooks := newLoggingHooks(&s, mcplog.LogLevelDebug, clw, pool)
 
 	ctx := context.Background()
 	req := &mcp.CallToolRequest{}
@@ -352,13 +416,16 @@ func TestLoggingHooks_Debug(t *testing.T) {
 	for _, fn := range hooks.OnBeforeCallTool {
 		fn(ctx, "id-1", req)
 	}
-	output := buf.String()
-	if !strings.Contains(output, "get_resource") {
-		t.Fatalf("expected tool name in debug log, got: %s", output)
+	contextLogFile := filepath.Join(clw.Dir(), "test-ctx.log")
+	content, readErr := os.ReadFile(contextLogFile)
+	if readErr != nil {
+		t.Fatalf("failed to read context log: %v", readErr)
+	}
+	if !strings.Contains(string(content), "get_resource") {
+		t.Fatalf("expected tool name in debug log, got: %s", string(content))
 	}
 
 	// After hook should log full result text.
-	buf.Reset()
 	result := &mcp.CallToolResult{
 		IsError: false,
 		Content: []mcp.Content{mcp.NewTextContent(`{"apiVersion":"v1","kind":"Pod"}`)},
@@ -366,63 +433,94 @@ func TestLoggingHooks_Debug(t *testing.T) {
 	for _, fn := range hooks.OnAfterCallTool {
 		fn(ctx, "id-1", req, result)
 	}
-	output = buf.String()
-	if !strings.Contains(output, "get_resource") {
-		t.Fatalf("expected tool name in debug after log, got: %s", output)
+	content, _ = os.ReadFile(contextLogFile)
+	if !strings.Contains(string(content), "get_resource") {
+		t.Fatalf("expected tool name in debug after log, got: %s", string(content))
 	}
-	if !strings.Contains(output, "apiVersion") {
-		t.Fatalf("expected result content in debug after log, got: %s", output)
-	}
-}
-
-func TestOpenLogFile_CreatesDirectoryAndFile(t *testing.T) {
-	dir := t.TempDir()
-	logPath := filepath.Join(dir, "subdir", "test.log")
-
-	f, err := openLogFile(logPath)
-	if err != nil {
-		t.Fatalf("openLogFile(%q) error: %v", logPath, err)
-	}
-	defer func() { _ = f.Close() }()
-
-	// Write something to verify it's writable.
-	if _, err := f.WriteString("test\n"); err != nil {
-		t.Fatalf("failed to write to log file: %v", err)
-	}
-
-	// Verify the file exists.
-	info, err := os.Stat(logPath)
-	if err != nil {
-		t.Fatalf("log file does not exist: %v", err)
-	}
-	if info.Size() == 0 {
-		t.Fatal("log file is empty after write")
+	if !strings.Contains(string(content), "apiVersion") {
+		t.Fatalf("expected result content in debug after log, got: %s", string(content))
 	}
 }
 
-func TestOpenLogFile_AppendsToExisting(t *testing.T) {
+func TestLoggingHooks_RoutesToExplicitContext(t *testing.T) {
 	dir := t.TempDir()
-	logPath := filepath.Join(dir, "test.log")
-
-	// Create a file with existing content.
-	if err := os.WriteFile(logPath, []byte("existing\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	f, err := openLogFile(logPath)
+	clw, err := mcplog.NewContextLogWriter(dir)
 	if err != nil {
-		t.Fatalf("openLogFile(%q) error: %v", logPath, err)
+		t.Fatalf("NewContextLogWriter error: %v", err)
 	}
-	if _, err := f.WriteString("new\n"); err != nil {
-		t.Fatalf("write error: %v", err)
-	}
-	_ = f.Close()
+	defer func() { _ = clw.Close() }()
 
-	content, _ := os.ReadFile(logPath)
-	if !strings.Contains(string(content), "existing") {
-		t.Fatal("existing content was overwritten")
+	pool := kube.NewClientPoolForTest(
+		&config.Config{AllowedContexts: []string{"*"}},
+		clientcmdapi.Config{
+			CurrentContext: "default-ctx",
+			Contexts: map[string]*clientcmdapi.Context{
+				"default-ctx": {},
+				"prod-ctx":    {},
+			},
+		},
+		nil,
+	)
+
+	var s *server.MCPServer
+	hooks := newLoggingHooks(&s, mcplog.LogLevelInfo, clw, pool)
+
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+	req.Params.Name = "list_resources"
+	req.Params.Arguments = map[string]any{"kind": "Pod", "context": "prod-ctx"}
+
+	for _, fn := range hooks.OnBeforeCallTool {
+		fn(ctx, "id-1", req)
 	}
-	if !strings.Contains(string(content), "new") {
-		t.Fatal("new content not appended")
+
+	// Should write to prod-ctx.log, not default-ctx.log.
+	prodLog := filepath.Join(clw.Dir(), "prod-ctx.log")
+	content, readErr := os.ReadFile(prodLog)
+	if readErr != nil {
+		t.Fatalf("expected prod-ctx.log to exist: %v", readErr)
+	}
+	if !strings.Contains(string(content), "list_resources") {
+		t.Fatalf("expected tool name in prod-ctx.log, got: %s", string(content))
+	}
+
+	defaultLog := filepath.Join(clw.Dir(), "default-ctx.log")
+	if _, statErr := os.Stat(defaultLog); statErr == nil {
+		t.Fatal("default-ctx.log should not exist when explicit context is used")
+	}
+}
+
+func TestLoggingHooks_OnErrorUsesMainLogger(t *testing.T) {
+	dir := t.TempDir()
+	clw, err := mcplog.NewContextLogWriter(dir)
+	if err != nil {
+		t.Fatalf("NewContextLogWriter error: %v", err)
+	}
+	defer func() { _ = clw.Close() }()
+
+	pool := kube.NewClientPoolForTest(
+		&config.Config{AllowedContexts: []string{"*"}},
+		clientcmdapi.Config{
+			CurrentContext: "test-ctx",
+			Contexts:       map[string]*clientcmdapi.Context{"test-ctx": {}},
+		},
+		nil,
+	)
+
+	var s *server.MCPServer
+	hooks := newLoggingHooks(&s, mcplog.LogLevelInfo, clw, pool)
+
+	ctx := context.Background()
+	for _, fn := range hooks.OnError {
+		fn(ctx, "id-1", mcp.MethodToolsCall, nil, errors.New("boom"))
+	}
+
+	serverLog := filepath.Join(clw.Dir(), "server.log")
+	content, readErr := os.ReadFile(serverLog)
+	if readErr != nil {
+		t.Fatalf("failed to read server.log: %v", readErr)
+	}
+	if !strings.Contains(string(content), "boom") {
+		t.Fatalf("expected error message in server.log, got: %s", string(content))
 	}
 }
