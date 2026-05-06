@@ -3,9 +3,46 @@
 package e2e
 
 import (
+	"context"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/mark3labs/mcp-go/mcp"
 )
+
+func TestOutputSchemaOnStructuredTools(t *testing.T) {
+	for _, tc := range allTransports {
+		t.Run(tc.name, func(t *testing.T) {
+			base := tc.startFunc(t, defaultConfig())
+			c := tc.clientFunc(t, base)
+
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			result, err := c.ListTools(ctx, mcp.ListToolsRequest{})
+			if err != nil {
+				t.Fatalf("ListTools: %v", err)
+			}
+
+			want := []string{"get_resource", "list_resources", "describe_resource", "rollout_status"}
+			byName := make(map[string]mcp.Tool, len(result.Tools))
+			for _, tool := range result.Tools {
+				byName[tool.Name] = tool
+			}
+			for _, name := range want {
+				tool, ok := byName[name]
+				if !ok {
+					t.Errorf("tool %q not found in ListTools", name)
+					continue
+				}
+				if tool.OutputSchema.Type == "" {
+					t.Errorf("tool %q: expected outputSchema.type to be set, got empty", name)
+				}
+			}
+		})
+	}
+}
 
 func TestStructuredContent(t *testing.T) {
 	for _, tc := range allTransports {

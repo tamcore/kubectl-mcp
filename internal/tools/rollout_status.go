@@ -34,6 +34,7 @@ type statusCondition struct {
 func registerRolloutStatus(s *server.MCPServer, pool *kube.ClientPool) {
 	tool := mcp.NewTool("rollout_status",
 		mcp.WithDescription("Get the rollout status of a Deployment, StatefulSet, or DaemonSet"),
+		mcp.WithOutputSchema[rolloutStatusResult](),
 		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithDestructiveHintAnnotation(false),
 		mcp.WithIdempotentHintAnnotation(true),
@@ -92,7 +93,7 @@ func registerRolloutStatus(s *server.MCPServer, pool *kube.ClientPool) {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to marshal result: %v", err)), nil
 		}
 
-		return mcp.NewToolResultText(string(out)), nil
+		return mcp.NewToolResultStructured(result, string(out)), nil
 	})
 }
 

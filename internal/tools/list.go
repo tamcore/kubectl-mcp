@@ -21,6 +21,7 @@ const defaultListLimit int64 = 100
 func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config) {
 	tool := mcp.NewTool("list_resources",
 		mcp.WithDescription("List Kubernetes resources of a given kind. Supports cross-namespace listing via allNamespaces."),
+		mcp.WithOutputSchema[listEnvelopeSchema](),
 		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithDestructiveHintAnnotation(false),
 		mcp.WithIdempotentHintAnnotation(true),

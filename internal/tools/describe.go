@@ -18,6 +18,7 @@ import (
 
 func registerDescribeResource(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config) {
 	tool := mcp.NewTool("describe_resource",
+		mcp.WithRawOutputSchema(rawK8sObjectSchema),
 		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithDestructiveHintAnnotation(false),
 		mcp.WithIdempotentHintAnnotation(true),
