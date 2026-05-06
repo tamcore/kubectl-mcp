@@ -179,6 +179,123 @@ func TestPatch(t *testing.T) {
 					t.Error("expected error for invalid patch type")
 				}
 			})
+
+			t.Run("with_subresource_status", func(t *testing.T) {
+				if err := kubectlApplyStdin(crdWithStatusManifest()); err != nil {
+					t.Fatalf("apply CRD: %v", err)
+				}
+				t.Cleanup(func() {
+					_ = kubectl("delete", "crd", "widgete2es.e2e.kubectl-mcp.dev", "--ignore-not-found", "--wait=false")
+				})
+				if err := kubectl("wait", "--for=condition=Established",
+					"crd/widgete2es.e2e.kubectl-mcp.dev", "--timeout=30s"); err != nil {
+					t.Fatalf("CRD not established: %v", err)
+				}
+
+				name := "e2e-widget-status"
+				callTool(t, c, "apply_resource", map[string]any{
+					"manifest": widgetCRManifest(name, testNamespace),
+				})
+				t.Cleanup(func() { deleteViaKubectl(t, "widgete2e", name, testNamespace) })
+
+				result := callTool(t, c, "patch_resource", map[string]any{
+					"kind":        "WidgetE2E",
+					"name":        name,
+					"namespace":   testNamespace,
+					"apiVersion":  "e2e.kubectl-mcp.dev/v1alpha1",
+					"patch":       `{"status":{"phase":"Ready"}}`,
+					"patchType":   "merge",
+					"subresource": "status",
+				})
+				text := resultText(result)
+				if result.IsError {
+					t.Fatalf("expected success, got: %s", text)
+				}
+				if !strings.Contains(text, "(subresource: status)") {
+					t.Errorf("expected subresource in response message, got: %s", text)
+				}
+
+				phase, err := kubectlOutput("get", "widgete2e", name, "-n", testNamespace,
+					"-o", "jsonpath={.status.phase}")
+				if err != nil {
+					t.Fatalf("kubectl get status: %v", err)
+				}
+				if phase != "Ready" {
+					t.Errorf("expected status.phase=Ready, got: %q", phase)
+				}
+
+				size, err := kubectlOutput("get", "widgete2e", name, "-n", testNamespace,
+					"-o", "jsonpath={.spec.size}")
+				if err != nil {
+					t.Fatalf("kubectl get spec: %v", err)
+				}
+				if size != "1" {
+					t.Errorf("expected spec.size=1 unchanged, got: %q", size)
+				}
+			})
+
+			t.Run("with_subresource_invalid_returns_error", func(t *testing.T) {
+				result := callTool(t, c, "patch_resource", map[string]any{
+					"kind":        "ConfigMap",
+					"name":        "anything",
+					"namespace":   testNamespace,
+					"patch":       `{}`,
+					"patchType":   "merge",
+					"subresource": "metadata",
+				})
+				if !result.IsError {
+					t.Error("expected error for invalid subresource")
+				}
+				if !strings.Contains(resultText(result), "invalid subresource") {
+					t.Errorf("expected 'invalid subresource' in error, got: %s", resultText(result))
+				}
+			})
+
+			t.Run("with_subresource_status_no_spec_mutation", func(t *testing.T) {
+				if err := kubectlApplyStdin(crdWithStatusManifest()); err != nil {
+					t.Fatalf("apply CRD: %v", err)
+				}
+				t.Cleanup(func() {
+					_ = kubectl("delete", "crd", "widgete2es.e2e.kubectl-mcp.dev", "--ignore-not-found", "--wait=false")
+				})
+				if err := kubectl("wait", "--for=condition=Established",
+					"crd/widgete2es.e2e.kubectl-mcp.dev", "--timeout=30s"); err != nil {
+					t.Fatalf("CRD not established: %v", err)
+				}
+
+				name := "e2e-widget-nospec"
+				callTool(t, c, "apply_resource", map[string]any{
+					"manifest": widgetCRManifest(name, testNamespace),
+				})
+				t.Cleanup(func() { deleteViaKubectl(t, "widgete2e", name, testNamespace) })
+
+				// Patch via status subresource with a body that also sets spec.size=99.
+				// The API server must discard the spec change and only apply the status.
+				result := callTool(t, c, "patch_resource", map[string]any{
+					"kind":        "WidgetE2E",
+					"name":        name,
+					"namespace":   testNamespace,
+					"apiVersion":  "e2e.kubectl-mcp.dev/v1alpha1",
+					"patch":       `{"spec":{"size":99},"status":{"phase":"Done"}}`,
+					"patchType":   "merge",
+					"subresource": "status",
+				})
+				if result.IsError {
+					t.Fatalf("expected success, got: %s", resultText(result))
+				}
+
+				phase, _ := kubectlOutput("get", "widgete2e", name, "-n", testNamespace,
+					"-o", "jsonpath={.status.phase}")
+				if phase != "Done" {
+					t.Errorf("expected status.phase=Done, got: %q", phase)
+				}
+
+				size, _ := kubectlOutput("get", "widgete2e", name, "-n", testNamespace,
+					"-o", "jsonpath={.spec.size}")
+				if size != "1" {
+					t.Errorf("expected spec.size=1 (unchanged by status patch), got: %q", size)
+				}
+			})
 		})
 	}
 }

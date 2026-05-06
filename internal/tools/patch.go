@@ -46,6 +46,9 @@ func registerPatchResource(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 		mcp.WithString("patchType",
 			mcp.Description("Patch type: json, merge, or strategic (default: strategic)"),
 		),
+		mcp.WithString("subresource",
+			mcp.Description("Subresource to patch (e.g. status, scale, resize). Mirrors kubectl --subresource. Empty (default) targets the main resource."),
+		),
 		mcp.WithBoolean("dryRun",
 			mcp.Description("If true, validate the request without persisting the change (server-side dry run)"),
 		),
@@ -71,9 +74,13 @@ func registerPatchResource(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 		patchTypeStr := req.GetString("patchType", "strategic")
+		subresource := req.GetString("subresource", "")
 
 		pt, err := parsePatchType(patchTypeStr)
 		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		if err := validatePatchSubresource(subresource); err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 
@@ -85,11 +92,16 @@ func registerPatchResource(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 		patchData := []byte(patchStr)
 		dryRun := dryRunOption(req.GetBool("dryRun", false))
 
+		var subs []string
+		if subresource != "" {
+			subs = []string{subresource}
+		}
+
 		var result *unstructured.Unstructured
 		if namespace != "" {
-			result, err = cc.Dynamic.Resource(gvr).Namespace(namespace).Patch(ctx, name, pt, patchData, metav1.PatchOptions{DryRun: dryRun})
+			result, err = cc.Dynamic.Resource(gvr).Namespace(namespace).Patch(ctx, name, pt, patchData, metav1.PatchOptions{DryRun: dryRun}, subs...)
 		} else {
-			result, err = cc.Dynamic.Resource(gvr).Patch(ctx, name, pt, patchData, metav1.PatchOptions{DryRun: dryRun})
+			result, err = cc.Dynamic.Resource(gvr).Patch(ctx, name, pt, patchData, metav1.PatchOptions{DryRun: dryRun}, subs...)
 		}
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to patch %s/%s: %v", kind, name, err)), nil
@@ -108,7 +120,11 @@ func registerPatchResource(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 		if len(dryRun) > 0 {
 			prefix = "DRY RUN: would patch"
 		}
-		return mcp.NewToolResultText(fmt.Sprintf("%s %s/%s in context %q\n\n%s", prefix, kind, name, ctxName, string(out))), nil
+		target := fmt.Sprintf("%s/%s", kind, name)
+		if subresource != "" {
+			target = fmt.Sprintf("%s/%s (subresource: %s)", kind, name, subresource)
+		}
+		return mcp.NewToolResultText(fmt.Sprintf("%s %s in context %q\n\n%s", prefix, target, ctxName, string(out))), nil
 	})
 }
 
@@ -123,4 +139,18 @@ func parsePatchType(s string) (types.PatchType, error) {
 	default:
 		return "", fmt.Errorf("invalid patchType %q: must be json, merge, or strategic", s)
 	}
+}
+
+var allowedPatchSubresources = map[string]struct{}{
+	"":       {},
+	"status": {},
+	"scale":  {},
+	"resize": {},
+}
+
+func validatePatchSubresource(s string) error {
+	if _, ok := allowedPatchSubresources[s]; !ok {
+		return fmt.Errorf("invalid subresource %q: must be one of status, scale, resize (or empty)", s)
+	}
+	return nil
 }

@@ -6,7 +6,9 @@ import (
 	"testing"
 
 	"github.com/mark3labs/mcp-go/server"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
+	clienttesting "k8s.io/client-go/testing"
 
 	"github.com/tamcore/kubectl-mcp/internal/config"
 )
@@ -212,6 +214,192 @@ func TestPatchResource_PatchAsObject(t *testing.T) {
 	text := resultText(t, res)
 	if !strings.Contains(text, "Patched Pod/my-pod") {
 		t.Errorf("expected patch confirmation, got: %s", text)
+	}
+}
+
+func TestPatchResource_SubresourceStatus(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+
+	fakeCS := fake.NewClientset()
+	dynClient := newWriteFakeDynClient(testDeployment("my-deploy", "default"))
+
+	var capturedSub string
+	dynClient.PrependReactor("patch", "deployments", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		capturedSub = action.GetSubresource()
+		return false, nil, nil
+	})
+
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+	handler := getHandler(t, "patch_resource", func(s *server.MCPServer) {
+		registerPatchResource(s, pool, cfg)
+	})
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"kind":        "Deployment",
+		"name":        "my-deploy",
+		"namespace":   "default",
+		"patch":       `{"status":{"observedGeneration":7}}`,
+		"patchType":   "merge",
+		"subresource": "status",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	text := resultText(t, res)
+	if strings.Contains(text, "failed to") {
+		t.Fatalf("unexpected error: %s", text)
+	}
+	if capturedSub != "status" {
+		t.Errorf("expected subresource %q passed to Patch, got %q", "status", capturedSub)
+	}
+	if !strings.Contains(text, "(subresource: status)") {
+		t.Errorf("expected subresource in response message, got: %s", text)
+	}
+}
+
+func TestPatchResource_SubresourceScale(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+
+	fakeCS := fake.NewClientset()
+	dynClient := newWriteFakeDynClient(testDeployment("my-deploy", "default"))
+
+	var capturedSub string
+	dynClient.PrependReactor("patch", "deployments", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		capturedSub = action.GetSubresource()
+		return false, nil, nil
+	})
+
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+	handler := getHandler(t, "patch_resource", func(s *server.MCPServer) {
+		registerPatchResource(s, pool, cfg)
+	})
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"kind":        "Deployment",
+		"name":        "my-deploy",
+		"namespace":   "default",
+		"patch":       `{"spec":{"replicas":5}}`,
+		"patchType":   "merge",
+		"subresource": "scale",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	text := resultText(t, res)
+	if strings.Contains(text, "failed to") {
+		t.Fatalf("unexpected error: %s", text)
+	}
+	if capturedSub != "scale" {
+		t.Errorf("expected subresource %q passed to Patch, got %q", "scale", capturedSub)
+	}
+	if !strings.Contains(text, "(subresource: scale)") {
+		t.Errorf("expected subresource in response message, got: %s", text)
+	}
+}
+
+func TestPatchResource_SubresourceInvalid(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+
+	fakeCS := fake.NewClientset()
+	dynClient := newWriteFakeDynClient(testDeployment("my-deploy", "default"))
+
+	patchCalled := false
+	dynClient.PrependReactor("patch", "*", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		patchCalled = true
+		return false, nil, nil
+	})
+
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+	handler := getHandler(t, "patch_resource", func(s *server.MCPServer) {
+		registerPatchResource(s, pool, cfg)
+	})
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"kind":        "Deployment",
+		"name":        "my-deploy",
+		"namespace":   "default",
+		"patch":       `{}`,
+		"patchType":   "merge",
+		"subresource": "metadata",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	text := resultText(t, res)
+	if !strings.Contains(text, "invalid subresource") {
+		t.Errorf("expected invalid subresource error, got: %s", text)
+	}
+	if patchCalled {
+		t.Error("expected no patch API call for invalid subresource")
+	}
+}
+
+func TestPatchResource_SubresourceEmpty_DefaultsToMain(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+
+	fakeCS := fake.NewClientset()
+	dynClient := newWriteFakeDynClient(testPod("my-pod", "default"))
+
+	var capturedSub string
+	dynClient.PrependReactor("patch", "pods", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		capturedSub = action.GetSubresource()
+		return false, nil, nil
+	})
+
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+	handler := getHandler(t, "patch_resource", func(s *server.MCPServer) {
+		registerPatchResource(s, pool, cfg)
+	})
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"kind":      "Pod",
+		"name":      "my-pod",
+		"namespace": "default",
+		"patch":     `{"metadata":{"labels":{"env":"prod"}}}`,
+		"patchType": "merge",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	text := resultText(t, res)
+	if !strings.Contains(text, "Patched Pod/my-pod") {
+		t.Errorf("expected patch confirmation, got: %s", text)
+	}
+	if capturedSub != "" {
+		t.Errorf("expected empty subresource for main resource patch, got %q", capturedSub)
+	}
+}
+
+func TestValidatePatchSubresource(t *testing.T) {
+	tests := []struct {
+		input   string
+		wantErr bool
+	}{
+		{"", false},
+		{"status", false},
+		{"scale", false},
+		{"resize", false},
+		{"Status", true},
+		{"STATUS", true},
+		{"metadata", true},
+		{"spec", true},
+		{"status/foo", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			err := validatePatchSubresource(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validatePatchSubresource(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+		})
 	}
 }
 

@@ -236,3 +236,64 @@ func waitForDeploymentReady(t *testing.T, name, namespace string) {
 	}
 }
 
+func kubectlApplyStdin(manifest string) error {
+	cmd := exec.Command("kubectl", "apply", "-f", "-")
+	cmd.Stdin = strings.NewReader(manifest)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// crdWithStatusManifest returns a CRD manifest for WidgetE2E
+// (group: e2e.kubectl-mcp.dev) with a status subresource.
+func crdWithStatusManifest() string {
+	return `{
+		"apiVersion": "apiextensions.k8s.io/v1",
+		"kind": "CustomResourceDefinition",
+		"metadata": {"name": "widgete2es.e2e.kubectl-mcp.dev"},
+		"spec": {
+			"group": "e2e.kubectl-mcp.dev",
+			"names": {
+				"kind": "WidgetE2E",
+				"plural": "widgete2es",
+				"singular": "widgete2e"
+			},
+			"scope": "Namespaced",
+			"versions": [{
+				"name": "v1alpha1",
+				"served": true,
+				"storage": true,
+				"schema": {
+					"openAPIV3Schema": {
+						"type": "object",
+						"properties": {
+							"spec": {
+								"type": "object",
+								"properties": {
+									"size": {"type": "integer"}
+								}
+							},
+							"status": {
+								"type": "object",
+								"properties": {
+									"phase": {"type": "string"}
+								}
+							}
+						}
+					}
+				},
+				"subresources": {"status": {}}
+			}]
+		}
+	}`
+}
+
+func widgetCRManifest(name, namespace string) string {
+	return fmt.Sprintf(`{
+		"apiVersion": "e2e.kubectl-mcp.dev/v1alpha1",
+		"kind": "WidgetE2E",
+		"metadata": {"name": %q, "namespace": %q},
+		"spec": {"size": 1}
+	}`, name, namespace)
+}
+
