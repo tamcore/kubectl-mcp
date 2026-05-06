@@ -186,6 +186,7 @@ func registerDrainNode(s *server.MCPServer, pool *kube.ClientPool) {
 			} else {
 				evicted = append(evicted, fmt.Sprintf("%s/%s", pod.Namespace, pod.Name))
 			}
+			sendProgress(ctx, req, i+1, len(pods.Items), fmt.Sprintf("processed %s/%s", pod.Namespace, pod.Name))
 		}
 
 		var sb strings.Builder

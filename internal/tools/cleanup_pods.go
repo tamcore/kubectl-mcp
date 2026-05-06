@@ -84,7 +84,7 @@ func registerCleanupPods(s *server.MCPServer, pool *kube.ClientPool) {
 			return formatDryRunCleanup(matched, namespace, ctxName), nil
 		}
 
-		return executeCleanup(ctx, cc, matched, namespace, ctxName)
+		return executeCleanup(ctx, cc, matched, namespace, ctxName, req)
 	})
 }
 
@@ -140,17 +140,18 @@ func formatDryRunCleanup(pods []podCleanupEntry, namespace, ctxName string) *mcp
 }
 
 // executeCleanup deletes the matched pods and reports the results.
-func executeCleanup(ctx context.Context, cc *kube.ContextClient, pods []podCleanupEntry, namespace, ctxName string) (*mcp.CallToolResult, error) {
+func executeCleanup(ctx context.Context, cc *kube.ContextClient, pods []podCleanupEntry, namespace, ctxName string, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	var deleted []string
 	var errors []string
 
-	for _, p := range pods {
+	for i, p := range pods {
 		err := cc.Dynamic.Resource(podGVR).Namespace(namespace).Delete(ctx, p.Name, metav1.DeleteOptions{})
 		if err != nil {
 			errors = append(errors, fmt.Sprintf("%s: %v", p.Name, err))
 		} else {
 			deleted = append(deleted, fmt.Sprintf("%s (%s)", p.Name, p.State))
 		}
+		sendProgress(ctx, req, i+1, len(pods), fmt.Sprintf("deleted %s (%s)", p.Name, p.State))
 	}
 
 	var sb strings.Builder
