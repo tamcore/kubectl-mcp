@@ -19,9 +19,11 @@ lets LLMs query and manage your clusters safely.
 - **Rate limiting** — configurable per-minute limits for read and write operations
 - **MCP tool annotations** — every tool declares `readOnlyHint`, `destructiveHint`, `idempotentHint`, and `openWorldHint` so MCP clients can make informed decisions
 - **Elicitation confirmation** — destructive operations (delete, drain) prompt for user confirmation via MCP elicitation
-- **Structured content** — get, list, and describe responses include machine-readable structured content alongside text
+- **Structured content** — get, list, and describe responses include machine-readable structured content alongside text, with declared `outputSchema` for client-side validation
+- **Progress notifications** — long-running operations (`drain_node`, `cleanup_pods`) emit MCP progress notifications when a `progressToken` is supplied
 - **35 MCP tools** — 19 read-only + 12 write + 3 destructive + 1 raw
 - **MCP resources** — read any Kubernetes resource via `k8s://` URI scheme (2 resource templates)
+- **MCP prompts** — 4 built-in diagnostic workflows: pod diagnosis, deployment diagnosis, node investigation, safe rollback
 
 ## Installation
 
@@ -321,6 +323,30 @@ kubectl-mcp serve --transport streamable-http &
   }
 }
 ```
+
+## MCP Prompts
+
+Prompts expose reusable diagnostic workflows that MCP clients can invoke
+directly. Each prompt produces a structured sequence of tool-call instructions
+tailored to the given arguments.
+
+| Prompt | Arguments | Description |
+|--------|-----------|-------------|
+| `diagnose-pod` | `pod`, `namespace`, `context`* | Diagnose a pod: describe → events → logs |
+| `diagnose-deployment` | `deployment`, `namespace`, `context`* | Diagnose a deployment: rollout status → describe → events → pod logs |
+| `investigate-node` | `node`, `context`* | Investigate a node: describe → events → node stats → top pods |
+| `safe-rollback` | `deployment`, `namespace`, `context`* | Roll back a deployment safely: inspect history → confirm with user → undo |
+
+*`context` is optional — defaults to the server's current context.
+
+### Example (Claude Code)
+
+```
+Use the diagnose-pod prompt for pod nginx in namespace default
+```
+
+Claude Code will call `get_prompt` with the supplied arguments and execute
+the returned investigation steps in sequence.
 
 ## Companion Skill (Claude Code)
 
