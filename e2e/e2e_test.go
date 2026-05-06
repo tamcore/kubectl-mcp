@@ -20,6 +20,7 @@ import (
 	"github.com/tamcore/kubectl-mcp/internal/config"
 	"github.com/tamcore/kubectl-mcp/internal/kube"
 	"github.com/tamcore/kubectl-mcp/internal/mcplog"
+	"github.com/tamcore/kubectl-mcp/internal/prompts"
 	"github.com/tamcore/kubectl-mcp/internal/resources"
 	"github.com/tamcore/kubectl-mcp/internal/tools"
 )
@@ -57,6 +58,7 @@ func startSSEServerWithConfig(t *testing.T, cfg *config.Config) string {
 	opts := []server.ServerOption{
 		server.WithToolCapabilities(false),
 		server.WithResourceCapabilities(false, false),
+		server.WithPromptCapabilities(false),
 	}
 	hooks := buildE2ELoggingHooks(t, &s, cfg, pool)
 	if hooks != nil {
@@ -66,7 +68,7 @@ func startSSEServerWithConfig(t *testing.T, cfg *config.Config) string {
 	s = server.NewMCPServer("kubectl-mcp-e2e", "test", opts...)
 	tools.RegisterAll(s, pool, cfg)
 	resources.RegisterAll(s, pool, cfg)
-
+	prompts.RegisterAll(s)
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -116,6 +118,7 @@ func startStreamableHTTPServerWithConfig(t *testing.T, cfg *config.Config) strin
 	opts := []server.ServerOption{
 		server.WithToolCapabilities(false),
 		server.WithResourceCapabilities(false, false),
+		server.WithPromptCapabilities(false),
 	}
 	hooks := buildE2ELoggingHooks(t, &s, cfg, pool)
 	if hooks != nil {
@@ -125,7 +128,7 @@ func startStreamableHTTPServerWithConfig(t *testing.T, cfg *config.Config) strin
 	s = server.NewMCPServer("kubectl-mcp-e2e", "test", opts...)
 	tools.RegisterAll(s, pool, cfg)
 	resources.RegisterAll(s, pool, cfg)
-
+	prompts.RegisterAll(s)
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

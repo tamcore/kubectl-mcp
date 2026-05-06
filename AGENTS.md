@@ -13,6 +13,7 @@ operations as MCP tools. Built with Go, mcp-go, and client-go.
 2. **TDD** — write tests first (RED), implement (GREEN), refactor (IMPROVE).
 3. **Lint/vet** before committing: `golangci-lint run` and `go vet ./...`.
 4. **Semantic commits** — `feat:`, `fix:`, `refactor:`, `test:`, `ci:`, `docs:`, `chore:`.
+5. **Per-commit CI rule** — after every commit, push to `master` and wait for the GitHub CI and E2E workflows to go green before continuing. Fix any failures before stacking the next commit.
 
 ## Package Layout
 
@@ -24,14 +25,16 @@ internal/
   kube/                Kubernetes client pool, helpers
   mcplog/              Structured MCP logging
   ratelimit/           Token-bucket rate limiting middleware
+  prompts/             MCP prompt definitions and handlers (diagnostic workflows)
   resources/           MCP resource templates and handlers (k8s:// URI)
   tools/               MCP tool definitions and handlers
 e2e/                   End-to-end tests (build tag: e2e)
 ```
 
 Each tool lives in its own file under `internal/tools/` (e.g. `get.go`, `list.go`,
-`delete.go`). The project currently has 26 MCP tools (14 read-only, 10 write, 2 destructive)
-and 2 MCP resource templates (namespaced + cluster-scoped via `k8s://` URI).
+`delete.go`). The project currently has 35 MCP tools (19 read-only, 13 write, 3 destructive),
+2 MCP resource templates (namespaced + cluster-scoped via `k8s://` URI),
+and 4 MCP prompts (diagnostic workflows in `internal/prompts/`).
 Keep files under 400 lines; extract helpers when they grow.
 
 ## Adding a New MCP Tool

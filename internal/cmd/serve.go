@@ -14,6 +14,7 @@ import (
 
 	"github.com/tamcore/kubectl-mcp/internal/kube"
 	"github.com/tamcore/kubectl-mcp/internal/mcplog"
+	"github.com/tamcore/kubectl-mcp/internal/prompts"
 	"github.com/tamcore/kubectl-mcp/internal/resources"
 	"github.com/tamcore/kubectl-mcp/internal/tools"
 )
@@ -60,6 +61,7 @@ var serveCmd = &cobra.Command{
 			server.WithInstructions(serverInstructions()),
 			server.WithToolCapabilities(false),
 			server.WithResourceCapabilities(false, false),
+			server.WithPromptCapabilities(false),
 			server.WithLogging(),
 			server.WithElicitation(),
 			server.WithHooks(hooks),
@@ -67,6 +69,7 @@ var serveCmd = &cobra.Command{
 
 		tools.RegisterAll(s, pool, &cfg)
 		resources.RegisterAll(s, pool, &cfg)
+		prompts.RegisterAll(s)
 
 		switch cfg.Transport {
 		case "stdio":
