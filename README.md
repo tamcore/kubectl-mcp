@@ -82,6 +82,8 @@ All flags can also be set via environment variables with a `KUBECTL_MCP_` prefix
 | `--allow-secrets` | `KUBECTL_MCP_ALLOW_SECRETS` | `false` | Allow reading Secret data |
 | `--rate-limit-read` | `KUBECTL_MCP_RATE_LIMIT_READ` | `120` | Max read tool calls per minute (0 = unlimited) |
 | `--rate-limit-write` | `KUBECTL_MCP_RATE_LIMIT_WRITE` | `30` | Max write tool calls per minute (0 = unlimited) |
+| `--safety-delay-write` | `KUBECTL_MCP_SAFETY_DELAY_WRITE` | `3s` | Pause before write operations land on the API server (0 to disable). Skipped for dry-run calls. |
+| `--safety-delay-destructive` | `KUBECTL_MCP_SAFETY_DELAY_DESTRUCTIVE` | `3s` | Pause before destructive operations land on the API server (0 to disable). Skipped for dry-run calls. |
 | `--log-level` | `KUBECTL_MCP_LOG_LEVEL` | `info` | Logging verbosity: `off`, `info`, or `debug` |
 | `--log-dir` | `KUBECTL_MCP_LOG_DIR` | `~/.kubectl-mcp/` | Directory for per-context log files |
 | `--log-file` | `KUBECTL_MCP_LOG_FILE` | *(auto)* | Deprecated: use `--log-dir` instead |

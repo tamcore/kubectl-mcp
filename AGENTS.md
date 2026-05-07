@@ -49,6 +49,9 @@ Keep files under 400 lines; extract helpers when they grow.
      mcp.WithOpenWorldHintAnnotation(true),      // true for all tools (Kubernetes is open-world)
      ```
    - Register it via `s.AddTool(tool, handlerFunc)`.
+   - **Safety delay**: write-tier handlers call `applySafetyDelay(ctx, req, cfg.SafetyDelayWrite)`
+     before the kubectl mutation (skip when `len(dryRun) > 0`). Destructive handlers use
+     `cfg.SafetyDelayDestructive` instead (call it after elicitation confirmation).
 2. Wire it into `RegisterAll()` in `internal/tools/register.go`.
    - Read-only tools are always registered (currently 14).
    - Write tools require `cfg.AllowWrite` (currently 10); add the tool name to `writeTools`.
