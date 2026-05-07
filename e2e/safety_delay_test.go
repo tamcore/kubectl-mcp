@@ -164,8 +164,7 @@ func TestSafetyDelay_ProgressNotificationsReceived(t *testing.T) {
 
 			select {
 			case n := <-progressCh:
-				params, _ := n.Params.(map[string]any)
-				msg, _ := params["message"].(string)
+				msg, _ := n.Params.AdditionalFields["message"].(string)
 				if !strings.Contains(msg, "safety delay") {
 					t.Errorf("expected progress message containing 'safety delay', got: %s", msg)
 				}
