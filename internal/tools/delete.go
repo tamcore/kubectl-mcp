@@ -8,10 +8,11 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/tamcore/kubectl-mcp/internal/config"
 	"github.com/tamcore/kubectl-mcp/internal/kube"
 )
 
-func registerDeleteResource(s *server.MCPServer, pool *kube.ClientPool) { //nolint:cyclop // elicitation adds a confirmation step
+func registerDeleteResource(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config) { //nolint:cyclop // elicitation adds a confirmation step
 	mcpServer := s
 	tool := mcp.NewTool("delete_resource",
 		mcp.WithDescription("Delete a Kubernetes resource by kind, name, and namespace. Requires --allow-destructive."),
@@ -92,6 +93,9 @@ func registerDeleteResource(s *server.MCPServer, pool *kube.ClientPool) { //noli
 			}
 			if !confirmed {
 				return mcp.NewToolResultText("Delete cancelled by user"), nil
+			}
+			if err := applySafetyDelay(ctx, req, cfg.SafetyDelayDestructive); err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("safety delay interrupted: %v", err)), nil
 			}
 		}
 

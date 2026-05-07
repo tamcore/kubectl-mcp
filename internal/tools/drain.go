@@ -13,10 +13,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/tamcore/kubectl-mcp/internal/config"
 	"github.com/tamcore/kubectl-mcp/internal/kube"
 )
 
-func registerDrainNode(s *server.MCPServer, pool *kube.ClientPool) {
+func registerDrainNode(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config) {
 	mcpServer := s
 	tool := mcp.NewTool("drain_node",
 		mcp.WithDescription("Drain a Kubernetes node: cordon it and evict all eligible pods. Requires --allow-destructive. "+
@@ -77,6 +78,9 @@ func registerDrainNode(s *server.MCPServer, pool *kube.ClientPool) {
 			}
 			if !confirmed {
 				return mcp.NewToolResultText("Drain cancelled by user"), nil
+			}
+			if err := applySafetyDelay(ctx, req, cfg.SafetyDelayDestructive); err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("safety delay interrupted: %v", err)), nil
 			}
 		}
 

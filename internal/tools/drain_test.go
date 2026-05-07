@@ -67,7 +67,7 @@ func TestDrainNode_Basic(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "drain_node", func(s *server.MCPServer) {
-		registerDrainNode(s, pool)
+		registerDrainNode(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -122,7 +122,7 @@ func TestDrainNode_SkipDaemonSet(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "drain_node", func(s *server.MCPServer) {
-		registerDrainNode(s, pool)
+		registerDrainNode(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -171,7 +171,7 @@ func TestDrainNode_SkipMirrorPod(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "drain_node", func(s *server.MCPServer) {
-		registerDrainNode(s, pool)
+		registerDrainNode(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -200,7 +200,7 @@ func TestDrainNode_NodeNotFound(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "drain_node", func(s *server.MCPServer) {
-		registerDrainNode(s, pool)
+		registerDrainNode(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -223,7 +223,7 @@ func TestDrainNode_ContextNotAllowed(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "drain_node", func(s *server.MCPServer) {
-		registerDrainNode(s, pool)
+		registerDrainNode(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -259,7 +259,7 @@ func TestDrainNode_DryRun(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "drain_node", func(s *server.MCPServer) {
-		registerDrainNode(s, pool)
+		registerDrainNode(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -289,7 +289,7 @@ func TestDrainNode_NoPods(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "drain_node", func(s *server.MCPServer) {
-		registerDrainNode(s, pool)
+		registerDrainNode(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -340,7 +340,7 @@ func TestDrainNode_ForceTrue(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "drain_node", func(s *server.MCPServer) {
-		registerDrainNode(s, pool)
+		registerDrainNode(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -402,7 +402,7 @@ func TestDrainNode_ForceFalse_UnmanagedPodError(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "drain_node", func(s *server.MCPServer) {
-		registerDrainNode(s, pool)
+		registerDrainNode(s, pool, cfg)
 	})
 
 	// force defaults to false.
@@ -462,7 +462,7 @@ func TestDrainNode_Timeout(t *testing.T) {
 	dynClient := newWriteFakeDynClient(testNode("node-1"))
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "drain_node", func(s *server.MCPServer) {
-		registerDrainNode(s, pool)
+		registerDrainNode(s, pool, cfg)
 	})
 
 	// timeout=0.05 → 50ms deadline; the first eviction sleeps 100ms, so the
@@ -509,7 +509,7 @@ func TestDrainNode_TimeoutZero_NoTimeout(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "drain_node", func(s *server.MCPServer) {
-		registerDrainNode(s, pool)
+		registerDrainNode(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -557,7 +557,7 @@ func TestDrainNode_ForceAndTimeout(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "drain_node", func(s *server.MCPServer) {
-		registerDrainNode(s, pool)
+		registerDrainNode(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -609,7 +609,7 @@ func TestDrainNode_ForceAndDryRun(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "drain_node", func(s *server.MCPServer) {
-		registerDrainNode(s, pool)
+		registerDrainNode(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -646,7 +646,7 @@ func TestDrainNode_ToolDescription_MentionsForceRisk(t *testing.T) {
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 
 	s := server.NewMCPServer("test", "0.1.0", server.WithToolCapabilities(false))
-	registerDrainNode(s, pool)
+	registerDrainNode(s, pool, cfg)
 
 	tool := s.GetTool("drain_node")
 	if tool == nil {

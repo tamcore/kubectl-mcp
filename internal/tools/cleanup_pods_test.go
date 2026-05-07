@@ -43,7 +43,7 @@ func TestCleanupPods_DryRun(t *testing.T) {
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 
 	handler := getHandler(t, "cleanup_pods", func(s *server.MCPServer) {
-		registerCleanupPods(s, pool)
+		registerCleanupPods(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -83,7 +83,7 @@ func TestCleanupPods_Execute(t *testing.T) {
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 
 	handler := getHandler(t, "cleanup_pods", func(s *server.MCPServer) {
-		registerCleanupPods(s, pool)
+		registerCleanupPods(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -114,7 +114,7 @@ func TestCleanupPods_CustomStates(t *testing.T) {
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 
 	handler := getHandler(t, "cleanup_pods", func(s *server.MCPServer) {
-		registerCleanupPods(s, pool)
+		registerCleanupPods(s, pool, cfg)
 	})
 
 	// Only clean up Succeeded pods.
@@ -147,7 +147,7 @@ func TestCleanupPods_NoPods(t *testing.T) {
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 
 	handler := getHandler(t, "cleanup_pods", func(s *server.MCPServer) {
-		registerCleanupPods(s, pool)
+		registerCleanupPods(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -170,7 +170,7 @@ func TestCleanupPods_ContextNotAllowed(t *testing.T) {
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 
 	handler := getHandler(t, "cleanup_pods", func(s *server.MCPServer) {
-		registerCleanupPods(s, pool)
+		registerCleanupPods(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{

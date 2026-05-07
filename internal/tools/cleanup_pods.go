@@ -11,12 +11,13 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"github.com/tamcore/kubectl-mcp/internal/config"
 	"github.com/tamcore/kubectl-mcp/internal/kube"
 )
 
 var podGVR = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
 
-func registerCleanupPods(s *server.MCPServer, pool *kube.ClientPool) {
+func registerCleanupPods(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config) {
 	tool := mcp.NewTool("cleanup_pods",
 		mcp.WithDescription("Delete pods in error states (Evicted, Failed, Succeeded) from a namespace. Requires --allow-destructive."),
 		mcp.WithReadOnlyHintAnnotation(false),
@@ -82,6 +83,10 @@ func registerCleanupPods(s *server.MCPServer, pool *kube.ClientPool) {
 
 		if dryRun {
 			return formatDryRunCleanup(matched, namespace, ctxName), nil
+		}
+
+		if err := applySafetyDelay(ctx, req, cfg.SafetyDelayDestructive); err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("safety delay interrupted: %v", err)), nil
 		}
 
 		return executeCleanup(ctx, cc, matched, namespace, ctxName, req)

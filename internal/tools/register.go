@@ -67,9 +67,9 @@ func RegisterAll(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config)
 
 	// Destructive tools (require --allow-destructive).
 	if cfg.AllowDestructive {
-		registerDeleteResource(s, pool)
-		registerDrainNode(s, pool)
-		registerCleanupPods(s, pool)
+		registerDeleteResource(s, pool, cfg)
+		registerDrainNode(s, pool, cfg)
+		registerCleanupPods(s, pool, cfg)
 	}
 
 	// Raw API tools (require --allow-raw).

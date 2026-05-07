@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mark3labs/mcp-go/server"
 	"k8s.io/client-go/kubernetes/fake"
@@ -22,7 +23,7 @@ func TestDeleteResource_Namespaced(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "delete_resource", func(s *server.MCPServer) {
-		registerDeleteResource(s, pool)
+		registerDeleteResource(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -56,7 +57,7 @@ func TestDeleteResource_ClusterScoped(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "delete_resource", func(s *server.MCPServer) {
-		registerDeleteResource(s, pool)
+		registerDeleteResource(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -86,7 +87,7 @@ func TestDeleteResource_NotFound(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "delete_resource", func(s *server.MCPServer) {
-		registerDeleteResource(s, pool)
+		registerDeleteResource(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -111,7 +112,7 @@ func TestDeleteResource_ContextNotAllowed(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "delete_resource", func(s *server.MCPServer) {
-		registerDeleteResource(s, pool)
+		registerDeleteResource(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -138,7 +139,7 @@ func TestDeleteResource_ForceDelete(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "delete_resource", func(s *server.MCPServer) {
-		registerDeleteResource(s, pool)
+		registerDeleteResource(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -185,7 +186,7 @@ func TestDeleteResource_ForceAndGracePeriodConflict(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "delete_resource", func(s *server.MCPServer) {
-		registerDeleteResource(s, pool)
+		registerDeleteResource(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -218,7 +219,7 @@ func TestDeleteResource_ForceFalseDefaultBehaviour(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "delete_resource", func(s *server.MCPServer) {
-		registerDeleteResource(s, pool)
+		registerDeleteResource(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -254,6 +255,69 @@ func TestDeleteResource_ForceFalseDefaultBehaviour(t *testing.T) {
 	}
 }
 
+func TestDeleteResource_SafetyDelaySkippedOnDryRun(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowDestructive = true
+	cfg.SafetyDelayDestructive = 2 * time.Second
+
+	fakeCS := fake.NewClientset()
+	dynClient := newWriteFakeDynClient(testPod("delay-pod", "default"))
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+	handler := getHandler(t, "delete_resource", func(s *server.MCPServer) {
+		registerDeleteResource(s, pool, cfg)
+	})
+
+	start := time.Now()
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"kind":      "Pod",
+		"name":      "delay-pod",
+		"namespace": "default",
+		"dryRun":    true,
+	}))
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if elapsed >= 500*time.Millisecond {
+		t.Fatalf("dryRun should skip safety delay, elapsed: %v", elapsed)
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "DRY RUN") {
+		t.Errorf("expected DRY RUN in response, got: %s", text)
+	}
+}
+
+func TestDeleteResource_SafetyDelayApplied(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowDestructive = true
+	cfg.SafetyDelayDestructive = 200 * time.Millisecond
+
+	fakeCS := fake.NewClientset()
+	dynClient := newWriteFakeDynClient(testPod("timed-pod", "default"))
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+	handler := getHandler(t, "delete_resource", func(s *server.MCPServer) {
+		registerDeleteResource(s, pool, cfg)
+	})
+
+	start := time.Now()
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"kind":      "Pod",
+		"name":      "timed-pod",
+		"namespace": "default",
+	}))
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if elapsed < 200*time.Millisecond {
+		t.Fatalf("expected safety delay >= 200ms, elapsed: %v", elapsed)
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "Deleted Pod/timed-pod") {
+		t.Errorf("expected delete confirmation, got: %s", text)
+	}
+}
+
 func TestDeleteResource_ElicitationMentionsForce(t *testing.T) {
 	// This test verifies that the elicitation message mentions "force" when force=true.
 	// Since elicitation gracefully degrades (no session → proceeds), we can test by checking
@@ -268,7 +332,7 @@ func TestDeleteResource_ElicitationMentionsForce(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "delete_resource", func(s *server.MCPServer) {
-		registerDeleteResource(s, pool)
+		registerDeleteResource(s, pool, cfg)
 	})
 
 	// force=true, dryRun=false — elicitation fires; without a session it degrades gracefully.
