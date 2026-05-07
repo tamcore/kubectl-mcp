@@ -6,28 +6,31 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/tamcore/kubectl-mcp/internal/mcplog"
 )
 
 // Config holds all runtime configuration for the MCP server.
 type Config struct {
-	Transport        string
-	SSEAddress       string
-	HTTPAddress      string
-	Kubeconfig       string
-	Context          string
-	AllowedContexts  []string
-	DeniedContexts   []string
-	AllowWrite       bool
-	AllowDestructive bool
-	AllowSecrets     bool
-	AllowRaw         bool
-	RateLimitRead    int
-	RateLimitWrite   int
-	LogLevel         string
-	LogFile          string
-	LogDir           string
+	Transport              string
+	SSEAddress             string
+	HTTPAddress            string
+	Kubeconfig             string
+	Context                string
+	AllowedContexts        []string
+	DeniedContexts         []string
+	AllowWrite             bool
+	AllowDestructive       bool
+	AllowSecrets           bool
+	AllowRaw               bool
+	RateLimitRead          int
+	RateLimitWrite         int
+	SafetyDelayWrite       time.Duration
+	SafetyDelayDestructive time.Duration
+	LogLevel               string
+	LogFile                string
+	LogDir                 string
 }
 
 // Validate checks the configuration for consistency.
@@ -66,6 +69,12 @@ func (c *Config) Validate() error {
 	}
 	if c.RateLimitWrite < 0 {
 		return fmt.Errorf("invalid rate-limit-write %d: must be >= 0 (0 = unlimited)", c.RateLimitWrite)
+	}
+	if c.SafetyDelayWrite < 0 {
+		return fmt.Errorf("invalid safety-delay-write %v: must be >= 0 (0 = disabled)", c.SafetyDelayWrite)
+	}
+	if c.SafetyDelayDestructive < 0 {
+		return fmt.Errorf("invalid safety-delay-destructive %v: must be >= 0 (0 = disabled)", c.SafetyDelayDestructive)
 	}
 	for _, p := range c.DeniedContexts {
 		if isRegex(p) {

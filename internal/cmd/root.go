@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -45,6 +46,8 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&cfg.AllowRaw, "allow-raw", false, "Enable raw Kubernetes API requests (api_raw tool)")
 	rootCmd.PersistentFlags().IntVar(&cfg.RateLimitRead, "rate-limit-read", 120, "Max read tool calls per minute (0 = unlimited)")
 	rootCmd.PersistentFlags().IntVar(&cfg.RateLimitWrite, "rate-limit-write", 30, "Max write tool calls per minute (0 = unlimited)")
+	rootCmd.PersistentFlags().DurationVar(&cfg.SafetyDelayWrite, "safety-delay-write", 3*time.Second, "Pause before write operations (0 to disable)")
+	rootCmd.PersistentFlags().DurationVar(&cfg.SafetyDelayDestructive, "safety-delay-destructive", 3*time.Second, "Pause before destructive operations (0 to disable)")
 	rootCmd.PersistentFlags().StringVar(&cfg.LogLevel, "log-level", "info", "Logging verbosity: off, info, or debug")
 	rootCmd.PersistentFlags().StringVar(&cfg.LogFile, "log-file", "", "Log file path (deprecated: use --log-dir)")
 	rootCmd.PersistentFlags().StringVar(&cfg.LogDir, "log-dir", "", "Log directory for per-context log files (default: ~/.kubectl-mcp/)")

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestValidate_Transport(t *testing.T) {
@@ -485,6 +486,44 @@ func TestTrimRegex(t *testing.T) {
 		t.Run(tt.input, func(t *testing.T) {
 			if got := trimRegex(tt.input); got != tt.want {
 				t.Fatalf("trimRegex(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidate_SafetyDelay(t *testing.T) {
+	tests := []struct {
+		name             string
+		safetyDelayWrite time.Duration
+		safetyDelayDest  time.Duration
+		wantErr          string
+	}{
+		{"both zero is valid", 0, 0, ""},
+		{"positive write is valid", 3 * time.Second, 0, ""},
+		{"positive destructive is valid", 0, 3 * time.Second, ""},
+		{"both positive is valid", 3 * time.Second, 5 * time.Second, ""},
+		{"negative write is invalid", -1 * time.Second, 0, "safety-delay-write"},
+		{"negative destructive is invalid", 0, -1 * time.Second, "safety-delay-destructive"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Config{
+				Transport:              "stdio",
+				SafetyDelayWrite:       tt.safetyDelayWrite,
+				SafetyDelayDestructive: tt.safetyDelayDest,
+			}
+			err := c.Validate()
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+			} else {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if !strings.Contains(err.Error(), tt.wantErr) {
+					t.Errorf("expected error containing %q, got: %v", tt.wantErr, err)
+				}
 			}
 		})
 	}
