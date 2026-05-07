@@ -26,7 +26,7 @@ func TestExecPod_HappyPath(t *testing.T) {
 
 	runner := &fakeExecRunner{stdout: "hello world\n"}
 	handler := getHandler(t, "exec_pod", func(s *server.MCPServer) {
-		registerExecPod(s, pool, runner)
+		registerExecPod(s, pool, runner, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -55,7 +55,7 @@ func TestExecPod_StderrIncluded(t *testing.T) {
 
 	runner := &fakeExecRunner{stdout: "out\n", stderr: "err\n"}
 	handler := getHandler(t, "exec_pod", func(s *server.MCPServer) {
-		registerExecPod(s, pool, runner)
+		registerExecPod(s, pool, runner, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -87,7 +87,7 @@ func TestExecPod_MissingCommand(t *testing.T) {
 
 	runner := &fakeExecRunner{}
 	handler := getHandler(t, "exec_pod", func(s *server.MCPServer) {
-		registerExecPod(s, pool, runner)
+		registerExecPod(s, pool, runner, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -115,7 +115,7 @@ func TestExecPod_ExecError(t *testing.T) {
 
 	runner := &fakeExecRunner{execErr: "command not found"}
 	handler := getHandler(t, "exec_pod", func(s *server.MCPServer) {
-		registerExecPod(s, pool, runner)
+		registerExecPod(s, pool, runner, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -142,7 +142,7 @@ func TestExecPod_ContextNotAllowed(t *testing.T) {
 
 	runner := &fakeExecRunner{}
 	handler := getHandler(t, "exec_pod", func(s *server.MCPServer) {
-		registerExecPod(s, pool, runner)
+		registerExecPod(s, pool, runner, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -171,7 +171,7 @@ func TestExecPod_CommandAsString(t *testing.T) {
 
 	runner := &fakeExecRunner{stdout: "ok\n"}
 	handler := getHandler(t, "exec_pod", func(s *server.MCPServer) {
-		registerExecPod(s, pool, runner)
+		registerExecPod(s, pool, runner, cfg)
 	})
 
 	// LLM sends command as a single string instead of array.
@@ -205,7 +205,7 @@ func TestExecPod_QuotedStringCommand(t *testing.T) {
 		captureCmd: &captured,
 	}
 	handler := getHandler(t, "exec_pod", func(s *server.MCPServer) {
-		registerExecPod(s, pool, runner)
+		registerExecPod(s, pool, runner, cfg)
 	})
 
 	// LLM sends sh -c with a quoted argument — quotes must be preserved.
@@ -245,7 +245,7 @@ func TestExecPod_ErrorIncludesStderr(t *testing.T) {
 		stderr:  "sh: wget: not found\n",
 	}
 	handler := getHandler(t, "exec_pod", func(s *server.MCPServer) {
-		registerExecPod(s, pool, runner)
+		registerExecPod(s, pool, runner, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -465,7 +465,7 @@ func TestExecPod_NoOutput(t *testing.T) {
 	// Runner produces neither stdout nor stderr.
 	runner := &fakeExecRunner{}
 	handler := getHandler(t, "exec_pod", func(s *server.MCPServer) {
-		registerExecPod(s, pool, runner)
+		registerExecPod(s, pool, runner, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -494,7 +494,7 @@ func TestExecPod_TimeoutCapped(t *testing.T) {
 
 	runner := &fakeExecRunner{stdout: "ok\n"}
 	handler := getHandler(t, "exec_pod", func(s *server.MCPServer) {
-		registerExecPod(s, pool, runner)
+		registerExecPod(s, pool, runner, cfg)
 	})
 
 	// Request timeout larger than maxExecTimeout (300s); should be silently capped.
@@ -526,7 +526,7 @@ func TestExecPod_TimeoutZeroUsesDefault(t *testing.T) {
 
 	runner := &fakeExecRunner{stdout: "ok\n"}
 	handler := getHandler(t, "exec_pod", func(s *server.MCPServer) {
-		registerExecPod(s, pool, runner)
+		registerExecPod(s, pool, runner, cfg)
 	})
 
 	// Explicit timeout of 0 should fall back to the 30 s default.
@@ -558,7 +558,7 @@ func TestExecPod_ClientForError(t *testing.T) {
 
 	runner := &fakeExecRunner{}
 	handler := getHandler(t, "exec_pod", func(s *server.MCPServer) {
-		registerExecPod(s, pool, runner)
+		registerExecPod(s, pool, runner, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{

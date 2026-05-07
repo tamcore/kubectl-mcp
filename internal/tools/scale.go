@@ -11,10 +11,11 @@ import (
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/tamcore/kubectl-mcp/internal/config"
 	"github.com/tamcore/kubectl-mcp/internal/kube"
 )
 
-func registerScaleResource(s *server.MCPServer, pool *kube.ClientPool) {
+func registerScaleResource(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config) {
 	tool := mcp.NewTool("scale_resource",
 		mcp.WithDescription("Scale a Deployment, StatefulSet, or ReplicaSet to a given number of replicas. Requires --allow-write."),
 		mcp.WithReadOnlyHintAnnotation(false),
@@ -61,6 +62,10 @@ func registerScaleResource(s *server.MCPServer, pool *kube.ClientPool) {
 		lowerKind := strings.ToLower(kind)
 		if lowerKind != "deployment" && lowerKind != "statefulset" && lowerKind != "replicaset" {
 			return mcp.NewToolResultError(fmt.Sprintf("kind %q is not scalable (supported: Deployment, StatefulSet, ReplicaSet)", kind)), nil
+		}
+
+		if err := applySafetyDelay(ctx, req, cfg.SafetyDelayWrite); err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("safety delay interrupted: %v", err)), nil
 		}
 
 		// Get current scale to report old replica count.

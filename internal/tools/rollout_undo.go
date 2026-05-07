@@ -13,10 +13,11 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/tamcore/kubectl-mcp/internal/config"
 	"github.com/tamcore/kubectl-mcp/internal/kube"
 )
 
-func registerRolloutUndo(s *server.MCPServer, pool *kube.ClientPool) {
+func registerRolloutUndo(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config) {
 	tool := mcp.NewTool("rollout_undo",
 		mcp.WithDescription("Undo a Deployment rollout by restoring the pod template from a previous revision. Requires --allow-write."),
 		mcp.WithReadOnlyHintAnnotation(false),
@@ -95,6 +96,10 @@ func registerRolloutUndo(s *server.MCPServer, pool *kube.ClientPool) {
 		deployGVR, err := resolveGVR(cc, kind, "apps/v1")
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
+		}
+
+		if err := applySafetyDelay(ctx, req, cfg.SafetyDelayWrite); err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("safety delay interrupted: %v", err)), nil
 		}
 
 		_, err = cc.Dynamic.Resource(deployGVR).Namespace(namespace).Patch(

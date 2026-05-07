@@ -97,6 +97,12 @@ func registerPatchResource(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 			subs = []string{subresource}
 		}
 
+		if len(dryRun) == 0 {
+			if err := applySafetyDelay(ctx, req, cfg.SafetyDelayWrite); err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("safety delay interrupted: %v", err)), nil
+			}
+		}
+
 		var result *unstructured.Unstructured
 		if namespace != "" {
 			result, err = cc.Dynamic.Resource(gvr).Namespace(namespace).Patch(ctx, name, pt, patchData, metav1.PatchOptions{DryRun: dryRun}, subs...)

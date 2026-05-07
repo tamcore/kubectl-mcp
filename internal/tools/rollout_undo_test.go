@@ -23,7 +23,7 @@ func TestRolloutUndo_DefaultRevision(t *testing.T) {
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 
 	handler := getHandler(t, "rollout_undo", func(s *server.MCPServer) {
-		registerRolloutUndo(s, pool)
+		registerRolloutUndo(s, pool, cfg)
 	})
 
 	// Without toRevision, should roll back to the previous revision (1).
@@ -61,7 +61,7 @@ func TestRolloutUndo_SpecificRevision(t *testing.T) {
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 
 	handler := getHandler(t, "rollout_undo", func(s *server.MCPServer) {
-		registerRolloutUndo(s, pool)
+		registerRolloutUndo(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -97,7 +97,7 @@ func TestRolloutUndo_RevisionNotFound(t *testing.T) {
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 
 	handler := getHandler(t, "rollout_undo", func(s *server.MCPServer) {
-		registerRolloutUndo(s, pool)
+		registerRolloutUndo(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -127,7 +127,7 @@ func TestRolloutUndo_UnsupportedKind(t *testing.T) {
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 
 	handler := getHandler(t, "rollout_undo", func(s *server.MCPServer) {
-		registerRolloutUndo(s, pool)
+		registerRolloutUndo(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -157,7 +157,7 @@ func TestRolloutUndo_NoReplicaSets(t *testing.T) {
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 
 	handler := getHandler(t, "rollout_undo", func(s *server.MCPServer) {
-		registerRolloutUndo(s, pool)
+		registerRolloutUndo(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -185,7 +185,7 @@ func TestRolloutUndo_ContextNotAllowed(t *testing.T) {
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 
 	handler := getHandler(t, "rollout_undo", func(s *server.MCPServer) {
-		registerRolloutUndo(s, pool)
+		registerRolloutUndo(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{

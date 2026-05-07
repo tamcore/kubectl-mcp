@@ -86,6 +86,12 @@ func registerApplyResource(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 
+		if len(dryRun) == 0 {
+			if err := applySafetyDelay(ctx, req, cfg.SafetyDelayWrite); err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("safety delay interrupted: %v", err)), nil
+			}
+		}
+
 		// Try Create first; if the resource already exists, Update it.
 		result, err = res.Create(ctx, obj, metav1.CreateOptions{DryRun: dryRun, FieldValidation: fieldValidation})
 		if err != nil {

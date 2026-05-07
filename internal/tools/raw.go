@@ -138,6 +138,12 @@ func registerRawAPI(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Conf
 			r = &restRawRequester{cfg: cc.RestConfig}
 		}
 
+		if method != "GET" {
+			if err := applySafetyDelay(ctx, req, cfg.SafetyDelayWrite); err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("safety delay interrupted: %v", err)), nil
+			}
+		}
+
 		var bodyBytes []byte
 		if body != "" {
 			bodyBytes = []byte(body)

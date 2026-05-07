@@ -20,7 +20,7 @@ func TestRestartRollout_Deployment(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "restart_rollout", func(s *server.MCPServer) {
-		registerRestartRollout(s, pool)
+		registerRestartRollout(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -54,7 +54,7 @@ func TestRestartRollout_DaemonSet(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "restart_rollout", func(s *server.MCPServer) {
-		registerRestartRollout(s, pool)
+		registerRestartRollout(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -81,7 +81,7 @@ func TestRestartRollout_UnsupportedKind(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "restart_rollout", func(s *server.MCPServer) {
-		registerRestartRollout(s, pool)
+		registerRestartRollout(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -108,7 +108,7 @@ func TestRestartRollout_NotFound(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "restart_rollout", func(s *server.MCPServer) {
-		registerRestartRollout(s, pool)
+		registerRestartRollout(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -133,7 +133,7 @@ func TestRestartRollout_ContextNotAllowed(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "restart_rollout", func(s *server.MCPServer) {
-		registerRestartRollout(s, pool)
+		registerRestartRollout(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{

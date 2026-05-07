@@ -24,7 +24,7 @@ func TestRunPod_HappyPath(t *testing.T) {
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 
 	handler := getHandler(t, "run_pod", func(s *server.MCPServer) {
-		registerRunPod(s, pool)
+		registerRunPod(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -56,7 +56,7 @@ func TestRunPod_WithCommand(t *testing.T) {
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 
 	handler := getHandler(t, "run_pod", func(s *server.MCPServer) {
-		registerRunPod(s, pool)
+		registerRunPod(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -99,7 +99,7 @@ func TestRunPod_WithRestartPolicy(t *testing.T) {
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 
 	handler := getHandler(t, "run_pod", func(s *server.MCPServer) {
-		registerRunPod(s, pool)
+		registerRunPod(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -134,7 +134,7 @@ func TestRunPod_DefaultRestartPolicyNever(t *testing.T) {
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 
 	handler := getHandler(t, "run_pod", func(s *server.MCPServer) {
-		registerRunPod(s, pool)
+		registerRunPod(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -167,7 +167,7 @@ func TestRunPod_InvalidRestartPolicy(t *testing.T) {
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 
 	handler := getHandler(t, "run_pod", func(s *server.MCPServer) {
-		registerRunPod(s, pool)
+		registerRunPod(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -197,7 +197,7 @@ func TestRunPod_OutputContainsPodSpec(t *testing.T) {
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 
 	handler := getHandler(t, "run_pod", func(s *server.MCPServer) {
-		registerRunPod(s, pool)
+		registerRunPod(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -232,7 +232,7 @@ func TestRunPod_ContextNotAllowed(t *testing.T) {
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 
 	handler := getHandler(t, "run_pod", func(s *server.MCPServer) {
-		registerRunPod(s, pool)
+		registerRunPod(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -262,7 +262,7 @@ func TestRunPod_WithSinglePort(t *testing.T) {
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 
 	handler := getHandler(t, "run_pod", func(s *server.MCPServer) {
-		registerRunPod(s, pool)
+		registerRunPod(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -306,7 +306,7 @@ func TestRunPod_WithMultiplePorts(t *testing.T) {
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 
 	handler := getHandler(t, "run_pod", func(s *server.MCPServer) {
-		registerRunPod(s, pool)
+		registerRunPod(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -351,7 +351,7 @@ func TestRunPod_WithProtocol(t *testing.T) {
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 
 	handler := getHandler(t, "run_pod", func(s *server.MCPServer) {
-		registerRunPod(s, pool)
+		registerRunPod(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -396,7 +396,7 @@ func TestRunPod_InvalidPort_OutOfRange(t *testing.T) {
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 
 	handler := getHandler(t, "run_pod", func(s *server.MCPServer) {
-		registerRunPod(s, pool)
+		registerRunPod(s, pool, cfg)
 	})
 
 	for _, badPort := range []string{"0", "65536", "99999"} {
@@ -429,7 +429,7 @@ func TestRunPod_InvalidPort_NotANumber(t *testing.T) {
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 
 	handler := getHandler(t, "run_pod", func(s *server.MCPServer) {
-		registerRunPod(s, pool)
+		registerRunPod(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -458,7 +458,7 @@ func TestRunPod_InvalidProtocol(t *testing.T) {
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 
 	handler := getHandler(t, "run_pod", func(s *server.MCPServer) {
-		registerRunPod(s, pool)
+		registerRunPod(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -487,7 +487,7 @@ func TestRunPod_SCTPProtocol(t *testing.T) {
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 
 	handler := getHandler(t, "run_pod", func(s *server.MCPServer) {
-		registerRunPod(s, pool)
+		registerRunPod(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{

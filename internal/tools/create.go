@@ -63,6 +63,12 @@ func registerCreateResource(s *server.MCPServer, pool *kube.ClientPool, cfg *con
 		dryRun := dryRunOption(req.GetBool("dryRun", false))
 		validate := req.GetString("validate", "Strict")
 
+		if len(dryRun) == 0 {
+			if err := applySafetyDelay(ctx, req, cfg.SafetyDelayWrite); err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("safety delay interrupted: %v", err)), nil
+			}
+		}
+
 		var results []string
 		for _, obj := range objs {
 			kind := obj.GetKind()

@@ -11,10 +11,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/tamcore/kubectl-mcp/internal/config"
 	"github.com/tamcore/kubectl-mcp/internal/kube"
 )
 
-func registerRestartRollout(s *server.MCPServer, pool *kube.ClientPool) {
+func registerRestartRollout(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config) {
 	tool := mcp.NewTool("restart_rollout",
 		mcp.WithDescription("Restart a rollout by patching the pod template annotation (like kubectl rollout restart). Requires --allow-write."),
 		mcp.WithReadOnlyHintAnnotation(false),
@@ -61,6 +62,10 @@ func registerRestartRollout(s *server.MCPServer, pool *kube.ClientPool) {
 		gvr, err := resolveGVR(cc, kind, "apps/v1")
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
+		}
+
+		if err := applySafetyDelay(ctx, req, cfg.SafetyDelayWrite); err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("safety delay interrupted: %v", err)), nil
 		}
 
 		restartedAt := time.Now().UTC().Format(time.RFC3339)

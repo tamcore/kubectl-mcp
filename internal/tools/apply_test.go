@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mark3labs/mcp-go/server"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -609,6 +610,94 @@ func buildWritePool(cfg *config.Config, dynClient *fakedynamic.FakeDynamicClient
 			Discovery: disc,
 		},
 	})
+}
+
+func TestApplyResource_SafetyDelaySkippedOnDryRun(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+	cfg.SafetyDelayWrite = 2 * time.Second
+
+	fakeCS := fake.NewClientset()
+	dynClient := newWriteFakeDynClient()
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+	handler := getHandler(t, "apply_resource", func(s *server.MCPServer) {
+		registerApplyResource(s, pool, cfg)
+	})
+
+	manifest := `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"cm-dry","namespace":"default"}}`
+	start := time.Now()
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"manifest": manifest,
+		"dryRun":   true,
+	}))
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if elapsed >= 500*time.Millisecond {
+		t.Fatalf("dryRun should skip safety delay, elapsed: %v", elapsed)
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "DRY RUN") {
+		t.Errorf("expected DRY RUN in response, got: %s", text)
+	}
+}
+
+func TestApplyResource_SafetyDelayApplied(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+	cfg.SafetyDelayWrite = 200 * time.Millisecond
+
+	fakeCS := fake.NewClientset()
+	dynClient := newWriteFakeDynClient()
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+	handler := getHandler(t, "apply_resource", func(s *server.MCPServer) {
+		registerApplyResource(s, pool, cfg)
+	})
+
+	manifest := `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"cm-timed","namespace":"default"}}`
+	start := time.Now()
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"manifest": manifest,
+	}))
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if elapsed < 200*time.Millisecond {
+		t.Fatalf("expected safety delay >= 200ms, elapsed: %v", elapsed)
+	}
+	_ = res
+}
+
+func TestScaleResource_SafetyDelayApplied(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+	cfg.SafetyDelayWrite = 200 * time.Millisecond
+
+	dep := testDeployment("scale-dep", "default")
+	fakeCS := newScaleFakeClientset(dep)
+	dynClient := newWriteFakeDynClient(dep)
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+	handler := getHandler(t, "scale_resource", func(s *server.MCPServer) {
+		registerScaleResource(s, pool, cfg)
+	})
+
+	start := time.Now()
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"kind":      "Deployment",
+		"name":      "scale-dep",
+		"namespace": "default",
+		"replicas":  float64(2),
+	}))
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if elapsed < 200*time.Millisecond {
+		t.Fatalf("expected safety delay >= 200ms, elapsed: %v", elapsed)
+	}
+	_ = res
 }
 
 // testDaemonSet returns an unstructured DaemonSet object.

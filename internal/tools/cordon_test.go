@@ -20,7 +20,7 @@ func TestCordonNode(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "cordon_node", func(s *server.MCPServer) {
-		registerCordonNode(s, pool)
+		registerCordonNode(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -51,7 +51,7 @@ func TestUncordonNode(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "uncordon_node", func(s *server.MCPServer) {
-		registerUncordonNode(s, pool)
+		registerUncordonNode(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -79,7 +79,7 @@ func TestCordonNode_NotFound(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "cordon_node", func(s *server.MCPServer) {
-		registerCordonNode(s, pool)
+		registerCordonNode(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -104,7 +104,7 @@ func TestUncordonNode_NotFound(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "uncordon_node", func(s *server.MCPServer) {
-		registerUncordonNode(s, pool)
+		registerUncordonNode(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -127,7 +127,7 @@ func TestCordonNode_ContextNotAllowed(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "cordon_node", func(s *server.MCPServer) {
-		registerCordonNode(s, pool)
+		registerCordonNode(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{

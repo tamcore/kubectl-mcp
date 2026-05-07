@@ -20,7 +20,7 @@ func TestRolloutPause_Deployment(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "rollout_pause", func(s *server.MCPServer) {
-		registerRolloutPause(s, pool)
+		registerRolloutPause(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -50,7 +50,7 @@ func TestRolloutResume_Deployment(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "rollout_resume", func(s *server.MCPServer) {
-		registerRolloutResume(s, pool)
+		registerRolloutResume(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -77,7 +77,7 @@ func TestRolloutPause_StatefulSetRejected(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "rollout_pause", func(s *server.MCPServer) {
-		registerRolloutPause(s, pool)
+		registerRolloutPause(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -107,7 +107,7 @@ func TestRolloutPause_DaemonSetRejected(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "rollout_pause", func(s *server.MCPServer) {
-		registerRolloutPause(s, pool)
+		registerRolloutPause(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -133,7 +133,7 @@ func TestRolloutPause_NotFound(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "rollout_pause", func(s *server.MCPServer) {
-		registerRolloutPause(s, pool)
+		registerRolloutPause(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -161,7 +161,7 @@ func TestRolloutPause_ContextNotAllowed(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "rollout_pause", func(s *server.MCPServer) {
-		registerRolloutPause(s, pool)
+		registerRolloutPause(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{

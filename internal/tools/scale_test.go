@@ -103,7 +103,7 @@ func TestScaleResource_Deployment(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "scale_resource", func(s *server.MCPServer) {
-		registerScaleResource(s, pool)
+		registerScaleResource(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -138,7 +138,7 @@ func TestScaleResource_StatefulSet(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "scale_resource", func(s *server.MCPServer) {
-		registerScaleResource(s, pool)
+		registerScaleResource(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -173,7 +173,7 @@ func TestScaleResource_ReplicaSet(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "scale_resource", func(s *server.MCPServer) {
-		registerScaleResource(s, pool)
+		registerScaleResource(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -201,7 +201,7 @@ func TestScaleResource_UnsupportedKind(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "scale_resource", func(s *server.MCPServer) {
-		registerScaleResource(s, pool)
+		registerScaleResource(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -229,7 +229,7 @@ func TestScaleResource_NotFound(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "scale_resource", func(s *server.MCPServer) {
-		registerScaleResource(s, pool)
+		registerScaleResource(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -255,7 +255,7 @@ func TestScaleResource_ContextNotAllowed(t *testing.T) {
 
 	pool := buildWritePool(cfg, dynClient, fakeCS)
 	handler := getHandler(t, "scale_resource", func(s *server.MCPServer) {
-		registerScaleResource(s, pool)
+		registerScaleResource(s, pool, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{

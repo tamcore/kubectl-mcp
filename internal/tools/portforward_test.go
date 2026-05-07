@@ -49,7 +49,7 @@ func TestPortForward_HappyPath(t *testing.T) {
 	fwd := &fakePortForwarder{localPort: 12345, stopCh: stopCh}
 
 	handler := getHandler(t, "port_forward", func(s *server.MCPServer) {
-		registerPortForward(s, pool, fwd)
+		registerPortForward(s, pool, fwd, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -94,7 +94,7 @@ func TestPortForward_WithLocalPort(t *testing.T) {
 	fwd := &fakePortForwarder{localPort: 9090, stopCh: stopCh}
 
 	handler := getHandler(t, "port_forward", func(s *server.MCPServer) {
-		registerPortForward(s, pool, fwd)
+		registerPortForward(s, pool, fwd, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -134,7 +134,7 @@ func TestPortForward_TimeoutClamped(t *testing.T) {
 	fwd := &fakePortForwarder{localPort: 12345, stopCh: stopCh}
 
 	handler := getHandler(t, "port_forward", func(s *server.MCPServer) {
-		registerPortForward(s, pool, fwd)
+		registerPortForward(s, pool, fwd, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -172,7 +172,7 @@ func TestPortForward_ForwardError(t *testing.T) {
 	fwd := &fakePortForwarder{err: context.DeadlineExceeded}
 
 	handler := getHandler(t, "port_forward", func(s *server.MCPServer) {
-		registerPortForward(s, pool, fwd)
+		registerPortForward(s, pool, fwd, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -202,7 +202,7 @@ func TestPortForward_ContextNotAllowed(t *testing.T) {
 	fwd := &fakePortForwarder{}
 
 	handler := getHandler(t, "port_forward", func(s *server.MCPServer) {
-		registerPortForward(s, pool, fwd)
+		registerPortForward(s, pool, fwd, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -230,7 +230,7 @@ func TestPortForward_InvalidPort(t *testing.T) {
 	fwd := &fakePortForwarder{}
 
 	handler := getHandler(t, "port_forward", func(s *server.MCPServer) {
-		registerPortForward(s, pool, fwd)
+		registerPortForward(s, pool, fwd, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -307,7 +307,7 @@ func TestPortForward_ResourceBareName(t *testing.T) {
 	fwd := &fakePortForwarder{localPort: 12345, stopCh: stopCh}
 
 	handler := getHandler(t, "port_forward", func(s *server.MCPServer) {
-		registerPortForward(s, pool, fwd)
+		registerPortForward(s, pool, fwd, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -344,7 +344,7 @@ func TestPortForward_ResourceExplicitPod(t *testing.T) {
 	fwd := &fakePortForwarder{localPort: 12345, stopCh: stopCh}
 
 	handler := getHandler(t, "port_forward", func(s *server.MCPServer) {
-		registerPortForward(s, pool, fwd)
+		registerPortForward(s, pool, fwd, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -413,7 +413,7 @@ func TestPortForward_ResourceService(t *testing.T) {
 	fwd := &fakePortForwarder{localPort: 12345, stopCh: stopCh}
 
 	handler := getHandler(t, "port_forward", func(s *server.MCPServer) {
-		registerPortForward(s, pool, fwd)
+		registerPortForward(s, pool, fwd, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -482,7 +482,7 @@ func TestPortForward_ResourceServiceNamedPort(t *testing.T) {
 	fwd := &capturingPortForwarder{localPort: 12345, stopCh: stopCh, captured: &capturedReq}
 
 	handler := getHandler(t, "port_forward", func(s *server.MCPServer) {
-		registerPortForward(s, pool, fwd)
+		registerPortForward(s, pool, fwd, cfg)
 	})
 
 	// remotePort=80 matches the named port "http" whose targetPort=8080.
@@ -542,7 +542,7 @@ func TestPortForward_ResourceDeployment(t *testing.T) {
 	fwd := &fakePortForwarder{localPort: 12345, stopCh: stopCh}
 
 	handler := getHandler(t, "port_forward", func(s *server.MCPServer) {
-		registerPortForward(s, pool, fwd)
+		registerPortForward(s, pool, fwd, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -619,7 +619,7 @@ func TestPortForward_ResourceStatefulSet(t *testing.T) {
 	fwd := &fakePortForwarder{localPort: 12345, stopCh: stopCh}
 
 	handler := getHandler(t, "port_forward", func(s *server.MCPServer) {
-		registerPortForward(s, pool, fwd)
+		registerPortForward(s, pool, fwd, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -655,7 +655,7 @@ func TestPortForward_ResourceUnknownKind(t *testing.T) {
 	fwd := &fakePortForwarder{}
 
 	handler := getHandler(t, "port_forward", func(s *server.MCPServer) {
-		registerPortForward(s, pool, fwd)
+		registerPortForward(s, pool, fwd, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
@@ -712,7 +712,7 @@ func TestPortForward_NoReadyPods(t *testing.T) {
 	fwd := &fakePortForwarder{}
 
 	handler := getHandler(t, "port_forward", func(s *server.MCPServer) {
-		registerPortForward(s, pool, fwd)
+		registerPortForward(s, pool, fwd, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{

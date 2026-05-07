@@ -10,12 +10,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/tamcore/kubectl-mcp/internal/config"
 	"github.com/tamcore/kubectl-mcp/internal/kube"
 )
 
 var nodeGVR = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
 
-func registerCordonNode(s *server.MCPServer, pool *kube.ClientPool) {
+func registerCordonNode(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config) {
 	tool := mcp.NewTool("cordon_node",
 		mcp.WithDescription("Mark a Kubernetes node as unschedulable (cordon). Requires --allow-write."),
 		mcp.WithReadOnlyHintAnnotation(false),
@@ -31,10 +32,10 @@ func registerCordonNode(s *server.MCPServer, pool *kube.ClientPool) {
 		),
 	)
 
-	s.AddTool(tool, cordonHandler(pool, true))
+	s.AddTool(tool, cordonHandler(pool, cfg, true))
 }
 
-func registerUncordonNode(s *server.MCPServer, pool *kube.ClientPool) {
+func registerUncordonNode(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config) {
 	tool := mcp.NewTool("uncordon_node",
 		mcp.WithDescription("Mark a Kubernetes node as schedulable (uncordon). Requires --allow-write."),
 		mcp.WithReadOnlyHintAnnotation(false),
@@ -50,10 +51,10 @@ func registerUncordonNode(s *server.MCPServer, pool *kube.ClientPool) {
 		),
 	)
 
-	s.AddTool(tool, cordonHandler(pool, false))
+	s.AddTool(tool, cordonHandler(pool, cfg, false))
 }
 
-func cordonHandler(pool *kube.ClientPool, cordon bool) server.ToolHandlerFunc {
+func cordonHandler(pool *kube.ClientPool, cfg *config.Config, cordon bool) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		ctxName, err := pool.ResolveContext(req.GetString("context", ""))
 		if err != nil {
@@ -66,6 +67,10 @@ func cordonHandler(pool *kube.ClientPool, cordon bool) server.ToolHandlerFunc {
 		}
 
 		node, _ := req.RequireString("node")
+
+		if err := applySafetyDelay(ctx, req, cfg.SafetyDelayWrite); err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("safety delay interrupted: %v", err)), nil
+		}
 
 		patch := fmt.Sprintf(`{"spec":{"unschedulable":%t}}`, cordon)
 		_, err = cc.Dynamic.Resource(nodeGVR).Patch(

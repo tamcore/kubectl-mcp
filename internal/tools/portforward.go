@@ -15,6 +15,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	"github.com/tamcore/kubectl-mcp/internal/config"
 	"github.com/tamcore/kubectl-mcp/internal/kube"
 )
 
@@ -250,7 +251,7 @@ func describePodPhases(pods []corev1.Pod) string {
 	return strings.Join(parts, ", ")
 }
 
-func registerPortForward(s *server.MCPServer, pool *kube.ClientPool, forwarder PortForwarder) {
+func registerPortForward(s *server.MCPServer, pool *kube.ClientPool, forwarder PortForwarder, cfg *config.Config) {
 	if forwarder == nil {
 		forwarder = &spdyPortForwarder{}
 	}
@@ -342,6 +343,10 @@ Examples: "my-pod", "pod/my-pod", "svc/my-service", "deploy/my-app", "sts/my-set
 			RemotePort: remotePort,
 			LocalPort:  localPort,
 			Timeout:    timeout,
+		}
+
+		if err := applySafetyDelay(ctx, req, cfg.SafetyDelayWrite); err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("safety delay interrupted: %v", err)), nil
 		}
 
 		result, err := forwarder.Forward(ctx, cc.Clientset, cc.RestConfig, pfReq)

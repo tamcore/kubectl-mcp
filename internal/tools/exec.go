@@ -15,6 +15,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 
+	"github.com/tamcore/kubectl-mcp/internal/config"
 	"github.com/tamcore/kubectl-mcp/internal/kube"
 )
 
@@ -58,7 +59,7 @@ func (s *spdyExecRunner) Run(ctx context.Context, clientset kubernetes.Interface
 	})
 }
 
-func registerExecPod(s *server.MCPServer, pool *kube.ClientPool, runner ExecRunner) {
+func registerExecPod(s *server.MCPServer, pool *kube.ClientPool, runner ExecRunner, cfg *config.Config) {
 	if runner == nil {
 		runner = &spdyExecRunner{}
 	}
@@ -123,6 +124,10 @@ func registerExecPod(s *server.MCPServer, pool *kube.ClientPool, runner ExecRunn
 
 		execCtx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
+
+		if err := applySafetyDelay(ctx, req, cfg.SafetyDelayWrite); err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("safety delay interrupted: %v", err)), nil
+		}
 
 		var stdout, stderr bytes.Buffer
 		err = runner.Run(execCtx, cc.Clientset, cc.RestConfig, namespace, pod, container, command, &stdout, &stderr)

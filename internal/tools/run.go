@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"github.com/tamcore/kubectl-mcp/internal/config"
 	"github.com/tamcore/kubectl-mcp/internal/kube"
 )
 
@@ -25,7 +26,7 @@ var validRestartPolicies = map[string]bool{
 	"Always":    true,
 }
 
-func registerRunPod(s *server.MCPServer, pool *kube.ClientPool) {
+func registerRunPod(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config) {
 	tool := mcp.NewTool("run_pod",
 		mcp.WithDescription("Create and run a Pod with the given image (like kubectl run). Requires --allow-write."),
 		mcp.WithReadOnlyHintAnnotation(false),
@@ -123,6 +124,10 @@ func registerRunPod(s *server.MCPServer, pool *kube.ClientPool) {
 					"containers":    []interface{}{container},
 				},
 			},
+		}
+
+		if err := applySafetyDelay(ctx, req, cfg.SafetyDelayWrite); err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("safety delay interrupted: %v", err)), nil
 		}
 
 		result, err := cc.Dynamic.Resource(runPodGVR).Namespace(namespace).Create(ctx, pod, metav1.CreateOptions{})
