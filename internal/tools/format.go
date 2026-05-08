@@ -13,9 +13,9 @@ import (
 // formatResourceList returns a JSON array of resource summaries.
 // Each resource kind gets tailored fields so the LLM can reason
 // over them without text parsing.
-func formatResourceList(items []unstructured.Unstructured) (string, error) {
+func formatResourceList(items []unstructured.Unstructured) (string, []map[string]interface{}, error) {
 	if len(items) == 0 {
-		return "[]", nil
+		return "[]", nil, nil
 	}
 
 	kind := items[0].GetKind()
@@ -44,9 +44,9 @@ func formatResourceList(items []unstructured.Unstructured) (string, error) {
 
 	out, err := json.MarshalIndent(summaries, "", "  ")
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
-	return string(out), nil
+	return string(out), summaries, nil
 }
 
 func baseFields(item unstructured.Unstructured) map[string]interface{} {

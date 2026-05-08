@@ -192,15 +192,11 @@ func handleListFormat(
 		return mcp.NewToolResultStructured(envelope, header+jsonText), nil
 
 	default: // "summary"
-		jsonOut, err := formatResourceList(items)
+		jsonOut, summaries, err := formatResourceList(items)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to format results: %v", err)), nil
 		}
-		structured := make([]map[string]interface{}, 0, len(items))
-		for _, item := range items {
-			structured = append(structured, item.Object)
-		}
-		envelope := wrapListEnvelope(structured, list.GetContinue())
+		envelope := wrapListEnvelope(summaries, list.GetContinue())
 		return mcp.NewToolResultStructured(envelope, header+jsonOut), nil
 	}
 }

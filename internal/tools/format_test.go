@@ -30,7 +30,7 @@ func makeUnstructured(kind, name, namespace string, extra map[string]interface{}
 }
 
 func TestFormatResourceList_Empty(t *testing.T) {
-	got, err := formatResourceList(nil)
+	got, _, err := formatResourceList(nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestFormatResourceList_Pod(t *testing.T) {
 			},
 		}),
 	}
-	got, err := formatResourceList(items)
+	got, _, err := formatResourceList(items)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -86,7 +86,7 @@ func TestFormatResourceList_Deployment(t *testing.T) {
 			"status": map[string]interface{}{"readyReplicas": int64(3), "updatedReplicas": int64(3), "availableReplicas": int64(3)},
 		}),
 	}
-	got, err := formatResourceList(items)
+	got, _, err := formatResourceList(items)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestFormatResourceList_StatefulSet(t *testing.T) {
 			"status": map[string]interface{}{"readyReplicas": int64(2)},
 		}),
 	}
-	got, err := formatResourceList(items)
+	got, _, err := formatResourceList(items)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -129,7 +129,7 @@ func TestFormatResourceList_DaemonSet(t *testing.T) {
 			},
 		}),
 	}
-	got, err := formatResourceList(items)
+	got, _, err := formatResourceList(items)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -181,7 +181,7 @@ func TestFormatResourceList_Job(t *testing.T) {
 					"status": status,
 				}),
 			}
-			got, err := formatResourceList(items)
+			got, _, err := formatResourceList(items)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -235,7 +235,7 @@ func TestFormatResourceList_Node(t *testing.T) {
 				"status": map[string]interface{}{"conditions": tt.conditions},
 			}
 			items := []unstructured.Unstructured{{Object: obj}}
-			got, err := formatResourceList(items)
+			got, _, err := formatResourceList(items)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -269,7 +269,7 @@ func TestFormatResourceList_Service(t *testing.T) {
 					"spec": map[string]interface{}{"type": tt.svcType, "clusterIP": tt.ip},
 				}),
 			}
-			got, err := formatResourceList(items)
+			got, _, err := formatResourceList(items)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -291,7 +291,7 @@ func TestFormatResourceList_UnknownKind(t *testing.T) {
 	items := []unstructured.Unstructured{
 		makeUnstructured("ConfigMap", "cm", "default", nil),
 	}
-	got, err := formatResourceList(items)
+	got, _, err := formatResourceList(items)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

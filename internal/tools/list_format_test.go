@@ -203,6 +203,91 @@ func TestHandleListFormatStructuredContentIsObject(t *testing.T) {
 	}
 }
 
+func TestHandleListFormat_SummaryStructuredContentIsCompact(t *testing.T) {
+	items := []unstructured.Unstructured{
+		{Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name":              "pod-a",
+				"namespace":         "default",
+				"creationTimestamp": "2024-01-01T00:00:00Z",
+			},
+			"spec": map[string]interface{}{
+				"nodeName": "node-1",
+				"containers": []interface{}{
+					map[string]interface{}{
+						"name":  "nginx",
+						"image": "nginx:latest",
+						"ports": []interface{}{
+							map[string]interface{}{"containerPort": int64(80)},
+						},
+					},
+				},
+			},
+			"status": map[string]interface{}{
+				"phase": "Running",
+				"containerStatuses": []interface{}{
+					map[string]interface{}{
+						"ready":        true,
+						"restartCount": int64(2),
+						"state":        map[string]interface{}{},
+					},
+				},
+			},
+		}},
+	}
+
+	list := &unstructured.UnstructuredList{}
+	list.Items = items
+
+	result, err := handleListFormat("summary", items, nil, list, "Pod", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatal("unexpected error result")
+	}
+
+	envelope, ok := result.StructuredContent.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected map envelope, got %T", result.StructuredContent)
+	}
+	structItems, ok := envelope["items"].([]map[string]interface{})
+	if !ok {
+		t.Fatalf("expected items to be []map[string]interface{}, got %T", envelope["items"])
+	}
+
+	item := structItems[0]
+
+	// Summary structured items must NOT contain full spec/status sub-objects.
+	if _, hasSpec := item["spec"]; hasSpec {
+		t.Error("summary structuredContent item should NOT have 'spec'")
+	}
+	if _, hasAPIVersion := item["apiVersion"]; hasAPIVersion {
+		t.Error("summary structuredContent item should NOT have 'apiVersion'")
+	}
+	if _, hasKind := item["kind"]; hasKind {
+		t.Error("summary structuredContent item should NOT have 'kind'")
+	}
+	if statusVal, hasStatus := item["status"]; hasStatus {
+		if _, isMap := statusVal.(map[string]interface{}); isMap {
+			t.Error("summary structuredContent 'status' should be a string, not a nested object")
+		}
+	}
+
+	// Must have compact summary fields.
+	if item["name"] != "pod-a" {
+		t.Errorf("expected name=pod-a, got %v", item["name"])
+	}
+	if item["node"] != "node-1" {
+		t.Errorf("expected node=node-1, got %v", item["node"])
+	}
+	if item["status"] != "Running" {
+		t.Errorf("expected status=Running, got %v", item["status"])
+	}
+}
+
 func TestBuildResourcePath(t *testing.T) {
 	tests := []struct {
 		name      string
