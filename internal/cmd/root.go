@@ -51,6 +51,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfg.LogLevel, "log-level", "info", "Logging verbosity: off, info, or debug")
 	rootCmd.PersistentFlags().StringVar(&cfg.LogFile, "log-file", "", "Log file path (deprecated: use --log-dir)")
 	rootCmd.PersistentFlags().StringVar(&cfg.LogDir, "log-dir", "", "Log directory for per-context log files (default: ~/.kubectl-mcp/)")
+	rootCmd.PersistentFlags().BoolVar(&cfg.RequireContext, "require-context", false, "Require explicit context on every tool call")
 
 	rootCmd.AddCommand(serveCmd)
 }

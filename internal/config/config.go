@@ -31,6 +31,7 @@ type Config struct {
 	LogLevel               string
 	LogFile                string
 	LogDir                 string
+	RequireContext         bool
 }
 
 // Validate checks the configuration for consistency.

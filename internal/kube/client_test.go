@@ -3,6 +3,7 @@ package kube
 import (
 	"net/http"
 	"sort"
+	"strings"
 	"testing"
 
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -239,6 +240,50 @@ func TestResolveContext_EmptyDefaultNotInKubeconfig(t *testing.T) {
 	_, err := pool.ResolveContext("")
 	if err == nil {
 		t.Fatal("ResolveContext('') expected error when default context not in kubeconfig")
+	}
+}
+
+// --------------- RequireContext ---------------
+
+func TestResolveContext_RequireContextRejectsEmpty(t *testing.T) {
+	pool := newTestPool(
+		&config.Config{AllowedContexts: []string{"*"}, RequireContext: true},
+		"ctx-a", "ctx-a", "ctx-b",
+	)
+	_, err := pool.ResolveContext("")
+	if err == nil {
+		t.Fatal("ResolveContext('') expected error when RequireContext is true")
+	}
+	if !strings.Contains(err.Error(), "require-context") {
+		t.Fatalf("expected require-context in error, got: %v", err)
+	}
+}
+
+func TestResolveContext_RequireContextAllowsExplicit(t *testing.T) {
+	pool := newTestPool(
+		&config.Config{AllowedContexts: []string{"*"}, RequireContext: true},
+		"ctx-a", "ctx-a", "ctx-b",
+	)
+	got, err := pool.ResolveContext("ctx-b")
+	if err != nil {
+		t.Fatalf("ResolveContext(ctx-b) error: %v", err)
+	}
+	if got != "ctx-b" {
+		t.Fatalf("ResolveContext(ctx-b) = %q, want %q", got, "ctx-b")
+	}
+}
+
+func TestResolveContext_RequireContextOffAllowsEmpty(t *testing.T) {
+	pool := newTestPool(
+		&config.Config{AllowedContexts: []string{"*"}, RequireContext: false},
+		"ctx-a", "ctx-a", "ctx-b",
+	)
+	got, err := pool.ResolveContext("")
+	if err != nil {
+		t.Fatalf("ResolveContext('') error: %v", err)
+	}
+	if got != "ctx-a" {
+		t.Fatalf("ResolveContext('') = %q, want default %q", got, "ctx-a")
 	}
 }
 

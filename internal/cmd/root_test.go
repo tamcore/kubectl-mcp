@@ -2,7 +2,10 @@ package cmd
 
 import (
 	"os"
+	"strings"
 	"testing"
+
+	"github.com/tamcore/kubectl-mcp/internal/config"
 )
 
 func TestExecute_Help(t *testing.T) {
@@ -92,5 +95,22 @@ func TestRootCmd_HasServeSubcommand(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("root command missing 'serve' subcommand")
+	}
+}
+
+func TestServerInstructions_Default(t *testing.T) {
+	instructions := serverInstructions(&config.Config{})
+	if strings.Contains(instructions, "Context Required") {
+		t.Error("instructions should not mention Context Required by default")
+	}
+}
+
+func TestServerInstructions_RequireContext(t *testing.T) {
+	instructions := serverInstructions(&config.Config{RequireContext: true})
+	if !strings.Contains(instructions, "Context Required") {
+		t.Error("instructions should mention Context Required when flag is set")
+	}
+	if !strings.Contains(instructions, "list_contexts") {
+		t.Error("instructions should mention list_contexts for discovery")
 	}
 }

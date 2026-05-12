@@ -164,14 +164,14 @@ func TestStreamableHTTPServerStartsAndAcceptsConnections(t *testing.T) {
 }
 
 func TestServerInstructions_NotEmpty(t *testing.T) {
-	instructions := serverInstructions()
+	instructions := serverInstructions(&config.Config{})
 	if instructions == "" {
 		t.Fatal("serverInstructions() returned empty string")
 	}
 }
 
 func TestServerInstructions_ContainsKeyGuidance(t *testing.T) {
-	instructions := serverInstructions()
+	instructions := serverInstructions(&config.Config{})
 
 	requiredPhrases := []string{
 		"read-only",
@@ -192,7 +192,7 @@ func TestServerInstructions_ContainsKeyGuidance(t *testing.T) {
 func TestServerInstructions_InInitializeResponse(t *testing.T) {
 	s := server.NewMCPServer("test-server", "0.0.1",
 		server.WithToolCapabilities(false),
-		server.WithInstructions(serverInstructions()),
+		server.WithInstructions(serverInstructions(&config.Config{})),
 	)
 
 	addr := startTestMCPServer(t, s)

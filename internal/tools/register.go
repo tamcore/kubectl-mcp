@@ -1,6 +1,8 @@
 package tools
 
 import (
+	"strings"
+
 	"github.com/mark3labs/mcp-go/server"
 
 	"github.com/tamcore/kubectl-mcp/internal/config"
@@ -77,6 +79,11 @@ func RegisterAll(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config)
 		registerRawAPI(s, pool, cfg, nil)
 	}
 
+	// Mark context parameter as required when --require-context is set.
+	if cfg.RequireContext {
+		applyRequireContext(s)
+	}
+
 	// Apply rate limiting to all registered tools.
 	applyRateLimits(s, cfg)
 }
@@ -107,4 +114,32 @@ func applyRateLimits(s *server.MCPServer, cfg *config.Config) {
 		})
 	}
 	s.SetTools(wrapped...)
+}
+
+// applyRequireContext patches all registered tools that have a "context"
+// property to mark it as required and update its description.
+func applyRequireContext(s *server.MCPServer) {
+	tools := s.ListTools()
+	patched := make([]server.ServerTool, 0, len(tools))
+	for _, st := range tools {
+		if prop, ok := st.Tool.InputSchema.Properties["context"]; ok {
+			st.Tool.InputSchema.Required = appendUnique(st.Tool.InputSchema.Required, "context")
+			if m, ok := prop.(map[string]any); ok {
+				if desc, ok := m["description"].(string); ok {
+					m["description"] = strings.Replace(desc, " (defaults to current context)", "", 1)
+				}
+			}
+		}
+		patched = append(patched, *st)
+	}
+	s.SetTools(patched...)
+}
+
+func appendUnique(ss []string, val string) []string {
+	for _, s := range ss {
+		if s == val {
+			return ss
+		}
+	}
+	return append(ss, val)
 }

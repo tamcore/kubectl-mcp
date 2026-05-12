@@ -79,6 +79,9 @@ func (p *ClientPool) DefaultContext() string {
 // and allowed, otherwise the default.
 func (p *ClientPool) ResolveContext(requested string) (string, error) {
 	if requested == "" {
+		if p.cfg.RequireContext {
+			return "", fmt.Errorf("context parameter is required (server started with --require-context)")
+		}
 		requested = p.DefaultContext()
 	}
 	if !p.cfg.IsContextAllowed(requested) {

@@ -1,12 +1,14 @@
 package cmd
 
+import "github.com/tamcore/kubectl-mcp/internal/config"
+
 // serverInstructions returns the MCP server instructions that are sent to
 // clients in the initialize response. These help LLMs understand how to use
 // the kubectl-mcp tools effectively.
 //
 // Keep this concise — it is injected into every session's context.
-func serverInstructions() string {
-	return `kubectl-mcp — Kubernetes MCP Server
+func serverInstructions(cfg *config.Config) string {
+	base := `kubectl-mcp — Kubernetes MCP Server
 
 ## Safety Model
 - All tools are read-only by default. Write and destructive operations require explicit server flags (--allow-write, --allow-destructive).
@@ -35,4 +37,14 @@ func serverInstructions() string {
 - Do not delete pods managed by controllers (Deployments, StatefulSets, etc.) — scale to 0 or manage the controller instead.
 - Do not assume a namespace exists — verify with list_namespaces first.
 - Do not retry destructive operations without user confirmation, even if the first attempt fails.`
+
+	if cfg.RequireContext {
+		base += `
+
+## Context Required
+- This server requires an explicit context parameter on every tool call.
+- Use list_contexts to discover available contexts, then pass the chosen context to every subsequent tool call.`
+	}
+
+	return base
 }
