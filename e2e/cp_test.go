@@ -124,22 +124,31 @@ func TestCopyToPod(t *testing.T) {
 				}
 			})
 
-			t.Run("rejected_without_write", func(t *testing.T) {
-				readonlyCfg := defaultConfig()
-				readonlyCfg.AllowWrite = false
-				readonlyBase := tc.startFunc(t, readonlyCfg)
-				readonlyClient := tc.clientFunc(t, readonlyBase)
-
-				result := callTool(t, readonlyClient, "copy_to_pod", map[string]any{
-					"namespace": testNamespace,
-					"pod":       podName,
-					"dest_path": "/tmp/test.txt",
-					"content":   "data",
-				})
-				if !result.IsError {
-					t.Errorf("expected copy_to_pod to be rejected without --allow-write")
-				}
 			})
+	}
+}
+
+func TestCopyToPod_RejectedWithoutAllowWrite(t *testing.T) {
+	for _, tc := range allTransports {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := defaultConfig()
+			cfg.AllowWrite = false
+
+			base := tc.startFunc(t, cfg)
+			c := tc.clientFunc(t, base)
+
+			_, err := callToolMayFail(t, c, "copy_to_pod", map[string]any{
+				"namespace": testNamespace,
+				"pod":       "any-pod",
+				"dest_path": "/tmp/test.txt",
+				"content":   "data",
+			})
+			if err == nil {
+				t.Error("expected error — copy_to_pod should not be registered without --allow-write")
+			}
+			if !strings.Contains(err.Error(), "not found") {
+				t.Errorf("expected 'not found' error, got: %v", err)
+			}
 		})
 	}
 }
