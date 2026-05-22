@@ -234,6 +234,7 @@ func TestRegisterAll(t *testing.T) {
 		"node_stats",
 		"explain_resource",
 		"stop_port_forward",
+		"copy_from_pod",
 	}
 	writeTools := []string{
 		"apply_resource", "patch_resource", "scale_resource",
@@ -242,6 +243,7 @@ func TestRegisterAll(t *testing.T) {
 		"rollout_pause", "rollout_resume",
 		"run_pod",
 		"port_forward",
+		"copy_to_pod",
 	}
 	destructiveTools := []string{
 		"delete_resource", "drain_node",

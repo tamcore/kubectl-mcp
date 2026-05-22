@@ -19,6 +19,7 @@ var writeTools = []string{
 	"run_pod",
 	"port_forward",
 	"api_raw",
+	"copy_to_pod",
 }
 
 // destructiveTools lists tool names gated behind --allow-destructive.
@@ -49,6 +50,7 @@ func RegisterAll(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config)
 	registerListRBACBindings(s, pool)
 	registerListRBACRoles(s, pool)
 	registerListServiceAccounts(s, pool)
+	registerCopyFromPod(s, pool, nil, cfg)
 
 	// Write tools (require --allow-write).
 	if cfg.AllowWrite {
@@ -65,6 +67,7 @@ func RegisterAll(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config)
 		registerRolloutResume(s, pool, cfg)
 		registerRunPod(s, pool, cfg)
 		registerPortForward(s, pool, nil, cfg)
+		registerCopyToPod(s, pool, nil, cfg)
 	}
 
 	// Destructive tools (require --allow-destructive).
