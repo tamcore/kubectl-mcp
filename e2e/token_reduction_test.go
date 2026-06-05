@@ -137,6 +137,46 @@ func TestGetResourceFormatYAML(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Feature 5: get_resource format=json (alias for full)
+// ---------------------------------------------------------------------------
+
+func TestGetResourceFormatJSON(t *testing.T) {
+	for _, tc := range allTransports {
+		t.Run(tc.name, func(t *testing.T) {
+			base := tc.startFunc(t, defaultConfig())
+			c := tc.clientFunc(t, base)
+
+			result := callTool(t, c, "get_resource", map[string]any{
+				"kind":   "Namespace",
+				"name":   "default",
+				"format": "json",
+			})
+			text := resultText(result)
+			if result.IsError {
+				t.Fatalf("error: %s", text)
+			}
+
+			obj := jsonObjectFromResult(t, text)
+
+			meta, ok := obj["metadata"].(map[string]any)
+			if !ok {
+				t.Fatal("expected metadata map in response")
+			}
+
+			if meta["name"] != "default" {
+				t.Errorf("expected metadata.name=default, got %v", meta["name"])
+			}
+
+			for _, field := range []string{"uid", "resourceVersion", "managedFields"} {
+				if _, exists := meta[field]; exists {
+					t.Errorf("expected %q to be stripped from metadata", field)
+				}
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Feature 3: default list limit
 // ---------------------------------------------------------------------------
 

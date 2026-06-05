@@ -76,6 +76,31 @@ func TestGetResourceFormatParameter(t *testing.T) {
 		}
 	})
 
+	t.Run("format=json returns JSON with metadata stripped (alias for full)", func(t *testing.T) {
+		res, err := handler(context.Background(), callToolReq(map[string]any{
+			"kind":      "Pod",
+			"name":      "fmt-pod",
+			"namespace": "default",
+			"format":    "json",
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.IsError {
+			t.Fatalf("unexpected error: %s", resultText(t, res))
+		}
+		text := resultText(t, res)
+		if !strings.Contains(text, "nodeName") {
+			t.Error("expected spec.nodeName in json output")
+		}
+		if strings.Contains(text, "uid-abc") {
+			t.Error("uid should be stripped from json output")
+		}
+		if strings.Contains(text, "managedFields") {
+			t.Error("managedFields should be stripped from json output")
+		}
+	})
+
 	t.Run("default format is full", func(t *testing.T) {
 		res, err := handler(context.Background(), callToolReq(map[string]any{
 			"kind":      "Pod",

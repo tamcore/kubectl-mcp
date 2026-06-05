@@ -12,14 +12,14 @@ import (
 // formatGetResult formats a single resource according to the requested format.
 func formatGetResult(obj *unstructured.Unstructured, format string) (*mcp.CallToolResult, error) {
 	switch format {
-	case "full":
+	case "full", "json":
 		return formatGetFull(obj)
 	case "summary":
 		return formatGetSummary(obj)
 	case "yaml":
 		return formatGetYAML(obj)
 	default:
-		return mcp.NewToolResultError(fmt.Sprintf("invalid format %q: must be full, summary, or yaml", format)), nil
+		return mcp.NewToolResultError(fmt.Sprintf("invalid format %q: must be full, json, summary, or yaml", format)), nil
 	}
 }
 

@@ -48,7 +48,7 @@ func registerGetResource(s *server.MCPServer, pool *kube.ClientPool, cfg *config
 				"kubectl.kubernetes.io/last-applied-configuration is always excluded."),
 		),
 		mcp.WithString("format",
-			mcp.Description("Output format: 'full' (default, JSON with noisy metadata stripped), 'summary' (compact key fields), 'yaml' (YAML with noisy metadata stripped)"),
+			mcp.Description("Output format: 'json' (or 'full', default — JSON with noisy metadata stripped), 'summary' (compact key fields), 'yaml' (YAML with noisy metadata stripped)"),
 		),
 	)
 
