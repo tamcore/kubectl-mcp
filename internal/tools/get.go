@@ -10,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/discovery"
 
 	"github.com/tamcore/kubectl-mcp/internal/config"
 	"github.com/tamcore/kubectl-mcp/internal/kube"
@@ -111,7 +112,7 @@ func resolveGVR(cc *kube.ContextClient, kind, apiVersion string) (schema.GroupVe
 		kind = fullKind
 	}
 
-	_, apiLists, err := cc.Discovery.ServerGroupsAndResources()
+	apiLists, err := discoverAPILists(cc)
 	if err != nil {
 		return schema.GroupVersionResource{}, fmt.Errorf("discovery error: %w", err)
 	}
@@ -193,4 +194,15 @@ func matchesPlural(resourceName, input string) bool {
 	return strings.ToLower(resourceName) == input+"s" ||
 		strings.ToLower(resourceName) == input+"es" ||
 		strings.TrimSuffix(strings.ToLower(resourceName), "s") == input
+}
+
+// discoverAPILists calls ServerGroupsAndResources and returns partial results when
+// only some API groups fail (e.g. a stale metrics-server). Hard errors that affect
+// all groups are still propagated.
+func discoverAPILists(cc *kube.ContextClient) ([]*metav1.APIResourceList, error) {
+	_, lists, err := cc.Discovery.ServerGroupsAndResources()
+	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
+		return nil, err
+	}
+	return lists, nil
 }

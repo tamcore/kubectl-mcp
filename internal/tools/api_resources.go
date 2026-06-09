@@ -60,7 +60,7 @@ func registerListAPIResources(s *server.MCPServer, pool *kube.ClientPool) {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to get client: %v", err)), nil
 		}
 
-		_, apiLists, err := cc.Discovery.ServerGroupsAndResources()
+		apiLists, err := discoverAPILists(cc)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to discover API resources: %v", err)), nil
 		}

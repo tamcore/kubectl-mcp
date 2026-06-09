@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes/fake"
 	fakecorev1 "k8s.io/client-go/kubernetes/typed/core/v1/fake"
 	restclient "k8s.io/client-go/rest"
@@ -61,6 +63,22 @@ func newFakeDiscovery() *fakediscovery.FakeDiscovery {
 	disc := fakeClient.Discovery().(*fakediscovery.FakeDiscovery)
 	disc.Resources = apiResources()
 	return disc
+}
+
+// partialDiscovery wraps FakeDiscovery and injects ErrGroupDiscoveryFailed,
+// simulating a cluster where metrics-server (or another API group) is unhealthy.
+type partialDiscovery struct {
+	*fakediscovery.FakeDiscovery
+}
+
+func (p *partialDiscovery) ServerGroupsAndResources() ([]*metav1.APIGroup, []*metav1.APIResourceList, error) {
+	_, lists, _ := p.FakeDiscovery.ServerGroupsAndResources()
+	err := &discovery.ErrGroupDiscoveryFailed{
+		Groups: map[schema.GroupVersion]error{
+			{Group: "metrics.k8s.io", Version: "v1beta1"}: fmt.Errorf("stale GroupVersion discovery"),
+		},
+	}
+	return nil, lists, err
 }
 
 // apiResources returns a standard set of API resource lists for discovery.
@@ -196,6 +214,22 @@ func testDeployment(name, ns string) *unstructured.Unstructured {
 func buildPool(cfg *config.Config, rawCfg clientcmdapi.Config, dynClient *fakedynamic.FakeDynamicClient, fakeCS *fake.Clientset) *kube.ClientPool {
 	disc := fakeCS.Discovery().(*fakediscovery.FakeDiscovery)
 	disc.Resources = apiResources()
+
+	return kube.NewClientPoolForTest(cfg, rawCfg, map[string]*kube.ContextClient{
+		"test-ctx": {
+			Dynamic:   dynClient,
+			Clientset: fakeCS,
+			Discovery: disc,
+		},
+	})
+}
+
+// buildPoolPartialDiscovery is like buildPool but Discovery returns ErrGroupDiscoveryFailed
+// alongside partial results, simulating an unhealthy metrics-server.
+func buildPoolPartialDiscovery(cfg *config.Config, rawCfg clientcmdapi.Config, dynClient *fakedynamic.FakeDynamicClient, fakeCS *fake.Clientset) *kube.ClientPool {
+	base := fakeCS.Discovery().(*fakediscovery.FakeDiscovery)
+	base.Resources = apiResources()
+	disc := &partialDiscovery{FakeDiscovery: base}
 
 	return kube.NewClientPoolForTest(cfg, rawCfg, map[string]*kube.ContextClient{
 		"test-ctx": {

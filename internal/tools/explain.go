@@ -124,7 +124,7 @@ func parseResourcePath(s string) (string, string) {
 
 // findAPIResource looks up the metav1.APIResource for the given GVR.
 func findAPIResource(cc *kube.ContextClient, gvr schema.GroupVersionResource) (metav1.APIResource, string, error) {
-	_, apiLists, err := cc.Discovery.ServerGroupsAndResources()
+	apiLists, err := discoverAPILists(cc)
 	if err != nil {
 		return metav1.APIResource{}, "", fmt.Errorf("discovery error: %w", err)
 	}
@@ -148,7 +148,7 @@ func findAPIResource(cc *kube.ContextClient, gvr schema.GroupVersionResource) (m
 
 // findSubResources returns names of sub-resources for the given GVR.
 func findSubResources(cc *kube.ContextClient, gvr schema.GroupVersionResource) []string {
-	_, apiLists, err := cc.Discovery.ServerGroupsAndResources()
+	apiLists, err := discoverAPILists(cc)
 	if err != nil {
 		return nil
 	}
