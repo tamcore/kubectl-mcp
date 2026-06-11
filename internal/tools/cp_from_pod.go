@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"strings"
 	"unicode/utf8"
 
@@ -92,15 +93,21 @@ func registerCopyFromPod(s *server.MCPServer, pool *kube.ClientPool, runner Exec
 }
 
 // extractTarFile reads the first file entry from a tar stream and returns its bytes.
+// Returns an error if the file exceeds maxCopyBytes.
 func extractTarFile(r *bytes.Buffer) ([]byte, error) {
 	tr := tar.NewReader(r)
 	_, err := tr.Next()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read tar header: %w", err)
 	}
+
+	limited := io.LimitReader(tr, int64(maxCopyBytes)+1)
 	var buf bytes.Buffer
-	if _, err := buf.ReadFrom(tr); err != nil {
+	if _, err := buf.ReadFrom(limited); err != nil {
 		return nil, fmt.Errorf("failed to read tar content: %w", err)
+	}
+	if buf.Len() > maxCopyBytes {
+		return nil, fmt.Errorf("file exceeds maximum allowed size of %d MB", maxCopyBytes/(1024*1024))
 	}
 	return buf.Bytes(), nil
 }

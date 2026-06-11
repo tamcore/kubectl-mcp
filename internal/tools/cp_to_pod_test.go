@@ -493,3 +493,34 @@ func TestBuildTarBuffer_EmptyData(t *testing.T) {
 		t.Errorf("expected size=0, got: %d", hdr.Size)
 	}
 }
+
+func TestCopyToPod_ContentTooLarge(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+	pool := buildWritePool(cfg, newWriteFakeDynClient(), fake.NewClientset())
+
+	runner := &fakeCopyRunner{}
+	handler := getHandler(t, "copy_to_pod", func(s *server.MCPServer) {
+		registerCopyToPod(s, pool, runner, cfg)
+	})
+
+	// Send content that is one byte over the limit.
+	overLimit := make([]byte, maxCopyBytes+1)
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"namespace": "default",
+		"pod":       "my-pod",
+		"dest_path": "/tmp/bigfile",
+		"content":   string(overLimit),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.IsError {
+		t.Fatal("expected error for oversized content")
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "exceeds") {
+		t.Errorf("expected size limit error, got: %s", text)
+	}
+}
