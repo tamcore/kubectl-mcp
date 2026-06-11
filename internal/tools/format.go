@@ -126,15 +126,11 @@ func podStatus(obj map[string]interface{}) string {
 		if !ok {
 			continue
 		}
-		if waiting, ok := cm["state"].(map[string]interface{})["waiting"].(map[string]interface{}); ok {
-			if reason, ok := waiting["reason"].(string); ok && reason != "" {
-				return reason
-			}
+		if reason := containerStateReason(cm, "waiting"); reason != "" {
+			return reason
 		}
-		if terminated, ok := cm["state"].(map[string]interface{})["terminated"].(map[string]interface{}); ok {
-			if reason, ok := terminated["reason"].(string); ok && reason != "" {
-				return reason
-			}
+		if reason := containerStateReason(cm, "terminated"); reason != "" {
+			return reason
 		}
 	}
 
@@ -145,14 +141,28 @@ func podStatus(obj map[string]interface{}) string {
 		if !ok {
 			continue
 		}
-		if waiting, ok := cm["state"].(map[string]interface{})["waiting"].(map[string]interface{}); ok {
-			if reason, ok := waiting["reason"].(string); ok && reason != "" {
-				return "Init:" + reason
-			}
+		if reason := containerStateReason(cm, "waiting"); reason != "" {
+			return "Init:" + reason
 		}
 	}
 
 	return phase
+}
+
+// containerStateReason safely extracts .state.<stateKey>.reason from a single
+// containerStatus map. It returns "" when any level is missing or not the
+// expected type, avoiding panics on unexpected status shapes.
+func containerStateReason(cm map[string]interface{}, stateKey string) string {
+	state, ok := cm["state"].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	sub, ok := state[stateKey].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	reason, _ := sub["reason"].(string)
+	return reason
 }
 
 func podReady(obj map[string]interface{}) string {

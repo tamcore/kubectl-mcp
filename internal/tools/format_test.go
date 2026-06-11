@@ -411,6 +411,42 @@ func TestPodStatus(t *testing.T) {
 			},
 			want: "Pending",
 		},
+		{
+			name: "container status without state does not panic",
+			obj: map[string]interface{}{
+				"status": map[string]interface{}{
+					"phase": "Running",
+					"containerStatuses": []interface{}{
+						map[string]interface{}{"name": "app"},
+					},
+				},
+			},
+			want: "Running",
+		},
+		{
+			name: "non-map state is skipped without panicking",
+			obj: map[string]interface{}{
+				"status": map[string]interface{}{
+					"phase": "Running",
+					"containerStatuses": []interface{}{
+						map[string]interface{}{"state": "unexpected-string"},
+					},
+				},
+			},
+			want: "Running",
+		},
+		{
+			name: "empty state object falls back to phase",
+			obj: map[string]interface{}{
+				"status": map[string]interface{}{
+					"phase": "Running",
+					"containerStatuses": []interface{}{
+						map[string]interface{}{"state": map[string]interface{}{}},
+					},
+				},
+			},
+			want: "Running",
+		},
 	}
 
 	for _, tt := range tests {

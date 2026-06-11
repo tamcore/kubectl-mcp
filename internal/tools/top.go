@@ -24,14 +24,22 @@ var (
 )
 
 // formatCPU converts a Kubernetes CPU quantity string to human-readable millicores.
+// Returns the raw value unchanged when it cannot be parsed as a quantity.
 func formatCPU(raw string) string {
-	q := resource.MustParse(raw)
+	q, err := resource.ParseQuantity(raw)
+	if err != nil {
+		return raw
+	}
 	return fmt.Sprintf("%dm", q.MilliValue())
 }
 
 // formatMemory converts a Kubernetes memory quantity string to human-readable MiB.
+// Returns the raw value unchanged when it cannot be parsed as a quantity.
 func formatMemory(raw string) string {
-	q := resource.MustParse(raw)
+	q, err := resource.ParseQuantity(raw)
+	if err != nil {
+		return raw
+	}
 	mib := q.Value() / (1024 * 1024)
 	return fmt.Sprintf("%dMi", mib)
 }
@@ -209,12 +217,14 @@ func sumContainerUsage(obj map[string]interface{}) (cpuMillis int64, memBytes in
 			continue
 		}
 		if cpu, ok := usage["cpu"].(string); ok {
-			q := resource.MustParse(cpu)
-			cpuMillis += q.MilliValue()
+			if q, err := resource.ParseQuantity(cpu); err == nil {
+				cpuMillis += q.MilliValue()
+			}
 		}
 		if mem, ok := usage["memory"].(string); ok {
-			q := resource.MustParse(mem)
-			memBytes += q.Value()
+			if q, err := resource.ParseQuantity(mem); err == nil {
+				memBytes += q.Value()
+			}
 		}
 	}
 	return cpuMillis, memBytes
@@ -246,12 +256,14 @@ func eachContainerUsage(obj map[string]interface{}) []containerMetric {
 		var m containerMetric
 		m.name = name
 		if cpu, ok := usage["cpu"].(string); ok {
-			q := resource.MustParse(cpu)
-			m.cpuMillis = q.MilliValue()
+			if q, err := resource.ParseQuantity(cpu); err == nil {
+				m.cpuMillis = q.MilliValue()
+			}
 		}
 		if mem, ok := usage["memory"].(string); ok {
-			q := resource.MustParse(mem)
-			m.memBytes = q.Value()
+			if q, err := resource.ParseQuantity(mem); err == nil {
+				m.memBytes = q.Value()
+			}
 		}
 		result = append(result, m)
 	}
@@ -373,12 +385,14 @@ func registerTopNodes(s *server.MCPServer, pool *kube.ClientPool) {
 
 			var cpuMillis, memBytes int64
 			if cpu, ok := usage["cpu"].(string); ok {
-				q := resource.MustParse(cpu)
-				cpuMillis = q.MilliValue()
+				if q, err := resource.ParseQuantity(cpu); err == nil {
+					cpuMillis = q.MilliValue()
+				}
 			}
 			if mem, ok := usage["memory"].(string); ok {
-				q := resource.MustParse(mem)
-				memBytes = q.Value()
+				if q, err := resource.ParseQuantity(mem); err == nil {
+					memBytes = q.Value()
+				}
 			}
 
 			alloc := allocatable[m.GetName()]
@@ -420,12 +434,14 @@ func extractAllocatable(obj map[string]interface{}) nodeAllocatable {
 
 	var result nodeAllocatable
 	if cpu, ok := alloc["cpu"].(string); ok {
-		q := resource.MustParse(cpu)
-		result.cpuMillis = q.MilliValue()
+		if q, err := resource.ParseQuantity(cpu); err == nil {
+			result.cpuMillis = q.MilliValue()
+		}
 	}
 	if mem, ok := alloc["memory"].(string); ok {
-		q := resource.MustParse(mem)
-		result.memBytes = q.Value()
+		if q, err := resource.ParseQuantity(mem); err == nil {
+			result.memBytes = q.Value()
+		}
 	}
 	return result
 }

@@ -159,6 +159,8 @@ func TestFormatCPU(t *testing.T) {
 		{"1", "1000m"},
 		{"1500m", "1500m"},
 		{"100m", "100m"},
+		{"garbage", "garbage"}, // unparseable: returned unchanged, no panic
+		{"", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
@@ -180,6 +182,8 @@ func TestFormatMemory(t *testing.T) {
 		{"65536Ki", "64Mi"},
 		{"128Mi", "128Mi"},
 		{"0", "0Mi"},
+		{"not-a-quantity", "not-a-quantity"}, // unparseable: returned unchanged, no panic
+		{"", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
@@ -208,6 +212,63 @@ func TestFormatPercent(t *testing.T) {
 				t.Errorf("formatPercent(%d, %d) = %q, want %q", tt.used, tt.alloc, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestSumContainerUsage_MalformedQuantitySkipped(t *testing.T) {
+	obj := map[string]interface{}{
+		"containers": []interface{}{
+			map[string]interface{}{
+				"name":  "good",
+				"usage": map[string]interface{}{"cpu": "100m", "memory": "64Mi"},
+			},
+			map[string]interface{}{
+				"name":  "bad",
+				"usage": map[string]interface{}{"cpu": "garbage", "memory": "also-bad"},
+			},
+		},
+	}
+
+	cpuMillis, memBytes := sumContainerUsage(obj)
+	if cpuMillis != 100 {
+		t.Errorf("cpuMillis = %d, want 100 (malformed container skipped)", cpuMillis)
+	}
+	if memBytes != 64*1024*1024 {
+		t.Errorf("memBytes = %d, want %d (malformed container skipped)", memBytes, 64*1024*1024)
+	}
+}
+
+func TestEachContainerUsage_MalformedQuantitySkipped(t *testing.T) {
+	obj := map[string]interface{}{
+		"containers": []interface{}{
+			map[string]interface{}{
+				"name":  "bad",
+				"usage": map[string]interface{}{"cpu": "nope", "memory": "nope"},
+			},
+		},
+	}
+
+	metrics := eachContainerUsage(obj)
+	if len(metrics) != 1 {
+		t.Fatalf("expected 1 metric, got %d", len(metrics))
+	}
+	if metrics[0].cpuMillis != 0 || metrics[0].memBytes != 0 {
+		t.Errorf("malformed quantities should yield zero usage, got cpu=%d mem=%d",
+			metrics[0].cpuMillis, metrics[0].memBytes)
+	}
+}
+
+func TestExtractAllocatable_MalformedQuantitySkipped(t *testing.T) {
+	obj := map[string]interface{}{
+		"status": map[string]interface{}{
+			"allocatable": map[string]interface{}{"cpu": "bogus", "memory": "bogus"},
+		},
+	}
+
+	alloc := extractAllocatable(obj)
+	if alloc.cpuMillis != 0 || alloc.memBytes != 0 {
+		t.Errorf("malformed allocatable should yield zero, got cpu=%d mem=%d",
+			alloc.cpuMillis, alloc.memBytes)
 	}
 }
 
