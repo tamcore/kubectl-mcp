@@ -355,6 +355,35 @@ func TestCreateResource_MissingManifest(t *testing.T) {
 	}
 }
 
+func TestCreateResource_InvalidValidate(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+
+	fakeCS := fake.NewClientset()
+	dynClient := newWriteFakeDynClient()
+
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+	handler := getHandler(t, "create_resource", func(s *server.MCPServer) {
+		registerCreateResource(s, pool, cfg)
+	})
+
+	manifest := `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"cm","namespace":"default"}}`
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"manifest": manifest,
+		"validate": "invalid-value",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.IsError {
+		t.Fatal("expected error for invalid validate value")
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "validate") {
+		t.Errorf("expected error to mention 'validate', got: %s", text)
+	}
+}
+
 // --- parseManifests unit tests ---
 
 func TestParseManifests_SingleDoc(t *testing.T) {

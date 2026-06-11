@@ -61,7 +61,10 @@ func registerCreateResource(s *server.MCPServer, pool *kube.ClientPool, cfg *con
 		}
 
 		dryRun := dryRunOption(req.GetBool("dryRun", false))
-		validate := req.GetString("validate", "Strict")
+		fieldValidation, err := resolveFieldValidation(req.GetString("validate", "strict"))
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
 
 		if len(dryRun) == 0 {
 			if err := applySafetyDelay(ctx, req, cfg.SafetyDelayWrite); err != nil {
@@ -90,7 +93,7 @@ func registerCreateResource(s *server.MCPServer, pool *kube.ClientPool, cfg *con
 
 			result, err := res.Create(ctx, obj, metav1.CreateOptions{
 				DryRun:          dryRun,
-				FieldValidation: validate,
+				FieldValidation: fieldValidation,
 			})
 			if err != nil {
 				if errors.IsAlreadyExists(err) {
