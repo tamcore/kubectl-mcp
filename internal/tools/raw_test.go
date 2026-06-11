@@ -239,6 +239,41 @@ func TestRawAPI_MethodCaseInsensitive(t *testing.T) {
 	}
 }
 
+func TestRawAPI_ContentTypeValidation(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowRaw = true
+	requester := &fakeRawRequester{response: []byte("ok"), status: 200}
+	handler := rawHandler(t, cfg, requester)
+
+	cases := []struct {
+		name        string
+		contentType string
+	}{
+		{"CR only", "application/json\r"},
+		{"LF only", "application/json\n"},
+		{"CRLF injection", "application/json\r\nX-Evil: injected"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := handler(context.Background(), callToolReq(map[string]any{
+				"path":         "/api/v1/pods",
+				"content_type": tc.contentType,
+			}))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !res.IsError {
+				t.Errorf("expected error for content_type=%q", tc.contentType)
+			}
+			text := resultText(t, res)
+			if !strings.Contains(text, "newline") {
+				t.Errorf("expected newline error message, got: %s", text)
+			}
+		})
+	}
+}
+
 func TestRawAPI_NotRegisteredWithoutAllowRaw(t *testing.T) {
 	cfg := defaultCfg()
 	cfg.AllowRaw = false

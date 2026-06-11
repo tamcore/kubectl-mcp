@@ -94,6 +94,11 @@ func registerRawAPI(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Conf
 		body := req.GetString("body", "")
 		contentType := req.GetString("content_type", "application/json")
 
+		// Validate content_type: newlines would allow HTTP header injection.
+		if strings.ContainsAny(contentType, "\r\n") {
+			return mcp.NewToolResultError("content_type must not contain newline characters"), nil
+		}
+
 		// Validate path.
 		if path == "" {
 			return mcp.NewToolResultError("path is required"), nil
