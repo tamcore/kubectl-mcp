@@ -141,6 +141,15 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 			opts.Continue = continueToken
 		}
 
+		// Table format bypasses RedactSecretsList (it returns server-side Table
+		// output directly), so reject it for Secrets while redaction is enabled
+		// to preserve the redaction guarantee.
+		if format == "table" && !cfg.AllowSecrets && gvr.Group == "" && gvr.Resource == "secrets" {
+			return mcp.NewToolResultError(
+				"format=table is not supported for Secrets while redaction is enabled (it would bypass secret redaction); use format=summary or format=json, or start the server with secrets allowed",
+			), nil
+		}
+
 		// Table format uses the server-side Table API directly.
 		if format == "table" {
 			return handleListTable(ctx, cc, gvr, namespace, opts)
