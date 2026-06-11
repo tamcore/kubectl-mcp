@@ -326,3 +326,59 @@ func TestCopyFromPod_WithContainer(t *testing.T) {
 		t.Errorf("expected container=sidecar, got: %q", capturedContainer)
 	}
 }
+
+func TestCopyFromPod_FileTooLarge(t *testing.T) {
+	// Build a tar with a file that exceeds maxCopyBytes.
+	var tarBuf bytes.Buffer
+	tw := tar.NewWriter(&tarBuf)
+	overLimit := int64(maxCopyBytes) + 1
+	_ = tw.WriteHeader(&tar.Header{
+		Name: "bigfile",
+		Mode: 0644,
+		Size: overLimit,
+	})
+	// Write just enough data to trigger the limit check.
+	_, _ = tw.Write(make([]byte, overLimit))
+	_ = tw.Close()
+
+	runner := &fakeTarExecRunner{tarContent: tarBuf.Bytes()}
+	cfg := defaultCfg()
+	pool := buildPool(cfg, defaultRawConfig(), newFakeDynClient(), fake.NewClientset())
+	handler := getHandler(t, "copy_from_pod", func(s *server.MCPServer) {
+		registerCopyFromPod(s, pool, runner, cfg)
+	})
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"namespace": "default",
+		"pod":       "my-pod",
+		"src_path":  "/bigfile",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.IsError {
+		t.Fatal("expected error for oversized file")
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "exceeds") {
+		t.Errorf("expected size limit error, got: %s", text)
+	}
+}
+
+func TestExtractTarFile_ExactLimit(t *testing.T) {
+	// A file exactly at the limit should succeed.
+	var tarBuf bytes.Buffer
+	tw := tar.NewWriter(&tarBuf)
+	data := make([]byte, maxCopyBytes)
+	_ = tw.WriteHeader(&tar.Header{Name: "file", Mode: 0644, Size: int64(len(data))})
+	_, _ = tw.Write(data)
+	_ = tw.Close()
+
+	got, err := extractTarFile(&tarBuf)
+	if err != nil {
+		t.Fatalf("unexpected error at exact limit: %v", err)
+	}
+	if len(got) != maxCopyBytes {
+		t.Errorf("expected %d bytes, got %d", maxCopyBytes, len(got))
+	}
+}

@@ -137,6 +137,11 @@ func registerCopyToPod(s *server.MCPServer, pool *kube.ClientPool, runner CopyRu
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
+		if len(data) > maxCopyBytes {
+			return mcp.NewToolResultError(
+				fmt.Sprintf("content exceeds maximum allowed size of %d MB", maxCopyBytes/(1024*1024)),
+			), nil
+		}
 
 		if err := applySafetyDelay(ctx, req, cfg.SafetyDelayWrite); err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("safety delay interrupted: %v", err)), nil

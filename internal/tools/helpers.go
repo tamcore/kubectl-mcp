@@ -11,6 +11,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// maxCopyBytes is the upper bound for in-memory file transfers in copy operations.
+const maxCopyBytes = 100 * 1024 * 1024 // 100 MB
+
 // requireStringOrJSON returns a string argument by key. If the LLM sends a
 // JSON object instead of a string, it marshals the object to a JSON string.
 // This handles the common case where a tool parameter is described as
