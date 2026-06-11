@@ -42,6 +42,11 @@ func registerNodeStats(s *server.MCPServer, pool *kube.ClientPool) {
 
 		node, _ := req.RequireString("node")
 
+		// Validate node name to prevent apiserver path traversal.
+		if err := validateNodeName(node); err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+
 		absPath := "/api/v1/nodes/" + node + "/proxy/stats/summary"
 		stream, err := cc.Clientset.CoreV1().RESTClient().Get().AbsPath(absPath).Stream(ctx)
 		if err != nil {

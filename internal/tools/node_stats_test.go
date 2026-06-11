@@ -1,9 +1,36 @@
 package tools
 
 import (
+	"context"
 	"strings"
 	"testing"
+
+	"github.com/mark3labs/mcp-go/server"
 )
+
+func TestNodeStats_ValidatesNodeName(t *testing.T) {
+	cfg := defaultCfg()
+	pool := buildNodeLogsPool(cfg)
+
+	handler := getHandler(t, "node_stats", func(s *server.MCPServer) {
+		registerNodeStats(s, pool)
+	})
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"node": "../../secrets",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !res.IsError {
+		t.Error("expected error for bogus node name")
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "invalid node name") {
+		t.Errorf("expected invalid node name error, got: %s", text)
+	}
+}
 
 func TestFormatNodeStats(t *testing.T) {
 	rawJSON := `{

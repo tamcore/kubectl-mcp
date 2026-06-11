@@ -51,6 +51,11 @@ func registerNodeLogs(s *server.MCPServer, pool *kube.ClientPool) {
 		logPath := req.GetString("logPath", "")
 		tail := int64(req.GetFloat("tail", 0))
 
+		// Validate node name to prevent apiserver path traversal.
+		if err := validateNodeName(node); err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+
 		// Validate logPath to prevent path traversal.
 		if err := validateLogPath(logPath); err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
@@ -136,6 +141,21 @@ func formatDirListing(logPath string, links []string) string {
 
 	sb.WriteString("\nUse one of these paths as the logPath parameter to view the log content.")
 	return sb.String()
+}
+
+// validateNodeName rejects node names that could reshape the apiserver request
+// path (e.g. containing '/' or '..'). Real Kubernetes node names are DNS
+// subdomains and never contain these characters. Without this check, a crafted
+// node value could reach other apiserver GET endpoints (such as secrets) that
+// bypass this server's secret redaction.
+func validateNodeName(n string) error {
+	if n == "" {
+		return fmt.Errorf("node is required")
+	}
+	if strings.ContainsAny(n, "/\\") || strings.Contains(n, "..") {
+		return fmt.Errorf("invalid node name %q", n)
+	}
+	return nil
 }
 
 // validateLogPath checks for path traversal attempts in the log path.
