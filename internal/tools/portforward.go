@@ -312,13 +312,20 @@ Examples: "my-pod", "pod/my-pod", "svc/my-service", "deploy/my-app", "sts/my-set
 
 		namespace, _ := req.RequireString("namespace")
 		resourceStr, _ := req.RequireString("resource")
-		remotePort := uint16(req.GetFloat("remotePort", 0))
-		localPort := uint16(req.GetFloat("localPort", 0))
-		timeout := clampTimeout(req.GetFloat("timeout", defaultPortForwardTimeout.Seconds()))
 
-		if remotePort == 0 {
-			return mcp.NewToolResultError("remotePort must be a valid port number (1-65535)"), nil
+		remotePortF := req.GetFloat("remotePort", 0)
+		if remotePortF < 1 || remotePortF > 65535 {
+			return mcp.NewToolResultError("remotePort must be between 1 and 65535"), nil
 		}
+		remotePort := uint16(remotePortF)
+
+		localPortF := req.GetFloat("localPort", 0)
+		if localPortF < 0 || localPortF > 65535 {
+			return mcp.NewToolResultError("localPort must be between 0 and 65535"), nil
+		}
+		localPort := uint16(localPortF)
+
+		timeout := clampTimeout(req.GetFloat("timeout", defaultPortForwardTimeout.Seconds()))
 
 		kind, name := parseResource(resourceStr)
 
