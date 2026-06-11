@@ -251,6 +251,54 @@ func TestPortForward_InvalidPort(t *testing.T) {
 	}
 }
 
+func TestPortForward_PortValidation(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+	fakeCS := fake.NewClientset()
+	dynClient := newWriteFakeDynClient(testPod("my-pod", "default"))
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+	fwd := &fakePortForwarder{}
+
+	handler := getHandler(t, "port_forward", func(s *server.MCPServer) {
+		registerPortForward(s, pool, fwd, cfg)
+	})
+
+	cases := []struct {
+		name       string
+		remotePort float64
+		localPort  float64
+		wantErrSub string
+	}{
+		{"remotePort zero", 0, 0, "remotePort"},
+		{"remotePort negative", -1, 0, "remotePort"},
+		{"remotePort overflow 70000", 70000, 0, "remotePort"},
+		{"remotePort 65536", 65536, 0, "remotePort"},
+		{"localPort negative", 8080, -1, "localPort"},
+		{"localPort overflow 70000", 8080, 70000, "localPort"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := handler(context.Background(), callToolReq(map[string]any{
+				"namespace":  "default",
+				"resource":   "my-pod",
+				"remotePort": tc.remotePort,
+				"localPort":  tc.localPort,
+			}))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !res.IsError {
+				t.Errorf("expected error for %s", tc.name)
+			}
+			text := resultText(t, res)
+			if !strings.Contains(text, tc.wantErrSub) {
+				t.Errorf("expected %q in error, got: %s", tc.wantErrSub, text)
+			}
+		})
+	}
+}
+
 // --- resource parameter tests ---
 
 func TestParseResource(t *testing.T) {

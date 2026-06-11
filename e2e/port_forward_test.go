@@ -27,7 +27,7 @@ func TestPortForward(t *testing.T) {
 					t.Error("expected error for remotePort=0")
 				}
 				text := resultText(result)
-				if !strings.Contains(text, "remotePort must be a valid port number") {
+				if !strings.Contains(text, "remotePort must be between 1 and 65535") {
 					t.Errorf("expected port validation error, got: %s", text)
 				}
 			})
