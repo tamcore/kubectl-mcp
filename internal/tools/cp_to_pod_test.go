@@ -414,3 +414,47 @@ func TestCopyToPod_WithContainer(t *testing.T) {
 		t.Errorf("expected container=sidecar, got: %q", capturedContainer)
 	}
 }
+
+func TestCopyToPod_PathValidation(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+	pool := buildWritePool(cfg, newWriteFakeDynClient(), fake.NewClientset())
+
+	runner := &fakeCopyRunner{}
+	handler := getHandler(t, "copy_to_pod", func(s *server.MCPServer) {
+		registerCopyToPod(s, pool, runner, cfg)
+	})
+
+	cases := []struct {
+		name       string
+		destPath   string
+		wantErrSub string
+	}{
+		{"relative path", "etc/passwd", "absolute"},
+		{"relative traversal", "../etc/passwd", "absolute"},
+		{"dot dot absolute", "/etc/../passwd", ".."},
+		{"dot dot only", "/..", ".."},
+		{"double dot in middle", "/var/../../../etc/passwd", ".."},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := handler(context.Background(), callToolReq(map[string]any{
+				"namespace": "default",
+				"pod":       "my-pod",
+				"dest_path": tc.destPath,
+				"content":   "data",
+			}))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !res.IsError {
+				t.Errorf("expected error for dest_path=%q", tc.destPath)
+			}
+			text := resultText(t, res)
+			if !strings.Contains(text, tc.wantErrSub) {
+				t.Errorf("expected %q in error for dest_path=%q, got: %s", tc.wantErrSub, tc.destPath, text)
+			}
+		})
+	}
+}

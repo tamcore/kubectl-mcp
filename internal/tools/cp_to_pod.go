@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"path"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -118,6 +119,12 @@ func registerCopyToPod(s *server.MCPServer, pool *kube.ClientPool, runner CopyRu
 		destPath, err := req.RequireString("dest_path")
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
+		}
+		if !path.IsAbs(destPath) {
+			return mcp.NewToolResultError("dest_path must be an absolute path (start with /)"), nil
+		}
+		if strings.Contains(destPath, "..") {
+			return mcp.NewToolResultError("dest_path must not contain '..'"), nil
 		}
 		content, err := req.RequireString("content")
 		if err != nil {
