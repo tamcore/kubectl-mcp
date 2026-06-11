@@ -37,8 +37,8 @@ func TestStopPortForward_ListActive(t *testing.T) {
 		return true
 	})
 
-	ch1 := make(chan struct{})
-	ch2 := make(chan struct{})
+	ch1 := &portForwardSession{stopCh: make(chan struct{})}
+	ch2 := &portForwardSession{stopCh: make(chan struct{})}
 	activeForwards.Store("default/pod-a/8080", ch1)
 	activeForwards.Store("default/pod-b/9090", ch2)
 
@@ -72,8 +72,8 @@ func TestStopPortForward_StopSession(t *testing.T) {
 		return true
 	})
 
-	ch := make(chan struct{})
-	activeForwards.Store("default/my-pod/8080", ch)
+	session := &portForwardSession{stopCh: make(chan struct{})}
+	activeForwards.Store("default/my-pod/8080", session)
 
 	handler := getHandler(t, "stop_port_forward", func(s *server.MCPServer) {
 		registerStopPortForward(s)
@@ -93,7 +93,7 @@ func TestStopPortForward_StopSession(t *testing.T) {
 
 	// Verify channel was closed.
 	select {
-	case <-ch:
+	case <-session.stopCh:
 		// OK, channel is closed.
 	default:
 		t.Error("expected stop channel to be closed")
@@ -102,6 +102,33 @@ func TestStopPortForward_StopSession(t *testing.T) {
 	// Verify it was removed from the map.
 	if _, loaded := activeForwards.Load("default/my-pod/8080"); loaded {
 		t.Error("expected session to be removed from activeForwards")
+	}
+}
+
+func TestStopPortForward_ConcurrentStopNoPanic(t *testing.T) {
+	// Verify that calling stop from multiple goroutines simultaneously never panics.
+	// This is the race that sync.Once in portForwardSession prevents.
+	session := &portForwardSession{stopCh: make(chan struct{})}
+	activeForwards.Store("default/race-pod/8080", session)
+	t.Cleanup(func() { activeForwards.Delete("default/race-pod/8080") })
+
+	const goroutines = 50
+	done := make(chan struct{}, goroutines)
+	for range goroutines {
+		go func() {
+			session.stop()
+			done <- struct{}{}
+		}()
+	}
+	for range goroutines {
+		<-done
+	}
+
+	select {
+	case <-session.stopCh:
+		// OK
+	default:
+		t.Error("expected stop channel to be closed after concurrent stops")
 	}
 }
 

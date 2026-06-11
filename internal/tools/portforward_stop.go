@@ -64,8 +64,8 @@ func stopForwardSession(sessionID string) (*mcp.CallToolResult, error) {
 		return mcp.NewToolResultError(fmt.Sprintf("no active port-forward session with key %q", sessionID)), nil
 	}
 
-	if stopCh, ok := val.(chan struct{}); ok {
-		close(stopCh)
+	if session, ok := val.(*portForwardSession); ok {
+		session.stop()
 	}
 
 	return mcp.NewToolResultText(fmt.Sprintf("Stopped port-forward session %q", sessionID)), nil

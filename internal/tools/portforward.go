@@ -47,6 +47,18 @@ type PortForwarder interface {
 // activeForwards tracks live port-forward sessions for cleanup.
 var activeForwards sync.Map
 
+// portForwardSession wraps the stop channel with a sync.Once so concurrent
+// callers (timeout goroutine and stop_port_forward) can both safely call stop
+// without risking a "close of closed channel" panic.
+type portForwardSession struct {
+	stopCh chan struct{}
+	once   sync.Once
+}
+
+func (s *portForwardSession) stop() {
+	s.once.Do(func() { close(s.stopCh) })
+}
+
 // portForwardResponse is the JSON response returned to the caller.
 type portForwardResponse struct {
 	Pod        string  `json:"pod"`
@@ -356,16 +368,17 @@ Examples: "my-pod", "pod/my-pod", "svc/my-service", "deploy/my-app", "sts/my-set
 
 		// Store for cleanup and schedule timeout.
 		key := fmt.Sprintf("%s/%s/%d", namespace, podName, result.LocalPort)
-		activeForwards.Store(key, result.StopCh)
+		session := &portForwardSession{stopCh: result.StopCh}
+		activeForwards.Store(key, session)
 
 		go func() {
 			timer := time.NewTimer(timeout)
 			defer timer.Stop()
 			select {
 			case <-timer.C:
-				close(result.StopCh)
+				session.stop()
 				activeForwards.Delete(key)
-			case <-result.StopCh:
+			case <-session.stopCh:
 				activeForwards.Delete(key)
 			}
 		}()
