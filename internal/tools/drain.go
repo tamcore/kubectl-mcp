@@ -50,8 +50,10 @@ func registerDrainNode(s *server.MCPServer, pool *kube.ClientPool, cfg *config.C
 				"WARNING: these unmanaged pods will be deleted and permanently lost (default: false)"),
 		),
 		mcp.WithNumber("timeout",
-			mcp.Description("Maximum seconds to wait for all pods to be evicted. 0 means wait indefinitely (default: 0). "+
-				"If the timeout is reached, the tool returns an error listing remaining pods."),
+			mcp.Description("Maximum seconds to spend issuing eviction requests for the node's pods. 0 means no limit (default: 0). "+
+				"Eviction is asynchronous: this bounds the time to REQUEST eviction of all eligible pods, not the time for them to "+
+				"actually terminate. If the timeout is reached before every pod has had an eviction requested, the tool returns an "+
+				"error listing the pods that were not yet processed."),
 		),
 	)
 
@@ -121,9 +123,11 @@ func registerDrainNode(s *server.MCPServer, pool *kube.ClientPool, cfg *config.C
 		var errors []string
 
 		for i := range pods.Items {
-			// Check timeout before processing each pod.
+			// Check timeout before processing each pod. The timeout bounds the
+			// time spent ISSUING eviction requests, not the time for pods to
+			// terminate (eviction is asynchronous).
 			if !deadline.IsZero() && time.Now().After(deadline) {
-				// Collect remaining pod names for the timeout error message.
+				// Collect the pods that had no eviction requested yet.
 				var remaining []string
 				for j := i; j < len(pods.Items); j++ {
 					p := &pods.Items[j]
@@ -136,7 +140,7 @@ func registerDrainNode(s *server.MCPServer, pool *kube.ClientPool, cfg *config.C
 					remaining = append(remaining, fmt.Sprintf("%s/%s", p.Namespace, p.Name))
 				}
 				return mcp.NewToolResultError(fmt.Sprintf(
-					"drain timed out after %.3gs waiting for pods to be evicted; remaining pods: %s",
+					"drain timed out after %.3gs while issuing eviction requests; pods not yet processed: %s",
 					timeoutFloat, strings.Join(remaining, ", "),
 				)), nil
 			}

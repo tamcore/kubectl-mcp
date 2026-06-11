@@ -423,13 +423,15 @@ func TestDrainNode_ForceFalse_UnmanagedPodError(t *testing.T) {
 	}
 }
 
-// TestDrainNode_Timeout verifies that timeout>0 returns an error listing
-// remaining pods when the deadline expires before all pods are processed.
+// TestDrainNode_Timeout verifies that timeout>0 returns an error listing the
+// pods that had no eviction requested when the deadline expires before all
+// pods are processed.
 //
-// The drain loop checks the deadline at the top of each iteration. The test
-// uses two pods and makes the first eviction block for 100ms while the
-// timeout is set to 50ms, so the deadline expires before the second pod is
-// attempted.
+// The timeout bounds the time spent ISSUING eviction requests (eviction is
+// asynchronous), not the time for pods to terminate. The drain loop checks the
+// deadline at the top of each iteration. The test uses two pods and makes the
+// first eviction block for 100ms while the timeout is set to 50ms, so the
+// deadline expires before the second pod is attempted.
 func TestDrainNode_Timeout(t *testing.T) {
 	cfg := defaultCfg()
 	cfg.AllowWrite = true
@@ -482,8 +484,55 @@ func TestDrainNode_Timeout(t *testing.T) {
 	if !strings.Contains(text, "timed out") {
 		t.Errorf("expected 'timed out' in error, got: %s", text)
 	}
+	// The error must describe the actual (issuing-eviction) semantics rather
+	// than claiming it waited for pods to terminate.
+	if !strings.Contains(text, "issuing eviction requests") {
+		t.Errorf("expected error to describe issuing-eviction semantics, got: %s", text)
+	}
 	if !strings.Contains(text, "slow-pod") {
-		t.Errorf("expected remaining pod in timeout error, got: %s", text)
+		t.Errorf("expected unprocessed pod in timeout error, got: %s", text)
+	}
+}
+
+// TestDrainNode_TimeoutDescription_HonestAboutSemantics verifies that the
+// timeout parameter description accurately states it bounds the time to ISSUE
+// eviction requests (eviction is asynchronous) rather than falsely claiming it
+// waits for pods to terminate.
+func TestDrainNode_TimeoutDescription_HonestAboutSemantics(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+	cfg.AllowDestructive = true
+
+	fakeCS := fake.NewClientset()
+	dynClient := newWriteFakeDynClient()
+	pool := buildWritePool(cfg, dynClient, fakeCS)
+
+	s := server.NewMCPServer("test", "0.1.0", server.WithToolCapabilities(false))
+	registerDrainNode(s, pool, cfg)
+
+	tool := s.GetTool("drain_node")
+	if tool == nil {
+		t.Fatal("drain_node tool not found")
+	}
+
+	timeoutDesc := ""
+	if props := tool.Tool.InputSchema.Properties; props != nil {
+		if raw, ok := props["timeout"].(map[string]any); ok {
+			timeoutDesc, _ = raw["description"].(string)
+		}
+	}
+	if timeoutDesc == "" {
+		t.Fatal("timeout parameter has no description")
+	}
+
+	descLower := strings.ToLower(timeoutDesc)
+	// Must honestly describe that it bounds issuing eviction requests.
+	if !strings.Contains(descLower, "issuing eviction") {
+		t.Errorf("timeout description should state it bounds issuing eviction requests, got: %s", timeoutDesc)
+	}
+	// Must NOT claim it waits for all pods to be evicted/terminated.
+	if strings.Contains(descLower, "wait for all pods to be evicted") {
+		t.Errorf("timeout description must not falsely claim it waits for all pods to be evicted, got: %s", timeoutDesc)
 	}
 }
 
