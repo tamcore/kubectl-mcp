@@ -1096,6 +1096,29 @@ func TestListResourcesFormatParameter(t *testing.T) {
 		}
 	})
 
+	t.Run("table+Secret with redaction returns error", func(t *testing.T) {
+		sec := testSecret("table-secret", "default")
+		secPool := buildPool(cfg, defaultRawConfig(), newFakeDynClient(sec), fake.NewClientset())
+		h := getHandler(t, "list_resources", func(s *server.MCPServer) {
+			registerListResources(s, secPool, cfg)
+		})
+		res, err := h(context.Background(), callToolReq(map[string]any{
+			"kind":      "Secret",
+			"namespace": "default",
+			"format":    "table",
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !res.IsError {
+			t.Fatalf("expected error for table+Secret with redaction enabled, got: %s", resultText(t, res))
+		}
+		text := resultText(t, res)
+		if !strings.Contains(text, "Secrets") || !strings.Contains(text, "redaction") {
+			t.Errorf("expected error mentioning Secrets and redaction, got: %s", text)
+		}
+	})
+
 	t.Run("format=summary returns summary output", func(t *testing.T) {
 		res, err := handler(context.Background(), callToolReq(map[string]any{
 			"kind":   "Pod",
