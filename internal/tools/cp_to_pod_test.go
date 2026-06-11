@@ -458,3 +458,38 @@ func TestCopyToPod_PathValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildTarBuffer_Success(t *testing.T) {
+	reader, err := buildTarBuffer("/etc/config.yaml", []byte("key: value\n"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	tr := tar.NewReader(reader)
+	hdr, err := tr.Next()
+	if err != nil {
+		t.Fatalf("could not read tar header: %v", err)
+	}
+	if hdr.Name != "etc/config.yaml" {
+		t.Errorf("expected name=etc/config.yaml, got: %q", hdr.Name)
+	}
+	content, _ := io.ReadAll(tr)
+	if string(content) != "key: value\n" {
+		t.Errorf("unexpected content: %q", string(content))
+	}
+}
+
+func TestBuildTarBuffer_EmptyData(t *testing.T) {
+	reader, err := buildTarBuffer("/empty", []byte{})
+	if err != nil {
+		t.Fatalf("unexpected error for empty data: %v", err)
+	}
+	tr := tar.NewReader(reader)
+	hdr, err := tr.Next()
+	if err != nil {
+		t.Fatalf("could not read tar header: %v", err)
+	}
+	if hdr.Size != 0 {
+		t.Errorf("expected size=0, got: %d", hdr.Size)
+	}
+}
