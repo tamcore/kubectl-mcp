@@ -9,6 +9,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"sigs.k8s.io/yaml"
 
@@ -190,7 +191,10 @@ func mapStr(m map[string]interface{}, key string) string {
 
 // fetchEvents retrieves events related to the given resource.
 func fetchEvents(ctx context.Context, cc *kube.ContextClient, namespace, kind, name string) (string, error) {
-	fieldSelector := fmt.Sprintf("involvedObject.kind=%s,involvedObject.name=%s", kind, name)
+	fieldSelector := fields.Set{
+		"involvedObject.kind": kind,
+		"involvedObject.name": name,
+	}.String()
 	events, err := cc.Clientset.CoreV1().Events(namespace).List(ctx, metav1.ListOptions{
 		FieldSelector: fieldSelector,
 	})
