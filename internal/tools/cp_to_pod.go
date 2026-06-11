@@ -142,7 +142,10 @@ func registerCopyToPod(s *server.MCPServer, pool *kube.ClientPool, runner CopyRu
 			return mcp.NewToolResultError(fmt.Sprintf("safety delay interrupted: %v", err)), nil
 		}
 
-		tarBuf := buildTarBuffer(destPath, data)
+		tarBuf, err := buildTarBuffer(destPath, data)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to build tar archive: %v", err)), nil
+		}
 
 		var stdout, stderr bytes.Buffer
 		if err := runner.Run(ctx, cc.Clientset, cc.RestConfig, namespace, pod, container,
@@ -172,17 +175,23 @@ func decodeContent(content, encoding string) ([]byte, error) {
 
 // buildTarBuffer creates an in-memory tar archive with a single file at destPath.
 // The leading slash is stripped so tar extracts correctly under -C /.
-func buildTarBuffer(destPath string, data []byte) io.Reader {
+func buildTarBuffer(destPath string, data []byte) (io.Reader, error) {
 	name := strings.TrimPrefix(destPath, "/")
 
 	var buf bytes.Buffer
 	tw := tar.NewWriter(&buf)
-	_ = tw.WriteHeader(&tar.Header{
+	if err := tw.WriteHeader(&tar.Header{
 		Name: name,
 		Mode: 0644,
 		Size: int64(len(data)),
-	})
-	_, _ = tw.Write(data)
-	_ = tw.Close()
-	return &buf
+	}); err != nil {
+		return nil, err
+	}
+	if _, err := tw.Write(data); err != nil {
+		return nil, err
+	}
+	if err := tw.Close(); err != nil {
+		return nil, err
+	}
+	return &buf, nil
 }
