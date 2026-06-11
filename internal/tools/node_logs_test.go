@@ -123,6 +123,53 @@ func TestNodeLogs_ValidatesLogPath(t *testing.T) {
 	}
 }
 
+func TestNodeLogs_ValidatesNodeName(t *testing.T) {
+	cfg := defaultCfg()
+	pool := buildNodeLogsPool(cfg)
+
+	handler := getHandler(t, "node_logs", func(s *server.MCPServer) {
+		registerNodeLogs(s, pool)
+	})
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"node": "../../secrets",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !res.IsError {
+		t.Error("expected error for bogus node name")
+	}
+	text := resultText(t, res)
+	if !strings.Contains(text, "invalid node name") {
+		t.Errorf("expected invalid node name error, got: %s", text)
+	}
+}
+
+func TestValidateNodeName(t *testing.T) {
+	tests := []struct {
+		name     string
+		nodeName string
+		wantErr  bool
+	}{
+		{"valid name", "node-1", false},
+		{"empty", "", true},
+		{"contains slash", "nodes/foo", true},
+		{"contains double dot", "../../secrets", true},
+		{"contains backslash", `node\1`, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateNodeName(tt.nodeName)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateNodeName(%q) error = %v, wantErr %v", tt.nodeName, err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestIsHTMLDirListing(t *testing.T) {
 	tests := []struct {
 		name string
