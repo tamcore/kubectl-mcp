@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -399,5 +400,56 @@ func TestGetLogs_ReadFollowStream_BufferCapBytes(t *testing.T) {
 	_, truncated, _ := readFollowStream(pr, 5*time.Second)
 	if !truncated {
 		t.Error("expected truncation flag when > 1MB read")
+	}
+}
+
+// repeatReader is an infinite, non-blocking io.Reader that endlessly repeats
+// data. It never returns EOF and never blocks, so the scanning goroutine in
+// readFollowStream is only ever scanning or parked on a channel send — exactly
+// the condition under which the timeout/cap return path must not leak it.
+type repeatReader struct {
+	data []byte
+	off  int
+}
+
+func (r *repeatReader) Read(p []byte) (int, error) {
+	n := 0
+	for n < len(p) {
+		if r.off >= len(r.data) {
+			r.off = 0
+		}
+		c := copy(p[n:], r.data[r.off:])
+		n += c
+		r.off += c
+	}
+	return n, nil
+}
+
+// TestGetLogs_ReadFollowStream_NoGoroutineLeak verifies that the scanning
+// goroutine exits after readFollowStream returns, even when the source never
+// closes and the goroutine is parked on a channel send at return time.
+func TestGetLogs_ReadFollowStream_NoGoroutineLeak(t *testing.T) {
+	runtime.GC()
+	time.Sleep(50 * time.Millisecond)
+	baseline := runtime.NumGoroutine()
+
+	r := &repeatReader{data: []byte("a line of log output\n")}
+	lines, _, _ := readFollowStream(r, 50*time.Millisecond)
+	if len(lines) == 0 {
+		t.Fatal("expected to accumulate at least one line")
+	}
+
+	// The internal scanning goroutine must terminate shortly after the call
+	// returns. With the leak it stays blocked on the channel send forever.
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		if runtime.NumGoroutine() <= baseline {
+			return // goroutine cleaned up
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("scanning goroutine leaked: goroutines=%d, baseline=%d",
+				runtime.NumGoroutine(), baseline)
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }

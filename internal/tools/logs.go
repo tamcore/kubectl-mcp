@@ -278,15 +278,27 @@ func readFollowStream(r io.Reader, timeout time.Duration) (lines []string, trunc
 	}
 
 	ch := make(chan lineMsg)
+	// done unblocks the scanning goroutine when the consumer stops reading
+	// (timeout or buffer cap) while the goroutine is parked on a channel send.
+	// Without it the goroutine would leak permanently on every timed-out follow.
+	done := make(chan struct{})
+	defer close(done)
 
 	go func() {
 		defer close(ch)
 		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
-			ch <- lineMsg{text: scanner.Text()}
+			select {
+			case ch <- lineMsg{text: scanner.Text()}:
+			case <-done:
+				return
+			}
 		}
 		if scanErr := scanner.Err(); scanErr != nil {
-			ch <- lineMsg{err: scanErr}
+			select {
+			case ch <- lineMsg{err: scanErr}:
+			case <-done:
+			}
 		}
 	}()
 
