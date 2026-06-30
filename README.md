@@ -21,7 +21,7 @@ lets LLMs query and manage your clusters safely.
 - **Elicitation confirmation** — destructive operations (delete, drain) prompt for user confirmation via MCP elicitation
 - **Structured content** — get, list, and describe responses include machine-readable structured content alongside text, with declared `outputSchema` for client-side validation
 - **Progress notifications** — long-running operations (`drain_node`, `cleanup_pods`) emit MCP progress notifications when a `progressToken` is supplied
-- **35 MCP tools** — 19 read-only + 12 write + 3 destructive + 1 raw
+- **38 MCP tools** — 20 read-only + 14 write + 3 destructive + 1 raw
 - **MCP resources** — read any Kubernetes resource via `k8s://` URI scheme (2 resource templates)
 - **MCP prompts** — 4 built-in diagnostic workflows: pod diagnosis, deployment diagnosis, node investigation, safe rollback
 
@@ -138,12 +138,14 @@ kube-context. If omitted, the configured default context is used.
 | `list_rbac_bindings` | List ClusterRoleBindings or RoleBindings with optional subject/kind filter |
 | `list_rbac_roles` | List ClusterRoles or Roles; get detailed rules for a named role |
 | `list_service_accounts` | List ServiceAccounts or get details (exposes secret names, never token data) |
+| `copy_from_pod` | Copy a file from a pod container and return its contents (text as-is, binary base64-encoded) |
 
 ### Write tools (require `--allow-write`)
 
 | Tool | Description |
 |------|-------------|
 | `apply_resource` | Apply a JSON/YAML manifest with optional dry-run and field validation level |
+| `create_resource` | Create a resource from a JSON/YAML manifest; fails with a conflict if it already exists (like `kubectl create`). Supports multi-document YAML |
 | `patch_resource` | Patch a resource (json, merge, or strategic) with optional dry-run |
 | `scale_resource` | Scale a Deployment, StatefulSet, or ReplicaSet |
 | `restart_rollout` | Restart a Deployment, StatefulSet, or DaemonSet rollout |
@@ -155,6 +157,7 @@ kube-context. If omitted, the configured default context is used.
 | `rollout_resume` | Resume a paused Deployment rollout |
 | `run_pod` | Create and run a pod with a given image (like `kubectl run`) |
 | `port_forward` | Forward a local port to a pod, service, deployment, or statefulset port (with auto-timeout) |
+| `copy_to_pod` | Copy content to a file in a pod container (use `encoding=base64` for binary data) |
 
 ### Destructive tools (require `--allow-destructive`)
 
