@@ -7,17 +7,17 @@ import (
 func TestUnstructuredNestedSlice(t *testing.T) {
 	tests := []struct {
 		name      string
-		obj       map[string]interface{}
+		obj       map[string]any
 		fields    []string
 		wantLen   int
 		wantFound bool
 	}{
 		{
 			name: "valid path",
-			obj: map[string]interface{}{
-				"status": map[string]interface{}{
-					"conditions": []interface{}{
-						map[string]interface{}{"type": "Ready"},
+			obj: map[string]any{
+				"status": map[string]any{
+					"conditions": []any{
+						map[string]any{"type": "Ready"},
 					},
 				},
 			},
@@ -27,15 +27,15 @@ func TestUnstructuredNestedSlice(t *testing.T) {
 		},
 		{
 			name:      "missing field",
-			obj:       map[string]interface{}{},
+			obj:       map[string]any{},
 			fields:    []string{"status", "conditions"},
 			wantLen:   0,
 			wantFound: false,
 		},
 		{
 			name: "non-slice type at leaf",
-			obj: map[string]interface{}{
-				"status": map[string]interface{}{
+			obj: map[string]any{
+				"status": map[string]any{
 					"conditions": "not-a-slice",
 				},
 			},
@@ -45,7 +45,7 @@ func TestUnstructuredNestedSlice(t *testing.T) {
 		},
 		{
 			name: "intermediate non-map",
-			obj: map[string]interface{}{
+			obj: map[string]any{
 				"status": "string-not-map",
 			},
 			fields:    []string{"status", "conditions"},
@@ -54,8 +54,8 @@ func TestUnstructuredNestedSlice(t *testing.T) {
 		},
 		{
 			name: "single field path",
-			obj: map[string]interface{}{
-				"items": []interface{}{"a", "b"},
+			obj: map[string]any{
+				"items": []any{"a", "b"},
 			},
 			fields:    []string{"items"},
 			wantLen:   2,
@@ -63,7 +63,7 @@ func TestUnstructuredNestedSlice(t *testing.T) {
 		},
 		{
 			name:      "empty fields returns nil (no iteration)",
-			obj:       map[string]interface{}{"a": "b"},
+			obj:       map[string]any{"a": "b"},
 			fields:    []string{},
 			wantLen:   0,
 			wantFound: false,
@@ -87,10 +87,10 @@ func TestUnstructuredNestedSlice(t *testing.T) {
 }
 
 func TestMapStr(t *testing.T) {
-	m := map[string]interface{}{
+	m := map[string]any{
 		"type":   "Ready",
 		"count":  42,
-		"nested": map[string]interface{}{"a": "b"},
+		"nested": map[string]any{"a": "b"},
 	}
 
 	tests := []struct {

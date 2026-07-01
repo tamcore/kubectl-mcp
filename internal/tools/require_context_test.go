@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 
@@ -34,13 +35,7 @@ func TestApplyRequireContext_MarksContextRequired(t *testing.T) {
 		if !ok {
 			t.Fatalf("tool %q not registered", name)
 		}
-		found := false
-		for _, r := range st.Tool.InputSchema.Required {
-			if r == "context" {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(st.Tool.InputSchema.Required, "context")
 		if !found {
 			t.Errorf("tool %q should have context in Required, got %v", name, st.Tool.InputSchema.Required)
 		}

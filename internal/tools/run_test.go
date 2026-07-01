@@ -82,10 +82,10 @@ func TestRunPod_WithCommand(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	spec := created.Object["spec"].(map[string]interface{})
-	containers := spec["containers"].([]interface{})
-	container := containers[0].(map[string]interface{})
-	command := container["command"].([]interface{})
+	spec := created.Object["spec"].(map[string]any)
+	containers := spec["containers"].([]any)
+	container := containers[0].(map[string]any)
+	command := container["command"].([]any)
 	if len(command) != 3 {
 		t.Errorf("expected 3 command parts, got %d: %v", len(command), command)
 	}
@@ -120,7 +120,7 @@ func TestRunPod_WithRestartPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	spec := created.Object["spec"].(map[string]interface{})
+	spec := created.Object["spec"].(map[string]any)
 	if spec["restartPolicy"] != "OnFailure" {
 		t.Errorf("expected restartPolicy=OnFailure, got %v", spec["restartPolicy"])
 	}
@@ -153,7 +153,7 @@ func TestRunPod_DefaultRestartPolicyNever(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	spec := created.Object["spec"].(map[string]interface{})
+	spec := created.Object["spec"].(map[string]any)
 	if spec["restartPolicy"] != "Never" {
 		t.Errorf("expected default restartPolicy=Never, got %v", spec["restartPolicy"])
 	}
@@ -211,7 +211,7 @@ func TestRunPod_OutputContainsPodSpec(t *testing.T) {
 
 	text := resultText(t, res)
 	// Output should contain JSON of the created pod.
-	var result map[string]interface{}
+	var result map[string]any
 	// Find the JSON part after the "Created Pod" message.
 	idx := strings.Index(text, "{")
 	if idx < 0 {
@@ -282,14 +282,14 @@ func TestRunPod_WithSinglePort(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	spec := created.Object["spec"].(map[string]interface{})
-	containers := spec["containers"].([]interface{})
-	container := containers[0].(map[string]interface{})
-	ports, ok := container["ports"].([]interface{})
+	spec := created.Object["spec"].(map[string]any)
+	containers := spec["containers"].([]any)
+	container := containers[0].(map[string]any)
+	ports, ok := container["ports"].([]any)
 	if !ok || len(ports) != 1 {
 		t.Fatalf("expected 1 port, got: %v", container["ports"])
 	}
-	p := ports[0].(map[string]interface{})
+	p := ports[0].(map[string]any)
 	if p["containerPort"] != int64(80) {
 		t.Errorf("expected containerPort=80, got: %v", p["containerPort"])
 	}
@@ -326,15 +326,15 @@ func TestRunPod_WithMultiplePorts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	spec := created.Object["spec"].(map[string]interface{})
-	containers := spec["containers"].([]interface{})
-	container := containers[0].(map[string]interface{})
-	ports := container["ports"].([]interface{})
+	spec := created.Object["spec"].(map[string]any)
+	containers := spec["containers"].([]any)
+	container := containers[0].(map[string]any)
+	ports := container["ports"].([]any)
 	if len(ports) != 2 {
 		t.Fatalf("expected 2 ports, got %d", len(ports))
 	}
-	p0 := ports[0].(map[string]interface{})
-	p1 := ports[1].(map[string]interface{})
+	p0 := ports[0].(map[string]any)
+	p1 := ports[1].(map[string]any)
 	if p0["containerPort"] != int64(80) {
 		t.Errorf("expected first port=80, got: %v", p0["containerPort"])
 	}
@@ -371,15 +371,15 @@ func TestRunPod_WithProtocol(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	spec := created.Object["spec"].(map[string]interface{})
-	containers := spec["containers"].([]interface{})
-	container := containers[0].(map[string]interface{})
-	ports := container["ports"].([]interface{})
+	spec := created.Object["spec"].(map[string]any)
+	containers := spec["containers"].([]any)
+	container := containers[0].(map[string]any)
+	ports := container["ports"].([]any)
 	if len(ports) != 2 {
 		t.Fatalf("expected 2 ports, got %d", len(ports))
 	}
-	p0 := ports[0].(map[string]interface{})
-	p1 := ports[1].(map[string]interface{})
+	p0 := ports[0].(map[string]any)
+	p1 := ports[1].(map[string]any)
 	if p0["protocol"] != "TCP" {
 		t.Errorf("expected protocol=TCP, got: %v", p0["protocol"])
 	}

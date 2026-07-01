@@ -13,14 +13,14 @@ import (
 )
 
 func testPodWithStatus(name, ns, phase, reason string) *unstructured.Unstructured {
-	status := map[string]interface{}{"phase": phase}
+	status := map[string]any{"phase": phase}
 	if reason != "" {
 		status["reason"] = reason
 	}
-	return &unstructured.Unstructured{Object: map[string]interface{}{
+	return &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "v1",
 		"kind":       "Pod",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              name,
 			"namespace":         ns,
 			"creationTimestamp": "2024-01-01T00:00:00Z",

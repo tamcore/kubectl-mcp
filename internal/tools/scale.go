@@ -103,7 +103,7 @@ func registerScaleResource(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 			return mcp.NewToolResultError(fmt.Sprintf("failed to scale %s/%s: %v", kind, name, err)), nil
 		}
 
-		result := map[string]interface{}{
+		result := map[string]any{
 			"kind":        kind,
 			"name":        name,
 			"namespace":   namespace,

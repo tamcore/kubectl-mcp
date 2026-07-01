@@ -16,14 +16,14 @@ func TestLimiter_AllowsUnderLimit(t *testing.T) {
 func TestLimiter_RejectsWhenExhausted(t *testing.T) {
 	l := NewLimiter(10) // 10/min, burst = max(5, 10/6) = 5
 	// Drain all burst tokens.
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		if !l.Allow() {
 			t.Fatalf("call %d should succeed within burst", i+1)
 		}
 	}
 	// Rapidly exhaust — without waiting, subsequent calls should fail.
 	rejected := false
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		if !l.Allow() {
 			rejected = true
 			break
@@ -36,7 +36,7 @@ func TestLimiter_RejectsWhenExhausted(t *testing.T) {
 
 func TestLimiter_ZeroMeansUnlimited(t *testing.T) {
 	l := NewLimiter(0)
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		if !l.Allow() {
 			t.Fatalf("Allow() returned false at iteration %d with unlimited limiter", i)
 		}
@@ -45,7 +45,7 @@ func TestLimiter_ZeroMeansUnlimited(t *testing.T) {
 
 func TestLimiter_NegativeMeansUnlimited(t *testing.T) {
 	l := NewLimiter(-5)
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		if !l.Allow() {
 			t.Fatalf("Allow() returned false with negative rate")
 		}
@@ -77,7 +77,7 @@ func TestLimiter_DenyMessageUnlimited(t *testing.T) {
 func TestLimiter_BurstAllowsLLMParallelCalls(t *testing.T) {
 	// Write limiter at 30/min should allow at least 5 rapid calls (burst=5).
 	l := NewLimiter(30)
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		if !l.Allow() {
 			t.Fatalf("call %d should succeed within burst for 30/min limiter", i+1)
 		}
@@ -85,7 +85,7 @@ func TestLimiter_BurstAllowsLLMParallelCalls(t *testing.T) {
 
 	// Read limiter at 120/min should allow at least 15 rapid calls (burst=20).
 	l2 := NewLimiter(120)
-	for i := 0; i < 15; i++ {
+	for i := range 15 {
 		if !l2.Allow() {
 			t.Fatalf("call %d should succeed within burst for 120/min limiter", i+1)
 		}
@@ -95,12 +95,10 @@ func TestLimiter_BurstAllowsLLMParallelCalls(t *testing.T) {
 func TestLimiter_ConcurrentAccess(t *testing.T) {
 	l := NewLimiter(1000)
 	var wg sync.WaitGroup
-	for i := 0; i < 50; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 50 {
+		wg.Go(func() {
 			_ = l.Allow()
-		}()
+		})
 	}
 	wg.Wait()
 	// No race condition — test passes if no panic.

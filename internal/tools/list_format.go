@@ -20,8 +20,8 @@ const tableAcceptHeader = "application/json;as=Table;g=meta.k8s.io;v=v1"
 
 // wrapListEnvelope wraps a list of items in an object envelope for structuredContent.
 // The MCP protocol requires structuredContent to be a JSON object, not an array.
-func wrapListEnvelope(items []map[string]interface{}, continueToken string) map[string]interface{} {
-	envelope := map[string]interface{}{
+func wrapListEnvelope(items []map[string]any, continueToken string) map[string]any {
+	envelope := map[string]any{
 		"items": items,
 		"count": len(items),
 	}
@@ -32,8 +32,8 @@ func wrapListEnvelope(items []map[string]interface{}, continueToken string) map[
 }
 
 // formatListAsJSON strips noisy metadata from each item and returns a JSON array.
-func formatListAsJSON(items []unstructured.Unstructured) (string, []map[string]interface{}, error) {
-	cleaned := make([]map[string]interface{}, 0, len(items))
+func formatListAsJSON(items []unstructured.Unstructured) (string, []map[string]any, error) {
+	cleaned := make([]map[string]any, 0, len(items))
 	for _, item := range items {
 		cleaned = append(cleaned, StripNoisyMetadata(item.Object))
 	}

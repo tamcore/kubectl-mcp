@@ -114,10 +114,7 @@ func registerExecPod(s *server.MCPServer, pool *kube.ClientPool, runner ExecRunn
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 
-		timeout := time.Duration(req.GetFloat("timeout", defaultExecTimeout.Seconds())) * time.Second
-		if timeout > maxExecTimeout {
-			timeout = maxExecTimeout
-		}
+		timeout := min(time.Duration(req.GetFloat("timeout", defaultExecTimeout.Seconds()))*time.Second, maxExecTimeout)
 		if timeout <= 0 {
 			timeout = defaultExecTimeout
 		}

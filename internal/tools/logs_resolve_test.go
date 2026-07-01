@@ -59,17 +59,17 @@ func TestResolveResourceToLabelSelector_Deployment(t *testing.T) {
 	cfg := defaultCfg()
 	cfg.AllowWrite = true
 
-	dep := &unstructured.Unstructured{Object: map[string]interface{}{
+	dep := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "apps/v1",
 		"kind":       "Deployment",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              "my-deploy",
 			"namespace":         "default",
 			"creationTimestamp": "2024-01-01T00:00:00Z",
 		},
-		"spec": map[string]interface{}{
-			"selector": map[string]interface{}{
-				"matchLabels": map[string]interface{}{
+		"spec": map[string]any{
+			"selector": map[string]any{
+				"matchLabels": map[string]any{
 					"app": "nginx",
 				},
 			},
@@ -118,30 +118,30 @@ func TestResolveResourceToLabelSelector_CronJob(t *testing.T) {
 	cfg := defaultCfg()
 	cfg.AllowWrite = true
 
-	cronJob := &unstructured.Unstructured{Object: map[string]interface{}{
+	cronJob := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "batch/v1",
 		"kind":       "CronJob",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              "my-cronjob",
 			"namespace":         "default",
 			"uid":               "cj-uid-123",
 			"creationTimestamp": "2024-01-01T00:00:00Z",
 		},
-		"spec": map[string]interface{}{
+		"spec": map[string]any{
 			"schedule": "*/5 * * * *",
 		},
 	}}
 
 	// Older Job owned by the CronJob.
-	oldJob := &unstructured.Unstructured{Object: map[string]interface{}{
+	oldJob := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "batch/v1",
 		"kind":       "Job",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              "my-cronjob-111",
 			"namespace":         "default",
 			"creationTimestamp": "2024-01-01T00:00:00Z",
-			"ownerReferences": []interface{}{
-				map[string]interface{}{
+			"ownerReferences": []any{
+				map[string]any{
 					"apiVersion": "batch/v1",
 					"kind":       "CronJob",
 					"name":       "my-cronjob",
@@ -149,9 +149,9 @@ func TestResolveResourceToLabelSelector_CronJob(t *testing.T) {
 				},
 			},
 		},
-		"spec": map[string]interface{}{
-			"selector": map[string]interface{}{
-				"matchLabels": map[string]interface{}{
+		"spec": map[string]any{
+			"selector": map[string]any{
+				"matchLabels": map[string]any{
 					"batch.kubernetes.io/controller-uid": "old-job-uid",
 				},
 			},
@@ -159,15 +159,15 @@ func TestResolveResourceToLabelSelector_CronJob(t *testing.T) {
 	}}
 
 	// Newer Job owned by the CronJob — should be selected.
-	newJob := &unstructured.Unstructured{Object: map[string]interface{}{
+	newJob := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "batch/v1",
 		"kind":       "Job",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              "my-cronjob-222",
 			"namespace":         "default",
 			"creationTimestamp": "2024-06-01T00:00:00Z",
-			"ownerReferences": []interface{}{
-				map[string]interface{}{
+			"ownerReferences": []any{
+				map[string]any{
 					"apiVersion": "batch/v1",
 					"kind":       "CronJob",
 					"name":       "my-cronjob",
@@ -175,9 +175,9 @@ func TestResolveResourceToLabelSelector_CronJob(t *testing.T) {
 				},
 			},
 		},
-		"spec": map[string]interface{}{
-			"selector": map[string]interface{}{
-				"matchLabels": map[string]interface{}{
+		"spec": map[string]any{
+			"selector": map[string]any{
+				"matchLabels": map[string]any{
 					"batch.kubernetes.io/controller-uid": "new-job-uid",
 				},
 			},
@@ -206,29 +206,29 @@ func TestResolveResourceToLabelSelector_CronJob_ShortName(t *testing.T) {
 	cfg := defaultCfg()
 	cfg.AllowWrite = true
 
-	cronJob := &unstructured.Unstructured{Object: map[string]interface{}{
+	cronJob := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "batch/v1",
 		"kind":       "CronJob",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              "my-cj",
 			"namespace":         "default",
 			"uid":               "cj-uid-456",
 			"creationTimestamp": "2024-01-01T00:00:00Z",
 		},
-		"spec": map[string]interface{}{
+		"spec": map[string]any{
 			"schedule": "0 * * * *",
 		},
 	}}
 
-	job := &unstructured.Unstructured{Object: map[string]interface{}{
+	job := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "batch/v1",
 		"kind":       "Job",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              "my-cj-run1",
 			"namespace":         "default",
 			"creationTimestamp": "2024-01-01T01:00:00Z",
-			"ownerReferences": []interface{}{
-				map[string]interface{}{
+			"ownerReferences": []any{
+				map[string]any{
 					"apiVersion": "batch/v1",
 					"kind":       "CronJob",
 					"name":       "my-cj",
@@ -236,9 +236,9 @@ func TestResolveResourceToLabelSelector_CronJob_ShortName(t *testing.T) {
 				},
 			},
 		},
-		"spec": map[string]interface{}{
-			"selector": map[string]interface{}{
-				"matchLabels": map[string]interface{}{
+		"spec": map[string]any{
+			"selector": map[string]any{
+				"matchLabels": map[string]any{
 					"app": "worker",
 				},
 			},
@@ -268,16 +268,16 @@ func TestResolveResourceToLabelSelector_CronJob_NoJobs(t *testing.T) {
 	cfg := defaultCfg()
 	cfg.AllowWrite = true
 
-	cronJob := &unstructured.Unstructured{Object: map[string]interface{}{
+	cronJob := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "batch/v1",
 		"kind":       "CronJob",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              "empty-cj",
 			"namespace":         "default",
 			"uid":               "cj-uid-789",
 			"creationTimestamp": "2024-01-01T00:00:00Z",
 		},
-		"spec": map[string]interface{}{
+		"spec": map[string]any{
 			"schedule": "0 0 * * *",
 		},
 	}}
@@ -374,16 +374,16 @@ func TestResolveCronJobToLabelSelector_ListJobsError(t *testing.T) {
 	cfg := defaultCfg()
 	cfg.AllowWrite = true
 
-	cronJob := &unstructured.Unstructured{Object: map[string]interface{}{
+	cronJob := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "batch/v1",
 		"kind":       "CronJob",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              "fail-cj",
 			"namespace":         "default",
 			"uid":               "cj-uid-fail",
 			"creationTimestamp": "2024-01-01T00:00:00Z",
 		},
-		"spec": map[string]interface{}{
+		"spec": map[string]any{
 			"schedule": "0 0 * * *",
 		},
 	}}
@@ -413,10 +413,10 @@ func TestResolveCronJobToLabelSelector_ListJobsError(t *testing.T) {
 }
 
 func TestExtractMatchLabels_NoSpec(t *testing.T) {
-	obj := &unstructured.Unstructured{Object: map[string]interface{}{
+	obj := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "apps/v1",
 		"kind":       "Deployment",
-		"metadata":   map[string]interface{}{"name": "test"},
+		"metadata":   map[string]any{"name": "test"},
 	}}
 
 	_, err := extractMatchLabels("Deployment", "test", obj)
@@ -429,11 +429,11 @@ func TestExtractMatchLabels_NoSpec(t *testing.T) {
 }
 
 func TestExtractMatchLabels_NoSelector(t *testing.T) {
-	obj := &unstructured.Unstructured{Object: map[string]interface{}{
+	obj := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "apps/v1",
 		"kind":       "Deployment",
-		"metadata":   map[string]interface{}{"name": "test"},
-		"spec":       map[string]interface{}{"replicas": int64(1)},
+		"metadata":   map[string]any{"name": "test"},
+		"spec":       map[string]any{"replicas": int64(1)},
 	}}
 
 	_, err := extractMatchLabels("Deployment", "test", obj)
@@ -446,13 +446,13 @@ func TestExtractMatchLabels_NoSelector(t *testing.T) {
 }
 
 func TestExtractMatchLabels_NoMatchLabels(t *testing.T) {
-	obj := &unstructured.Unstructured{Object: map[string]interface{}{
+	obj := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "apps/v1",
 		"kind":       "Deployment",
-		"metadata":   map[string]interface{}{"name": "test"},
-		"spec": map[string]interface{}{
-			"selector": map[string]interface{}{
-				"matchExpressions": []interface{}{},
+		"metadata":   map[string]any{"name": "test"},
+		"spec": map[string]any{
+			"selector": map[string]any{
+				"matchExpressions": []any{},
 			},
 		},
 	}}
@@ -467,13 +467,13 @@ func TestExtractMatchLabels_NoMatchLabels(t *testing.T) {
 }
 
 func TestExtractMatchLabels_EmptyMatchLabels(t *testing.T) {
-	obj := &unstructured.Unstructured{Object: map[string]interface{}{
+	obj := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "apps/v1",
 		"kind":       "Deployment",
-		"metadata":   map[string]interface{}{"name": "test"},
-		"spec": map[string]interface{}{
-			"selector": map[string]interface{}{
-				"matchLabels": map[string]interface{}{},
+		"metadata":   map[string]any{"name": "test"},
+		"spec": map[string]any{
+			"selector": map[string]any{
+				"matchLabels": map[string]any{},
 			},
 		},
 	}}

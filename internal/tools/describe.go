@@ -125,7 +125,7 @@ func registerDescribeResource(s *server.MCPServer, pool *kube.ClientPool, cfg *c
 			fmt.Fprintf(&sb, "\nConditions:\n")
 			fmt.Fprintf(&sb, "  %-25s %-10s %-25s %s\n", "TYPE", "STATUS", "REASON", "MESSAGE")
 			for _, c := range conditions {
-				cm, ok := c.(map[string]interface{})
+				cm, ok := c.(map[string]any)
 				if !ok {
 					continue
 				}
@@ -143,7 +143,7 @@ func registerDescribeResource(s *server.MCPServer, pool *kube.ClientPool, cfg *c
 			specYAML, err := yaml.Marshal(spec)
 			if err == nil {
 				fmt.Fprintf(&sb, "\nSpec:\n")
-				for _, line := range strings.Split(string(specYAML), "\n") {
+				for line := range strings.SplitSeq(string(specYAML), "\n") {
 					if line != "" {
 						fmt.Fprintf(&sb, "  %s\n", line)
 					}
@@ -161,7 +161,7 @@ func registerDescribeResource(s *server.MCPServer, pool *kube.ClientPool, cfg *c
 	})
 }
 
-func unstructuredNestedSlice(obj map[string]interface{}, fields ...string) ([]interface{}, bool, error) {
+func unstructuredNestedSlice(obj map[string]any, fields ...string) ([]any, bool, error) {
 	current := obj
 	for i, field := range fields {
 		val, ok := current[field]
@@ -169,10 +169,10 @@ func unstructuredNestedSlice(obj map[string]interface{}, fields ...string) ([]in
 			return nil, false, nil
 		}
 		if i == len(fields)-1 {
-			slice, ok := val.([]interface{})
+			slice, ok := val.([]any)
 			return slice, ok, nil
 		}
-		next, ok := val.(map[string]interface{})
+		next, ok := val.(map[string]any)
 		if !ok {
 			return nil, false, nil
 		}
@@ -181,7 +181,7 @@ func unstructuredNestedSlice(obj map[string]interface{}, fields ...string) ([]in
 	return nil, false, nil
 }
 
-func mapStr(m map[string]interface{}, key string) string {
+func mapStr(m map[string]any, key string) string {
 	v, ok := m[key]
 	if !ok {
 		return ""

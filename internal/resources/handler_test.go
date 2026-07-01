@@ -47,38 +47,38 @@ func testPool(dynClient *fakedynamic.FakeDynamicClient) *kube.ClientPool {
 }
 
 func testConfigMap(name, ns string) *unstructured.Unstructured {
-	return &unstructured.Unstructured{Object: map[string]interface{}{
+	return &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "v1",
 		"kind":       "ConfigMap",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":      name,
 			"namespace": ns,
 		},
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"key": "value",
 		},
 	}}
 }
 
 func testSecret(name, ns string) *unstructured.Unstructured {
-	return &unstructured.Unstructured{Object: map[string]interface{}{
+	return &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "v1",
 		"kind":       "Secret",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":      name,
 			"namespace": ns,
 		},
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"password": "c2VjcmV0",
 		},
 	}}
 }
 
 func testNode(name string) *unstructured.Unstructured {
-	return &unstructured.Unstructured{Object: map[string]interface{}{
+	return &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "v1",
 		"kind":       "Node",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name": name,
 		},
 	}}
@@ -212,11 +212,11 @@ func TestReadResource_NotFound(t *testing.T) {
 }
 
 func TestStripNoise(t *testing.T) {
-	obj := &unstructured.Unstructured{Object: map[string]interface{}{
-		"metadata": map[string]interface{}{
+	obj := &unstructured.Unstructured{Object: map[string]any{
+		"metadata": map[string]any{
 			"name":          "test",
-			"managedFields": []interface{}{"something"},
-			"annotations": map[string]interface{}{
+			"managedFields": []any{"something"},
+			"annotations": map[string]any{
 				"kubectl.kubernetes.io/last-applied-configuration": "{}",
 				"app.kubernetes.io/name":                           "test",
 			},
@@ -225,11 +225,11 @@ func TestStripNoise(t *testing.T) {
 
 	stripNoise(obj)
 
-	meta := obj.Object["metadata"].(map[string]interface{})
+	meta := obj.Object["metadata"].(map[string]any)
 	if _, ok := meta["managedFields"]; ok {
 		t.Error("managedFields should have been stripped")
 	}
-	annotations := meta["annotations"].(map[string]interface{})
+	annotations := meta["annotations"].(map[string]any)
 	if _, ok := annotations["kubectl.kubernetes.io/last-applied-configuration"]; ok {
 		t.Error("last-applied-configuration should have been stripped")
 	}
@@ -239,10 +239,10 @@ func TestStripNoise(t *testing.T) {
 }
 
 func TestStripNoise_EmptyAnnotations(t *testing.T) {
-	obj := &unstructured.Unstructured{Object: map[string]interface{}{
-		"metadata": map[string]interface{}{
+	obj := &unstructured.Unstructured{Object: map[string]any{
+		"metadata": map[string]any{
 			"name": "test",
-			"annotations": map[string]interface{}{
+			"annotations": map[string]any{
 				"kubectl.kubernetes.io/last-applied-configuration": "{}",
 			},
 		},
@@ -250,7 +250,7 @@ func TestStripNoise_EmptyAnnotations(t *testing.T) {
 
 	stripNoise(obj)
 
-	meta := obj.Object["metadata"].(map[string]interface{})
+	meta := obj.Object["metadata"].(map[string]any)
 	if _, ok := meta["annotations"]; ok {
 		t.Error("empty annotations map should have been removed")
 	}

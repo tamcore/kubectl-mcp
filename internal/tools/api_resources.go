@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -127,8 +128,8 @@ func collectAPIResources(
 // groupFromGV extracts the API group from a GroupVersion string.
 // For "v1" (core), returns "". For "apps/v1", returns "apps".
 func groupFromGV(gv string) string {
-	if idx := strings.Index(gv, "/"); idx >= 0 {
-		return gv[:idx]
+	if before, _, ok := strings.Cut(gv, "/"); ok {
+		return before
 	}
 	return ""
 }
@@ -161,12 +162,7 @@ func matchVerb(verbs []string, filter string) bool {
 	if filter == "" {
 		return true
 	}
-	for _, v := range verbs {
-		if v == filter {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(verbs, filter)
 }
 
 // formatAPIResourcesTable renders entries as a compact columnar table.
@@ -209,16 +205,16 @@ func formatAPIResourcesJSON(entries []apiResourceEntry) (*mcp.CallToolResult, er
 	}
 
 	// Build structuredContent as an object envelope.
-	items := make([]map[string]interface{}, 0, len(entries))
+	items := make([]map[string]any, 0, len(entries))
 	for _, e := range entries {
-		items = append(items, map[string]interface{}{
+		items = append(items, map[string]any{
 			"kind":       e.Kind,
 			"apiVersion": e.APIVersion,
 			"namespaced": e.Namespaced,
 			"verbs":      e.Verbs,
 		})
 	}
-	envelope := map[string]interface{}{
+	envelope := map[string]any{
 		"items": items,
 		"count": len(items),
 	}

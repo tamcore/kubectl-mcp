@@ -211,7 +211,7 @@ func parseFilters(raw string) ([]filterExpr, error) {
 	}
 
 	var filters []filterExpr
-	for _, part := range strings.Split(raw, ",") {
+	for part := range strings.SplitSeq(raw, ",") {
 		part = strings.TrimSpace(part)
 		if part == "" {
 			continue
@@ -255,7 +255,7 @@ func applyFilters(items []unstructured.Unstructured, filters []filterExpr) []uns
 	return result
 }
 
-func matchesAllFilters(obj map[string]interface{}, filters []filterExpr) bool {
+func matchesAllFilters(obj map[string]any, filters []filterExpr) bool {
 	for _, f := range filters {
 		actual, found := nestedFieldValue(obj, f.path)
 		if !found {
@@ -276,17 +276,17 @@ func matchesAllFilters(obj map[string]interface{}, filters []filterExpr) bool {
 
 // nestedFieldValue traverses the object using the dot-path and returns
 // the value as a string plus whether the field was found.
-func nestedFieldValue(obj interface{}, path []string) (string, bool) {
+func nestedFieldValue(obj any, path []string) (string, bool) {
 	current := obj
 	for _, key := range path {
 		switch v := current.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			val, ok := v[key]
 			if !ok {
 				return "", false
 			}
 			current = val
-		case []interface{}:
+		case []any:
 			idx := 0
 			for _, c := range key {
 				if c < '0' || c > '9' {

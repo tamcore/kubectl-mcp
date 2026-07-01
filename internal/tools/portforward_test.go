@@ -65,7 +65,7 @@ func TestPortForward_HappyPath(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal([]byte(text), &result); err != nil {
 		t.Fatalf("expected JSON output, got: %s", text)
 	}
@@ -111,7 +111,7 @@ func TestPortForward_WithLocalPort(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal([]byte(text), &result); err != nil {
 		t.Fatalf("expected JSON output, got: %s", text)
 	}
@@ -151,7 +151,7 @@ func TestPortForward_TimeoutClamped(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal([]byte(text), &result); err != nil {
 		t.Fatalf("expected JSON output, got: %s", text)
 	}
@@ -371,7 +371,7 @@ func TestPortForward_ResourceBareName(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal([]byte(text), &result); err != nil {
 		t.Fatalf("expected JSON output, got: %s", text)
 	}
@@ -408,7 +408,7 @@ func TestPortForward_ResourceExplicitPod(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal([]byte(text), &result); err != nil {
 		t.Fatalf("expected JSON output, got: %s", text)
 	}
@@ -477,7 +477,7 @@ func TestPortForward_ResourceService(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal([]byte(text), &result); err != nil {
 		t.Fatalf("expected JSON output, got: %s", text)
 	}
@@ -606,7 +606,7 @@ func TestPortForward_ResourceDeployment(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal([]byte(text), &result); err != nil {
 		t.Fatalf("expected JSON output, got: %s", text)
 	}
@@ -683,7 +683,7 @@ func TestPortForward_ResourceStatefulSet(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal([]byte(text), &result); err != nil {
 		t.Fatalf("expected JSON output, got: %s", text)
 	}

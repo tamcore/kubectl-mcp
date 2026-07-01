@@ -37,13 +37,13 @@ func TestGetResource_HasStructuredContent(t *testing.T) {
 	}
 
 	// Verify it's the right type (map).
-	obj, ok := res.StructuredContent.(map[string]interface{})
+	obj, ok := res.StructuredContent.(map[string]any)
 	if !ok {
 		t.Fatalf("expected StructuredContent to be map[string]interface{}, got %T", res.StructuredContent)
 	}
 
 	// Verify it contains the pod name.
-	meta, ok := obj["metadata"].(map[string]interface{})
+	meta, ok := obj["metadata"].(map[string]any)
 	if !ok {
 		t.Fatal("expected metadata in structured content")
 	}
@@ -85,7 +85,7 @@ func TestListResources_HasStructuredContent(t *testing.T) {
 	}
 
 	// Verify it's an object envelope (not a raw array).
-	envelope, ok := res.StructuredContent.(map[string]interface{})
+	envelope, ok := res.StructuredContent.(map[string]any)
 	if !ok {
 		t.Fatalf("expected StructuredContent to be map[string]interface{}, got %T", res.StructuredContent)
 	}
@@ -95,7 +95,7 @@ func TestListResources_HasStructuredContent(t *testing.T) {
 	if !ok {
 		t.Fatal("expected 'items' key in structured content envelope")
 	}
-	items, ok := rawItems.([]map[string]interface{})
+	items, ok := rawItems.([]map[string]any)
 	if !ok {
 		t.Fatalf("expected items to be []map[string]interface{}, got %T", rawItems)
 	}
@@ -136,11 +136,11 @@ func TestListResources_SummaryStructuredContentIsCompact(t *testing.T) {
 		t.Fatalf("unexpected error: %s", resultText(t, res))
 	}
 
-	envelope, ok := res.StructuredContent.(map[string]interface{})
+	envelope, ok := res.StructuredContent.(map[string]any)
 	if !ok {
 		t.Fatalf("expected map envelope, got %T", res.StructuredContent)
 	}
-	items, ok := envelope["items"].([]map[string]interface{})
+	items, ok := envelope["items"].([]map[string]any)
 	if !ok {
 		t.Fatalf("expected items to be []map[string]interface{}, got %T", envelope["items"])
 	}
@@ -155,7 +155,7 @@ func TestListResources_SummaryStructuredContentIsCompact(t *testing.T) {
 	}
 	if statusVal, hasStatus := item["status"]; hasStatus {
 		// "status" as a string (e.g. "Running") is fine; as a map is not.
-		if _, isMap := statusVal.(map[string]interface{}); isMap {
+		if _, isMap := statusVal.(map[string]any); isMap {
 			t.Error("summary structuredContent should NOT contain 'status' as a nested object (full object leaked)")
 		}
 	}

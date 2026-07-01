@@ -83,8 +83,8 @@ func registerRolloutUndo(s *server.MCPServer, pool *kube.ClientPool, cfg *config
 		}
 
 		// Patch the Deployment's spec.template with the target template.
-		patch := map[string]interface{}{
-			"spec": map[string]interface{}{
+		patch := map[string]any{
+			"spec": map[string]any{
 				"template": template,
 			},
 		}
@@ -158,12 +158,12 @@ func findTargetRS(rsList []unstructured.Unstructured, toRevision int64) (unstruc
 }
 
 // extractPodTemplate pulls spec.template from a ReplicaSet.
-func extractPodTemplate(rs unstructured.Unstructured) (map[string]interface{}, error) {
-	spec, ok := rs.Object["spec"].(map[string]interface{})
+func extractPodTemplate(rs unstructured.Unstructured) (map[string]any, error) {
+	spec, ok := rs.Object["spec"].(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("missing spec")
 	}
-	template, ok := spec["template"].(map[string]interface{})
+	template, ok := spec["template"].(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("missing spec.template")
 	}

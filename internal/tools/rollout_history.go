@@ -32,9 +32,9 @@ type revisionSummary struct {
 
 // revisionDetail holds full detail for a single revision lookup.
 type revisionDetail struct {
-	Revision   int64                  `json:"revision"`
-	ReplicaSet string                 `json:"replicaSet"`
-	Template   map[string]interface{} `json:"template,omitempty"`
+	Revision   int64          `json:"revision"`
+	ReplicaSet string         `json:"replicaSet"`
+	Template   map[string]any `json:"template,omitempty"`
 }
 
 func registerRolloutHistory(s *server.MCPServer, pool *kube.ClientPool) {
@@ -120,12 +120,12 @@ func listOwnedReplicaSets(ctx context.Context, cc *kube.ContextClient, namespace
 // isOwnedBy checks whether the ReplicaSet has an ownerReference matching the
 // given Deployment name.
 func isOwnedBy(rs unstructured.Unstructured, ownerName string) bool {
-	refs, ok := rs.Object["metadata"].(map[string]interface{})["ownerReferences"].([]interface{})
+	refs, ok := rs.Object["metadata"].(map[string]any)["ownerReferences"].([]any)
 	if !ok {
 		return false
 	}
 	for _, ref := range refs {
-		m, ok := ref.(map[string]interface{})
+		m, ok := ref.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -157,7 +157,7 @@ func listRevisions(deployName string, rsList []unstructured.Unstructured) (*mcp.
 		return summaries[i].Revision < summaries[j].Revision
 	})
 
-	result := map[string]interface{}{
+	result := map[string]any{
 		"deployment": deployName,
 		"revisions":  summaries,
 	}
@@ -174,8 +174,8 @@ func lookupRevision(rsList []unstructured.Unstructured, targetRevision int64) (*
 	for _, rs := range rsList {
 		rev := extractRevision(rs)
 		if rev == targetRevision {
-			spec, _ := rs.Object["spec"].(map[string]interface{})
-			template, _ := spec["template"].(map[string]interface{})
+			spec, _ := rs.Object["spec"].(map[string]any)
+			template, _ := spec["template"].(map[string]any)
 
 			detail := revisionDetail{
 				Revision:   rev,
@@ -212,20 +212,20 @@ func extractRevision(rs unstructured.Unstructured) int64 {
 }
 
 // statusMap returns the status sub-object of an unstructured resource.
-func statusMap(obj unstructured.Unstructured) map[string]interface{} {
-	m, _ := obj.Object["status"].(map[string]interface{})
+func statusMap(obj unstructured.Unstructured) map[string]any {
+	m, _ := obj.Object["status"].(map[string]any)
 	return m
 }
 
 // firstContainerImage extracts the image from the first container in the pod template.
 func firstContainerImage(rs unstructured.Unstructured) string {
-	spec, _ := rs.Object["spec"].(map[string]interface{})
-	tmpl, _ := spec["template"].(map[string]interface{})
-	podSpec, _ := tmpl["spec"].(map[string]interface{})
-	containers, _ := podSpec["containers"].([]interface{})
+	spec, _ := rs.Object["spec"].(map[string]any)
+	tmpl, _ := spec["template"].(map[string]any)
+	podSpec, _ := tmpl["spec"].(map[string]any)
+	containers, _ := podSpec["containers"].([]any)
 	if len(containers) == 0 {
 		return ""
 	}
-	container, _ := containers[0].(map[string]interface{})
+	container, _ := containers[0].(map[string]any)
 	return toString(container, "image")
 }

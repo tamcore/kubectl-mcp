@@ -201,9 +201,9 @@ func TestServerInstructions_InInitializeResponse(t *testing.T) {
 	// The streamable-HTTP response is SSE-formatted. Extract the JSON-RPC
 	// result by scanning for the data line.
 	var resultJSON []byte
-	for _, line := range strings.Split(string(body), "\n") {
-		if strings.HasPrefix(line, "data: ") {
-			resultJSON = []byte(strings.TrimPrefix(line, "data: "))
+	for line := range strings.SplitSeq(string(body), "\n") {
+		if after, ok := strings.CutPrefix(line, "data: "); ok {
+			resultJSON = []byte(after)
 			break
 		}
 	}

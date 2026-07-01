@@ -25,17 +25,17 @@ import (
 // ---------------------------------------------------------------------------
 
 func testPodMetrics(name, ns, cpu, memory string) *unstructured.Unstructured {
-	return &unstructured.Unstructured{Object: map[string]interface{}{
+	return &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "metrics.k8s.io/v1beta1",
 		"kind":       "PodMetrics",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":      name,
 			"namespace": ns,
 		},
-		"containers": []interface{}{
-			map[string]interface{}{
+		"containers": []any{
+			map[string]any{
 				"name": "main",
-				"usage": map[string]interface{}{
+				"usage": map[string]any{
 					"cpu":    cpu,
 					"memory": memory,
 				},
@@ -44,16 +44,16 @@ func testPodMetrics(name, ns, cpu, memory string) *unstructured.Unstructured {
 	}}
 }
 
-func testPodMetricsMultiContainer(name, ns string, containers []map[string]interface{}) *unstructured.Unstructured {
-	return &unstructured.Unstructured{Object: map[string]interface{}{
+func testPodMetricsMultiContainer(name, ns string, containers []map[string]any) *unstructured.Unstructured {
+	return &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "metrics.k8s.io/v1beta1",
 		"kind":       "PodMetrics",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":      name,
 			"namespace": ns,
 		},
-		"containers": func() []interface{} {
-			out := make([]interface{}, len(containers))
+		"containers": func() []any {
+			out := make([]any, len(containers))
 			for i, c := range containers {
 				out[i] = c
 			}
@@ -63,13 +63,13 @@ func testPodMetricsMultiContainer(name, ns string, containers []map[string]inter
 }
 
 func testNodeMetrics(name, cpu, memory string) *unstructured.Unstructured {
-	return &unstructured.Unstructured{Object: map[string]interface{}{
+	return &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "metrics.k8s.io/v1beta1",
 		"kind":       "NodeMetrics",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name": name,
 		},
-		"usage": map[string]interface{}{
+		"usage": map[string]any{
 			"cpu":    cpu,
 			"memory": memory,
 		},
@@ -77,15 +77,15 @@ func testNodeMetrics(name, cpu, memory string) *unstructured.Unstructured {
 }
 
 func testNodeWithAllocatable(name, cpu, memory string) *unstructured.Unstructured {
-	return &unstructured.Unstructured{Object: map[string]interface{}{
+	return &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "v1",
 		"kind":       "Node",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              name,
 			"creationTimestamp": "2024-01-01T00:00:00Z",
 		},
-		"status": map[string]interface{}{
-			"allocatable": map[string]interface{}{
+		"status": map[string]any{
+			"allocatable": map[string]any{
 				"cpu":    cpu,
 				"memory": memory,
 			},
@@ -216,15 +216,15 @@ func TestFormatPercent(t *testing.T) {
 }
 
 func TestSumContainerUsage_MalformedQuantitySkipped(t *testing.T) {
-	obj := map[string]interface{}{
-		"containers": []interface{}{
-			map[string]interface{}{
+	obj := map[string]any{
+		"containers": []any{
+			map[string]any{
 				"name":  "good",
-				"usage": map[string]interface{}{"cpu": "100m", "memory": "64Mi"},
+				"usage": map[string]any{"cpu": "100m", "memory": "64Mi"},
 			},
-			map[string]interface{}{
+			map[string]any{
 				"name":  "bad",
-				"usage": map[string]interface{}{"cpu": "garbage", "memory": "also-bad"},
+				"usage": map[string]any{"cpu": "garbage", "memory": "also-bad"},
 			},
 		},
 	}
@@ -239,11 +239,11 @@ func TestSumContainerUsage_MalformedQuantitySkipped(t *testing.T) {
 }
 
 func TestEachContainerUsage_MalformedQuantitySkipped(t *testing.T) {
-	obj := map[string]interface{}{
-		"containers": []interface{}{
-			map[string]interface{}{
+	obj := map[string]any{
+		"containers": []any{
+			map[string]any{
 				"name":  "bad",
-				"usage": map[string]interface{}{"cpu": "nope", "memory": "nope"},
+				"usage": map[string]any{"cpu": "nope", "memory": "nope"},
 			},
 		},
 	}
@@ -259,9 +259,9 @@ func TestEachContainerUsage_MalformedQuantitySkipped(t *testing.T) {
 }
 
 func TestExtractAllocatable_MalformedQuantitySkipped(t *testing.T) {
-	obj := map[string]interface{}{
-		"status": map[string]interface{}{
-			"allocatable": map[string]interface{}{"cpu": "bogus", "memory": "bogus"},
+	obj := map[string]any{
+		"status": map[string]any{
+			"allocatable": map[string]any{"cpu": "bogus", "memory": "bogus"},
 		},
 	}
 
@@ -296,7 +296,7 @@ func TestTopPods_HappyPath(t *testing.T) {
 
 	text := resultText(t, res)
 	// Should be valid JSON array.
-	var items []map[string]interface{}
+	var items []map[string]any
 	if err := json.Unmarshal([]byte(text), &items); err != nil {
 		t.Fatalf("expected JSON array, got: %s", text)
 	}
@@ -334,7 +334,7 @@ func TestTopPods_NamespaceFilter(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var items []map[string]interface{}
+	var items []map[string]any
 	if err := json.Unmarshal([]byte(text), &items); err != nil {
 		t.Fatalf("expected JSON, got: %s", text)
 	}
@@ -368,7 +368,7 @@ func TestTopPods_NameFilter(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var items []map[string]interface{}
+	var items []map[string]any
 	if err := json.Unmarshal([]byte(text), &items); err != nil {
 		t.Fatalf("expected JSON, got: %s", text)
 	}
@@ -383,9 +383,9 @@ func TestTopPods_NameFilter(t *testing.T) {
 func TestTopPods_ContainersBreakdown(t *testing.T) {
 	cfg := defaultCfg()
 	dynClient := newMetricsFakeDynClient(
-		testPodMetricsMultiContainer("pod-1", "default", []map[string]interface{}{
-			{"name": "app", "usage": map[string]interface{}{"cpu": "200m", "memory": "64Mi"}},
-			{"name": "sidecar", "usage": map[string]interface{}{"cpu": "50m", "memory": "32Mi"}},
+		testPodMetricsMultiContainer("pod-1", "default", []map[string]any{
+			{"name": "app", "usage": map[string]any{"cpu": "200m", "memory": "64Mi"}},
+			{"name": "sidecar", "usage": map[string]any{"cpu": "50m", "memory": "32Mi"}},
 		}),
 	)
 	fakeCS := fake.NewClientset()
@@ -404,7 +404,7 @@ func TestTopPods_ContainersBreakdown(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var items []map[string]interface{}
+	var items []map[string]any
 	if err := json.Unmarshal([]byte(text), &items); err != nil {
 		t.Fatalf("expected JSON array, got: %s", text)
 	}
@@ -439,9 +439,9 @@ func TestTopPods_ContainersBreakdown(t *testing.T) {
 func TestTopPods_ContainersFalseAggregates(t *testing.T) {
 	cfg := defaultCfg()
 	dynClient := newMetricsFakeDynClient(
-		testPodMetricsMultiContainer("pod-1", "default", []map[string]interface{}{
-			{"name": "app", "usage": map[string]interface{}{"cpu": "200m", "memory": "64Mi"}},
-			{"name": "sidecar", "usage": map[string]interface{}{"cpu": "50m", "memory": "32Mi"}},
+		testPodMetricsMultiContainer("pod-1", "default", []map[string]any{
+			{"name": "app", "usage": map[string]any{"cpu": "200m", "memory": "64Mi"}},
+			{"name": "sidecar", "usage": map[string]any{"cpu": "50m", "memory": "32Mi"}},
 		}),
 	)
 	fakeCS := fake.NewClientset()
@@ -460,7 +460,7 @@ func TestTopPods_ContainersFalseAggregates(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var items []map[string]interface{}
+	var items []map[string]any
 	if err := json.Unmarshal([]byte(text), &items); err != nil {
 		t.Fatalf("expected JSON, got: %s", text)
 	}
@@ -480,9 +480,9 @@ func TestTopPods_ContainersFalseAggregates(t *testing.T) {
 func TestTopPods_MultiContainer(t *testing.T) {
 	cfg := defaultCfg()
 	dynClient := newMetricsFakeDynClient(
-		testPodMetricsMultiContainer("pod-1", "default", []map[string]interface{}{
-			{"name": "app", "usage": map[string]interface{}{"cpu": "200m", "memory": "64Mi"}},
-			{"name": "sidecar", "usage": map[string]interface{}{"cpu": "50m", "memory": "32Mi"}},
+		testPodMetricsMultiContainer("pod-1", "default", []map[string]any{
+			{"name": "app", "usage": map[string]any{"cpu": "200m", "memory": "64Mi"}},
+			{"name": "sidecar", "usage": map[string]any{"cpu": "50m", "memory": "32Mi"}},
 		}),
 	)
 	fakeCS := fake.NewClientset()
@@ -500,7 +500,7 @@ func TestTopPods_MultiContainer(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var items []map[string]interface{}
+	var items []map[string]any
 	if err := json.Unmarshal([]byte(text), &items); err != nil {
 		t.Fatalf("expected JSON, got: %s", text)
 	}
@@ -609,7 +609,7 @@ func TestTopNodes_HappyPath(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var items []map[string]interface{}
+	var items []map[string]any
 	if err := json.Unmarshal([]byte(text), &items); err != nil {
 		t.Fatalf("expected JSON array, got: %s", text)
 	}
@@ -650,7 +650,7 @@ func TestTopNodes_NameFilter(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var items []map[string]interface{}
+	var items []map[string]any
 	if err := json.Unmarshal([]byte(text), &items); err != nil {
 		t.Fatalf("expected JSON, got: %s", text)
 	}
@@ -681,7 +681,7 @@ func TestTopNodes_MissingAllocatable(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var items []map[string]interface{}
+	var items []map[string]any
 	if err := json.Unmarshal([]byte(text), &items); err != nil {
 		t.Fatalf("expected JSON, got: %s", text)
 	}
@@ -747,20 +747,20 @@ func TestTopNodes_MetricsServerNotAvailable(t *testing.T) {
 // testNodeWithLabels creates a Node unstructured object with the given labels
 // and allocatable resources, for use in label selector tests.
 func testNodeWithLabels(name, cpu, memory string, lbls map[string]string) *unstructured.Unstructured {
-	labelsMap := make(map[string]interface{}, len(lbls))
+	labelsMap := make(map[string]any, len(lbls))
 	for k, v := range lbls {
 		labelsMap[k] = v
 	}
-	return &unstructured.Unstructured{Object: map[string]interface{}{
+	return &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "v1",
 		"kind":       "Node",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              name,
 			"creationTimestamp": "2024-01-01T00:00:00Z",
 			"labels":            labelsMap,
 		},
-		"status": map[string]interface{}{
-			"allocatable": map[string]interface{}{
+		"status": map[string]any{
+			"allocatable": map[string]any{
 				"cpu":    cpu,
 				"memory": memory,
 			},
@@ -826,7 +826,7 @@ func TestTopNodes_LabelSelector(t *testing.T) {
 		t.Fatalf("expected success, got error: %s", text)
 	}
 
-	var items []map[string]interface{}
+	var items []map[string]any
 	if err := json.Unmarshal([]byte(text), &items); err != nil {
 		t.Fatalf("expected JSON array, got: %s", text)
 	}

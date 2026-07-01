@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/server"
@@ -139,10 +140,8 @@ func applyRequireContext(s *server.MCPServer) {
 }
 
 func appendUnique(ss []string, val string) []string {
-	for _, s := range ss {
-		if s == val {
-			return ss
-		}
+	if slices.Contains(ss, val) {
+		return ss
 	}
 	return append(ss, val)
 }

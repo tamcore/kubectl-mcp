@@ -105,17 +105,17 @@ func resolveCronJobToLabelSelector(ctx context.Context, cc *kube.ContextClient, 
 // extractMatchLabels extracts spec.selector.matchLabels from an unstructured
 // resource and returns them as a comma-separated label selector string.
 func extractMatchLabels(kind, name string, obj *unstructured.Unstructured) (string, error) {
-	spec, ok := obj.Object["spec"].(map[string]interface{})
+	spec, ok := obj.Object["spec"].(map[string]any)
 	if !ok {
 		return "", fmt.Errorf("%s/%s has no spec", kind, name)
 	}
 
-	selector, ok := spec["selector"].(map[string]interface{})
+	selector, ok := spec["selector"].(map[string]any)
 	if !ok {
 		return "", fmt.Errorf("%s/%s has no spec.selector", kind, name)
 	}
 
-	matchLabels, ok := selector["matchLabels"].(map[string]interface{})
+	matchLabels, ok := selector["matchLabels"].(map[string]any)
 	if !ok || len(matchLabels) == 0 {
 		return "", fmt.Errorf("%s/%s has no spec.selector.matchLabels", kind, name)
 	}

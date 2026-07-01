@@ -67,7 +67,7 @@ func formatGetSummary(obj *unstructured.Unstructured) (*mcp.CallToolResult, erro
 }
 
 // enrichGeneric adds basic fields for unknown resource kinds.
-func enrichGeneric(s map[string]interface{}, obj *unstructured.Unstructured) {
+func enrichGeneric(s map[string]any, obj *unstructured.Unstructured) {
 	s["kind"] = obj.GetKind()
 	s["apiVersion"] = obj.GetAPIVersion()
 	if labels := obj.GetLabels(); len(labels) > 0 {

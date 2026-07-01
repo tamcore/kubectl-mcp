@@ -52,13 +52,13 @@ func TestParseFilters(t *testing.T) {
 
 func TestApplyFilters(t *testing.T) {
 	items := []unstructured.Unstructured{
-		{Object: map[string]interface{}{
-			"metadata": map[string]interface{}{"name": "pod1"},
-			"status":   map[string]interface{}{"phase": "Running"},
+		{Object: map[string]any{
+			"metadata": map[string]any{"name": "pod1"},
+			"status":   map[string]any{"phase": "Running"},
 		}},
-		{Object: map[string]interface{}{
-			"metadata": map[string]interface{}{"name": "pod2"},
-			"status":   map[string]interface{}{"phase": "Pending"},
+		{Object: map[string]any{
+			"metadata": map[string]any{"name": "pod2"},
+			"status":   map[string]any{"phase": "Pending"},
 		}},
 	}
 
@@ -75,7 +75,7 @@ func TestApplyFilters(t *testing.T) {
 		if len(got) != 1 {
 			t.Fatalf("expected 1 item, got %d", len(got))
 		}
-		if got[0].Object["metadata"].(map[string]interface{})["name"] != "pod1" {
+		if got[0].Object["metadata"].(map[string]any)["name"] != "pod1" {
 			t.Error("expected pod1 to match")
 		}
 	})
@@ -90,9 +90,9 @@ func TestApplyFilters(t *testing.T) {
 }
 
 func TestMatchesAllFilters(t *testing.T) {
-	obj := map[string]interface{}{
-		"status": map[string]interface{}{"phase": "Running"},
-		"spec":   map[string]interface{}{"nodeName": "node-1"},
+	obj := map[string]any{
+		"status": map[string]any{"phase": "Running"},
+		"spec":   map[string]any{"nodeName": "node-1"},
 	}
 
 	tests := []struct {
@@ -162,12 +162,12 @@ func TestMatchesAllFilters(t *testing.T) {
 }
 
 func TestNestedFieldValue(t *testing.T) {
-	obj := map[string]interface{}{
-		"status": map[string]interface{}{
+	obj := map[string]any{
+		"status": map[string]any{
 			"phase": "Running",
-			"containerStatuses": []interface{}{
-				map[string]interface{}{"ready": true},
-				map[string]interface{}{"ready": false},
+			"containerStatuses": []any{
+				map[string]any{"ready": true},
+				map[string]any{"ready": false},
 			},
 		},
 		"notAMap": "string",

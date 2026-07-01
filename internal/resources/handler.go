@@ -85,14 +85,14 @@ func fetchResource(
 // stripNoise removes managedFields and last-applied-configuration annotation
 // to reduce payload size.
 func stripNoise(obj *unstructured.Unstructured) {
-	meta, ok := obj.Object["metadata"].(map[string]interface{})
+	meta, ok := obj.Object["metadata"].(map[string]any)
 	if !ok {
 		return
 	}
 
 	delete(meta, "managedFields")
 
-	annotations, ok := meta["annotations"].(map[string]interface{})
+	annotations, ok := meta["annotations"].(map[string]any)
 	if ok {
 		delete(annotations, "kubectl.kubernetes.io/last-applied-configuration")
 		if len(annotations) == 0 {

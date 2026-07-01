@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
@@ -136,21 +137,21 @@ func newFakeDynClient(objs ...runtime.Object) *fakedynamic.FakeDynamicClient {
 
 // testPod returns an unstructured Pod object.
 func testPod(name, ns string) *unstructured.Unstructured {
-	return &unstructured.Unstructured{Object: map[string]interface{}{
+	return &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "v1",
 		"kind":       "Pod",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              name,
 			"namespace":         ns,
 			"creationTimestamp": "2024-01-01T00:00:00Z",
 		},
-		"spec": map[string]interface{}{
+		"spec": map[string]any{
 			"nodeName": "node-1",
 		},
-		"status": map[string]interface{}{
+		"status": map[string]any{
 			"phase": "Running",
-			"conditions": []interface{}{
-				map[string]interface{}{
+			"conditions": []any{
+				map[string]any{
 					"type":    "Ready",
 					"status":  "True",
 					"reason":  "PodReady",
@@ -163,15 +164,15 @@ func testPod(name, ns string) *unstructured.Unstructured {
 
 // testSecret returns an unstructured Secret object.
 func testSecret(name, ns string) *unstructured.Unstructured {
-	return &unstructured.Unstructured{Object: map[string]interface{}{
+	return &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "v1",
 		"kind":       "Secret",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              name,
 			"namespace":         ns,
 			"creationTimestamp": "2024-01-01T00:00:00Z",
 		},
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"password": "c2VjcmV0",
 		},
 	}}
@@ -179,10 +180,10 @@ func testSecret(name, ns string) *unstructured.Unstructured {
 
 // testNode returns an unstructured Node object (cluster-scoped).
 func testNode(name string) *unstructured.Unstructured {
-	return &unstructured.Unstructured{Object: map[string]interface{}{
+	return &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "v1",
 		"kind":       "Node",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              name,
 			"creationTimestamp": "2024-01-01T00:00:00Z",
 		},
@@ -191,18 +192,18 @@ func testNode(name string) *unstructured.Unstructured {
 
 // testDeployment returns an unstructured Deployment object.
 func testDeployment(name, ns string) *unstructured.Unstructured {
-	return &unstructured.Unstructured{Object: map[string]interface{}{
+	return &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "apps/v1",
 		"kind":       "Deployment",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              name,
 			"namespace":         ns,
 			"creationTimestamp": "2024-01-01T00:00:00Z",
 		},
-		"spec": map[string]interface{}{
+		"spec": map[string]any{
 			"replicas": int64(3),
 		},
-		"status": map[string]interface{}{
+		"status": map[string]any{
 			"readyReplicas":     int64(3),
 			"updatedReplicas":   int64(3),
 			"availableReplicas": int64(3),
@@ -560,7 +561,7 @@ func TestListAPIResourcesHandler(t *testing.T) {
 		if res.StructuredContent == nil {
 			t.Fatal("expected StructuredContent to be populated for JSON format")
 		}
-		envelope, ok := res.StructuredContent.(map[string]interface{})
+		envelope, ok := res.StructuredContent.(map[string]any)
 		if !ok {
 			t.Fatalf("expected map[string]interface{}, got %T", res.StructuredContent)
 		}
@@ -675,13 +676,7 @@ func TestListAPIResourcesHandler(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, e := range entries {
-			hasVerb := false
-			for _, v := range e.Verbs {
-				if v == "list" {
-					hasVerb = true
-					break
-				}
-			}
+			hasVerb := slices.Contains(e.Verbs, "list")
 			if !hasVerb {
 				t.Errorf("expected %s to have 'list' verb", e.Kind)
 			}
@@ -873,16 +868,16 @@ func TestListResourcesHandler(t *testing.T) {
 	pod1 := testPod("pod-a", "default")
 	pod2 := testPod("pod-b", "default")
 	// Pod with Pending status.
-	pod3 := &unstructured.Unstructured{Object: map[string]interface{}{
+	pod3 := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "v1",
 		"kind":       "Pod",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              "pod-c",
 			"namespace":         "other",
 			"creationTimestamp": "2024-01-01T00:00:00Z",
-			"labels":            map[string]interface{}{"app": "web"},
+			"labels":            map[string]any{"app": "web"},
 		},
-		"status": map[string]interface{}{"phase": "Pending"},
+		"status": map[string]any{"phase": "Pending"},
 	}}
 
 	cfg := defaultCfg()
@@ -1137,18 +1132,18 @@ func TestListResourcesFormatParameter(t *testing.T) {
 	})
 
 	t.Run("format=json returns full objects with metadata stripped", func(t *testing.T) {
-		podWithMeta := &unstructured.Unstructured{Object: map[string]interface{}{
+		podWithMeta := &unstructured.Unstructured{Object: map[string]any{
 			"apiVersion": "v1",
 			"kind":       "Pod",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name":              "json-pod",
 				"namespace":         "default",
 				"creationTimestamp": "2024-01-01T00:00:00Z",
 				"uid":               "uid-123",
 				"resourceVersion":   "99",
-				"managedFields":     []interface{}{map[string]interface{}{"manager": "x"}},
+				"managedFields":     []any{map[string]any{"manager": "x"}},
 			},
-			"spec": map[string]interface{}{"nodeName": "node-1"},
+			"spec": map[string]any{"nodeName": "node-1"},
 		}}
 		dynClient2 := newFakeDynClient(podWithMeta)
 		pool2 := buildPool(cfg, defaultRawConfig(), dynClient2, fake.NewClientset())
@@ -1281,15 +1276,15 @@ func TestDescribeResourceHandler(t *testing.T) {
 	})
 
 	t.Run("describe with labels and annotations", func(t *testing.T) {
-		labeled := &unstructured.Unstructured{Object: map[string]interface{}{
+		labeled := &unstructured.Unstructured{Object: map[string]any{
 			"apiVersion": "v1",
 			"kind":       "Pod",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name":              "labeled-pod",
 				"namespace":         "default",
 				"creationTimestamp": "2024-01-01T00:00:00Z",
-				"labels":            map[string]interface{}{"app": "web"},
-				"annotations":       map[string]interface{}{"note": "test"},
+				"labels":            map[string]any{"app": "web"},
+				"annotations":       map[string]any{"note": "test"},
 			},
 		}}
 		dynClient3 := newFakeDynClient(labeled)
@@ -1339,21 +1334,21 @@ func TestDescribeResourceHandler(t *testing.T) {
 	})
 
 	t.Run("managedFields stripped from describe output", func(t *testing.T) {
-		podWithMF := &unstructured.Unstructured{Object: map[string]interface{}{
+		podWithMF := &unstructured.Unstructured{Object: map[string]any{
 			"apiVersion": "v1",
 			"kind":       "Pod",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name":              "mf-pod",
 				"namespace":         "default",
 				"creationTimestamp": "2024-01-01T00:00:00Z",
-				"managedFields": []interface{}{
-					map[string]interface{}{
+				"managedFields": []any{
+					map[string]any{
 						"manager":   "kubectl",
 						"operation": "Apply",
 					},
 				},
 			},
-			"spec": map[string]interface{}{"nodeName": "node-1"},
+			"spec": map[string]any{"nodeName": "node-1"},
 		}}
 		dynMF := newFakeDynClient(podWithMF)
 		poolMF := buildPool(cfg, defaultRawConfig(), dynMF, fake.NewClientset())

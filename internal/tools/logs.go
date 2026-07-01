@@ -198,7 +198,7 @@ func registerGetLogs(s *server.MCPServer, pool *kube.ClientPool) {
 			}
 			text := extractText(podRes)
 			// Prefix each line with pod name.
-			for _, line := range strings.Split(text, "\n") {
+			for line := range strings.SplitSeq(text, "\n") {
 				if line == "" {
 					continue
 				}

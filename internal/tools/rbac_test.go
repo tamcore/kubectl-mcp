@@ -51,7 +51,7 @@ func TestListRBACBindings_ClusterRoleBindings(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var items []map[string]interface{}
+	var items []map[string]any
 	if err := json.Unmarshal([]byte(text), &items); err != nil {
 		t.Fatalf("expected JSON array, got: %s", text)
 	}
@@ -95,7 +95,7 @@ func TestListRBACBindings_RoleBindings(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := resultText(t, res)
-	var items []map[string]interface{}
+	var items []map[string]any
 	if err := json.Unmarshal([]byte(text), &items); err != nil {
 		t.Fatalf("expected JSON array, got: %s", text)
 	}
@@ -136,7 +136,7 @@ func TestListRBACBindings_SubjectFilter(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := resultText(t, res)
-	var items []map[string]interface{}
+	var items []map[string]any
 	if err := json.Unmarshal([]byte(text), &items); err != nil {
 		t.Fatalf("expected JSON, got: %s", text)
 	}
@@ -174,7 +174,7 @@ func TestListRBACBindings_SubjectKindFilter(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := resultText(t, res)
-	var items []map[string]interface{}
+	var items []map[string]any
 	if err := json.Unmarshal([]byte(text), &items); err != nil {
 		t.Fatalf("expected JSON, got: %s", text)
 	}
@@ -251,7 +251,7 @@ func TestListRBACRoles_ClusterRoles(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := resultText(t, res)
-	var items []map[string]interface{}
+	var items []map[string]any
 	if err := json.Unmarshal([]byte(text), &items); err != nil {
 		t.Fatalf("expected JSON array, got: %s", text)
 	}
@@ -288,7 +288,7 @@ func TestListRBACRoles_Roles(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := resultText(t, res)
-	var items []map[string]interface{}
+	var items []map[string]any
 	if err := json.Unmarshal([]byte(text), &items); err != nil {
 		t.Fatalf("expected JSON, got: %s", text)
 	}
@@ -326,14 +326,14 @@ func TestListRBACRoles_NamedClusterRole(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := resultText(t, res)
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal([]byte(text), &result); err != nil {
 		t.Fatalf("expected JSON object, got: %s", text)
 	}
 	if result["name"] != "custom-role" {
 		t.Errorf("expected name=custom-role, got %v", result["name"])
 	}
-	rules, ok := result["rules"].([]interface{})
+	rules, ok := result["rules"].([]any)
 	if !ok || len(rules) == 0 {
 		t.Errorf("expected rules in detailed output, got: %v", result["rules"])
 	}
@@ -362,7 +362,7 @@ func TestListRBACRoles_NamedRole(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := resultText(t, res)
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal([]byte(text), &result); err != nil {
 		t.Fatalf("expected JSON object, got: %s", text)
 	}
@@ -440,7 +440,7 @@ func TestListServiceAccounts_List(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := resultText(t, res)
-	var items []map[string]interface{}
+	var items []map[string]any
 	if err := json.Unmarshal([]byte(text), &items); err != nil {
 		t.Fatalf("expected JSON array, got: %s", text)
 	}
@@ -469,7 +469,7 @@ func TestListServiceAccounts_AllNamespaces(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := resultText(t, res)
-	var items []map[string]interface{}
+	var items []map[string]any
 	if err := json.Unmarshal([]byte(text), &items); err != nil {
 		t.Fatalf("expected JSON array, got: %s", text)
 	}
@@ -504,7 +504,7 @@ func TestListServiceAccounts_Named(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := resultText(t, res)
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal([]byte(text), &result); err != nil {
 		t.Fatalf("expected JSON object, got: %s", text)
 	}
@@ -512,7 +512,7 @@ func TestListServiceAccounts_Named(t *testing.T) {
 		t.Errorf("expected name=my-sa, got %v", result["name"])
 	}
 	// Secret names should be visible, but not data.
-	secrets, ok := result["secrets"].([]interface{})
+	secrets, ok := result["secrets"].([]any)
 	if !ok || len(secrets) != 1 {
 		t.Errorf("expected 1 secret name, got: %v", result["secrets"])
 	}

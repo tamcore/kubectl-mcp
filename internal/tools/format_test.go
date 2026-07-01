@@ -2,6 +2,7 @@ package tools
 
 import (
 	"encoding/json"
+	"maps"
 	"strings"
 	"testing"
 	"time"
@@ -11,21 +12,19 @@ import (
 )
 
 // makeUnstructured is a test helper that builds an Unstructured object.
-func makeUnstructured(kind, name, namespace string, extra map[string]interface{}) unstructured.Unstructured {
-	obj := map[string]interface{}{
+func makeUnstructured(kind, name, namespace string, extra map[string]any) unstructured.Unstructured {
+	obj := map[string]any{
 		"apiVersion": "v1",
 		"kind":       kind,
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              name,
 			"creationTimestamp": metav1.Now().Add(-1 * time.Hour).UTC().Format(time.RFC3339),
 		},
 	}
 	if namespace != "" {
-		obj["metadata"].(map[string]interface{})["namespace"] = namespace
+		obj["metadata"].(map[string]any)["namespace"] = namespace
 	}
-	for k, v := range extra {
-		obj[k] = v
-	}
+	maps.Copy(obj, extra)
 	return unstructured.Unstructured{Object: obj}
 }
 
@@ -41,18 +40,18 @@ func TestFormatResourceList_Empty(t *testing.T) {
 
 func TestFormatResourceList_Pod(t *testing.T) {
 	items := []unstructured.Unstructured{
-		makeUnstructured("Pod", "nginx", "default", map[string]interface{}{
-			"status": map[string]interface{}{
+		makeUnstructured("Pod", "nginx", "default", map[string]any{
+			"status": map[string]any{
 				"phase": "Running",
-				"containerStatuses": []interface{}{
-					map[string]interface{}{
+				"containerStatuses": []any{
+					map[string]any{
 						"ready":        true,
 						"restartCount": int64(0),
-						"state":        map[string]interface{}{},
+						"state":        map[string]any{},
 					},
 				},
 			},
-			"spec": map[string]interface{}{
+			"spec": map[string]any{
 				"nodeName": "node-1",
 			},
 		}),
@@ -61,7 +60,7 @@ func TestFormatResourceList_Pod(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	var parsed []map[string]interface{}
+	var parsed []map[string]any
 	if err := json.Unmarshal([]byte(got), &parsed); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
@@ -81,16 +80,16 @@ func TestFormatResourceList_Pod(t *testing.T) {
 
 func TestFormatResourceList_Deployment(t *testing.T) {
 	items := []unstructured.Unstructured{
-		makeUnstructured("Deployment", "web", "default", map[string]interface{}{
-			"spec":   map[string]interface{}{"replicas": int64(3)},
-			"status": map[string]interface{}{"readyReplicas": int64(3), "updatedReplicas": int64(3), "availableReplicas": int64(3)},
+		makeUnstructured("Deployment", "web", "default", map[string]any{
+			"spec":   map[string]any{"replicas": int64(3)},
+			"status": map[string]any{"readyReplicas": int64(3), "updatedReplicas": int64(3), "availableReplicas": int64(3)},
 		}),
 	}
 	got, _, err := formatResourceList(items)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	var parsed []map[string]interface{}
+	var parsed []map[string]any
 	if err := json.Unmarshal([]byte(got), &parsed); err != nil {
 		t.Fatal(err)
 	}
@@ -101,16 +100,16 @@ func TestFormatResourceList_Deployment(t *testing.T) {
 
 func TestFormatResourceList_StatefulSet(t *testing.T) {
 	items := []unstructured.Unstructured{
-		makeUnstructured("StatefulSet", "db", "default", map[string]interface{}{
-			"spec":   map[string]interface{}{"replicas": int64(3)},
-			"status": map[string]interface{}{"readyReplicas": int64(2)},
+		makeUnstructured("StatefulSet", "db", "default", map[string]any{
+			"spec":   map[string]any{"replicas": int64(3)},
+			"status": map[string]any{"readyReplicas": int64(2)},
 		}),
 	}
 	got, _, err := formatResourceList(items)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	var parsed []map[string]interface{}
+	var parsed []map[string]any
 	if err := json.Unmarshal([]byte(got), &parsed); err != nil {
 		t.Fatal(err)
 	}
@@ -121,8 +120,8 @@ func TestFormatResourceList_StatefulSet(t *testing.T) {
 
 func TestFormatResourceList_DaemonSet(t *testing.T) {
 	items := []unstructured.Unstructured{
-		makeUnstructured("DaemonSet", "agent", "kube-system", map[string]interface{}{
-			"status": map[string]interface{}{
+		makeUnstructured("DaemonSet", "agent", "kube-system", map[string]any{
+			"status": map[string]any{
 				"desiredNumberScheduled": int64(5),
 				"numberReady":            int64(5),
 				"numberAvailable":        int64(5),
@@ -133,7 +132,7 @@ func TestFormatResourceList_DaemonSet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	var parsed []map[string]interface{}
+	var parsed []map[string]any
 	if err := json.Unmarshal([]byte(got), &parsed); err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +144,7 @@ func TestFormatResourceList_DaemonSet(t *testing.T) {
 func TestFormatResourceList_Job(t *testing.T) {
 	tests := []struct {
 		name       string
-		conditions []interface{}
+		conditions []any
 		wantStatus string
 	}{
 		{
@@ -155,15 +154,15 @@ func TestFormatResourceList_Job(t *testing.T) {
 		},
 		{
 			name: "complete",
-			conditions: []interface{}{
-				map[string]interface{}{"type": "Complete", "status": "True"},
+			conditions: []any{
+				map[string]any{"type": "Complete", "status": "True"},
 			},
 			wantStatus: "Complete",
 		},
 		{
 			name: "failed",
-			conditions: []interface{}{
-				map[string]interface{}{"type": "Failed", "status": "True"},
+			conditions: []any{
+				map[string]any{"type": "Failed", "status": "True"},
 			},
 			wantStatus: "Failed",
 		},
@@ -171,13 +170,13 @@ func TestFormatResourceList_Job(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			status := map[string]interface{}{"succeeded": int64(1)}
+			status := map[string]any{"succeeded": int64(1)}
 			if tt.conditions != nil {
 				status["conditions"] = tt.conditions
 			}
 			items := []unstructured.Unstructured{
-				makeUnstructured("Job", "batch-job", "default", map[string]interface{}{
-					"spec":   map[string]interface{}{"completions": int64(1)},
+				makeUnstructured("Job", "batch-job", "default", map[string]any{
+					"spec":   map[string]any{"completions": int64(1)},
 					"status": status,
 				}),
 			}
@@ -185,7 +184,7 @@ func TestFormatResourceList_Job(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			var parsed []map[string]interface{}
+			var parsed []map[string]any
 			if err := json.Unmarshal([]byte(got), &parsed); err != nil {
 				t.Fatal(err)
 			}
@@ -199,24 +198,24 @@ func TestFormatResourceList_Job(t *testing.T) {
 func TestFormatResourceList_Node(t *testing.T) {
 	tests := []struct {
 		name       string
-		labels     map[string]interface{}
-		conditions []interface{}
+		labels     map[string]any
+		conditions []any
 		wantStatus string
 		wantRoles  string
 	}{
 		{
 			name:   "ready with roles",
-			labels: map[string]interface{}{"node-role.kubernetes.io/control-plane": ""},
-			conditions: []interface{}{
-				map[string]interface{}{"type": "Ready", "status": "True"},
+			labels: map[string]any{"node-role.kubernetes.io/control-plane": ""},
+			conditions: []any{
+				map[string]any{"type": "Ready", "status": "True"},
 			},
 			wantStatus: "Ready",
 			wantRoles:  "control-plane",
 		},
 		{
 			name:       "not ready no roles",
-			labels:     map[string]interface{}{},
-			conditions: []interface{}{},
+			labels:     map[string]any{},
+			conditions: []any{},
 			wantStatus: "NotReady",
 			wantRoles:  "<none>",
 		},
@@ -224,22 +223,22 @@ func TestFormatResourceList_Node(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			obj := map[string]interface{}{
+			obj := map[string]any{
 				"apiVersion": "v1",
 				"kind":       "Node",
-				"metadata": map[string]interface{}{
+				"metadata": map[string]any{
 					"name":              "node-1",
 					"labels":            tt.labels,
 					"creationTimestamp": metav1.Now().Add(-1 * time.Hour).UTC().Format(time.RFC3339),
 				},
-				"status": map[string]interface{}{"conditions": tt.conditions},
+				"status": map[string]any{"conditions": tt.conditions},
 			}
 			items := []unstructured.Unstructured{{Object: obj}}
 			got, _, err := formatResourceList(items)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			var parsed []map[string]interface{}
+			var parsed []map[string]any
 			if err := json.Unmarshal([]byte(got), &parsed); err != nil {
 				t.Fatal(err)
 			}
@@ -265,15 +264,15 @@ func TestFormatResourceList_Service(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			items := []unstructured.Unstructured{
-				makeUnstructured("Service", "svc", "default", map[string]interface{}{
-					"spec": map[string]interface{}{"type": tt.svcType, "clusterIP": tt.ip},
+				makeUnstructured("Service", "svc", "default", map[string]any{
+					"spec": map[string]any{"type": tt.svcType, "clusterIP": tt.ip},
 				}),
 			}
 			got, _, err := formatResourceList(items)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			var parsed []map[string]interface{}
+			var parsed []map[string]any
 			if err := json.Unmarshal([]byte(got), &parsed); err != nil {
 				t.Fatal(err)
 			}
@@ -295,7 +294,7 @@ func TestFormatResourceList_UnknownKind(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	var parsed []map[string]interface{}
+	var parsed []map[string]any
 	if err := json.Unmarshal([]byte(got), &parsed); err != nil {
 		t.Fatal(err)
 	}
@@ -332,25 +331,25 @@ func TestBaseFields(t *testing.T) {
 func TestPodStatus(t *testing.T) {
 	tests := []struct {
 		name string
-		obj  map[string]interface{}
+		obj  map[string]any
 		want string
 	}{
 		{
 			name: "phase only",
-			obj: map[string]interface{}{
-				"status": map[string]interface{}{"phase": "Running"},
+			obj: map[string]any{
+				"status": map[string]any{"phase": "Running"},
 			},
 			want: "Running",
 		},
 		{
 			name: "CrashLoopBackOff overrides phase",
-			obj: map[string]interface{}{
-				"status": map[string]interface{}{
+			obj: map[string]any{
+				"status": map[string]any{
 					"phase": "Running",
-					"containerStatuses": []interface{}{
-						map[string]interface{}{
-							"state": map[string]interface{}{
-								"waiting": map[string]interface{}{"reason": "CrashLoopBackOff"},
+					"containerStatuses": []any{
+						map[string]any{
+							"state": map[string]any{
+								"waiting": map[string]any{"reason": "CrashLoopBackOff"},
 							},
 						},
 					},
@@ -360,13 +359,13 @@ func TestPodStatus(t *testing.T) {
 		},
 		{
 			name: "terminated reason overrides phase",
-			obj: map[string]interface{}{
-				"status": map[string]interface{}{
+			obj: map[string]any{
+				"status": map[string]any{
 					"phase": "Failed",
-					"containerStatuses": []interface{}{
-						map[string]interface{}{
-							"state": map[string]interface{}{
-								"terminated": map[string]interface{}{"reason": "OOMKilled"},
+					"containerStatuses": []any{
+						map[string]any{
+							"state": map[string]any{
+								"terminated": map[string]any{"reason": "OOMKilled"},
 							},
 						},
 					},
@@ -376,14 +375,14 @@ func TestPodStatus(t *testing.T) {
 		},
 		{
 			name: "init container waiting",
-			obj: map[string]interface{}{
-				"status": map[string]interface{}{
+			obj: map[string]any{
+				"status": map[string]any{
 					"phase":             "Pending",
-					"containerStatuses": []interface{}{},
-					"initContainerStatuses": []interface{}{
-						map[string]interface{}{
-							"state": map[string]interface{}{
-								"waiting": map[string]interface{}{"reason": "ImagePullBackOff"},
+					"containerStatuses": []any{},
+					"initContainerStatuses": []any{
+						map[string]any{
+							"state": map[string]any{
+								"waiting": map[string]any{"reason": "ImagePullBackOff"},
 							},
 						},
 					},
@@ -393,31 +392,31 @@ func TestPodStatus(t *testing.T) {
 		},
 		{
 			name: "non-map container status is skipped",
-			obj: map[string]interface{}{
-				"status": map[string]interface{}{
+			obj: map[string]any{
+				"status": map[string]any{
 					"phase":             "Running",
-					"containerStatuses": []interface{}{"not-a-map"},
+					"containerStatuses": []any{"not-a-map"},
 				},
 			},
 			want: "Running",
 		},
 		{
 			name: "non-map init container status is skipped",
-			obj: map[string]interface{}{
-				"status": map[string]interface{}{
+			obj: map[string]any{
+				"status": map[string]any{
 					"phase":                 "Pending",
-					"initContainerStatuses": []interface{}{"not-a-map"},
+					"initContainerStatuses": []any{"not-a-map"},
 				},
 			},
 			want: "Pending",
 		},
 		{
 			name: "container status without state does not panic",
-			obj: map[string]interface{}{
-				"status": map[string]interface{}{
+			obj: map[string]any{
+				"status": map[string]any{
 					"phase": "Running",
-					"containerStatuses": []interface{}{
-						map[string]interface{}{"name": "app"},
+					"containerStatuses": []any{
+						map[string]any{"name": "app"},
 					},
 				},
 			},
@@ -425,11 +424,11 @@ func TestPodStatus(t *testing.T) {
 		},
 		{
 			name: "non-map state is skipped without panicking",
-			obj: map[string]interface{}{
-				"status": map[string]interface{}{
+			obj: map[string]any{
+				"status": map[string]any{
 					"phase": "Running",
-					"containerStatuses": []interface{}{
-						map[string]interface{}{"state": "unexpected-string"},
+					"containerStatuses": []any{
+						map[string]any{"state": "unexpected-string"},
 					},
 				},
 			},
@@ -437,11 +436,11 @@ func TestPodStatus(t *testing.T) {
 		},
 		{
 			name: "empty state object falls back to phase",
-			obj: map[string]interface{}{
-				"status": map[string]interface{}{
+			obj: map[string]any{
+				"status": map[string]any{
 					"phase": "Running",
-					"containerStatuses": []interface{}{
-						map[string]interface{}{"state": map[string]interface{}{}},
+					"containerStatuses": []any{
+						map[string]any{"state": map[string]any{}},
 					},
 				},
 			},
@@ -462,17 +461,17 @@ func TestPodStatus(t *testing.T) {
 func TestPodReady(t *testing.T) {
 	tests := []struct {
 		name string
-		obj  map[string]interface{}
+		obj  map[string]any
 		want string
 	}{
 		{
 			name: "2 of 3 ready",
-			obj: map[string]interface{}{
-				"status": map[string]interface{}{
-					"containerStatuses": []interface{}{
-						map[string]interface{}{"ready": true},
-						map[string]interface{}{"ready": true},
-						map[string]interface{}{"ready": false},
+			obj: map[string]any{
+				"status": map[string]any{
+					"containerStatuses": []any{
+						map[string]any{"ready": true},
+						map[string]any{"ready": true},
+						map[string]any{"ready": false},
 					},
 				},
 			},
@@ -480,16 +479,16 @@ func TestPodReady(t *testing.T) {
 		},
 		{
 			name: "no containers",
-			obj:  map[string]interface{}{},
+			obj:  map[string]any{},
 			want: "0/0",
 		},
 		{
 			name: "non-map entry skipped",
-			obj: map[string]interface{}{
-				"status": map[string]interface{}{
-					"containerStatuses": []interface{}{
+			obj: map[string]any{
+				"status": map[string]any{
+					"containerStatuses": []any{
 						"not-a-map",
-						map[string]interface{}{"ready": true},
+						map[string]any{"ready": true},
 					},
 				},
 			},
@@ -510,16 +509,16 @@ func TestPodReady(t *testing.T) {
 func TestPodRestarts(t *testing.T) {
 	tests := []struct {
 		name string
-		obj  map[string]interface{}
+		obj  map[string]any
 		want string
 	}{
 		{
 			name: "int64 restart counts",
-			obj: map[string]interface{}{
-				"status": map[string]interface{}{
-					"containerStatuses": []interface{}{
-						map[string]interface{}{"restartCount": int64(3)},
-						map[string]interface{}{"restartCount": int64(2)},
+			obj: map[string]any{
+				"status": map[string]any{
+					"containerStatuses": []any{
+						map[string]any{"restartCount": int64(3)},
+						map[string]any{"restartCount": int64(2)},
 					},
 				},
 			},
@@ -527,10 +526,10 @@ func TestPodRestarts(t *testing.T) {
 		},
 		{
 			name: "float64 restart counts",
-			obj: map[string]interface{}{
-				"status": map[string]interface{}{
-					"containerStatuses": []interface{}{
-						map[string]interface{}{"restartCount": float64(7)},
+			obj: map[string]any{
+				"status": map[string]any{
+					"containerStatuses": []any{
+						map[string]any{"restartCount": float64(7)},
 					},
 				},
 			},
@@ -538,14 +537,14 @@ func TestPodRestarts(t *testing.T) {
 		},
 		{
 			name: "no containers",
-			obj:  map[string]interface{}{},
+			obj:  map[string]any{},
 			want: "0",
 		},
 		{
 			name: "non-map entry skipped",
-			obj: map[string]interface{}{
-				"status": map[string]interface{}{
-					"containerStatuses": []interface{}{
+			obj: map[string]any{
+				"status": map[string]any{
+					"containerStatuses": []any{
 						"not-a-map",
 					},
 				},
@@ -554,10 +553,10 @@ func TestPodRestarts(t *testing.T) {
 		},
 		{
 			name: "unsupported type for restartCount",
-			obj: map[string]interface{}{
-				"status": map[string]interface{}{
-					"containerStatuses": []interface{}{
-						map[string]interface{}{"restartCount": "not-a-number"},
+			obj: map[string]any{
+				"status": map[string]any{
+					"containerStatuses": []any{
+						map[string]any{"restartCount": "not-a-number"},
 					},
 				},
 			},
@@ -585,8 +584,8 @@ func TestResourceAge(t *testing.T) {
 	})
 
 	t.Run("zero timestamp", func(t *testing.T) {
-		u := unstructured.Unstructured{Object: map[string]interface{}{
-			"metadata": map[string]interface{}{"name": "x"},
+		u := unstructured.Unstructured{Object: map[string]any{
+			"metadata": map[string]any{"name": "x"},
 		}}
 		got := resourceAge(u)
 		if got != "<unknown>" {
@@ -596,8 +595,8 @@ func TestResourceAge(t *testing.T) {
 }
 
 func TestGetStrField(t *testing.T) {
-	obj := map[string]interface{}{
-		"spec": map[string]interface{}{
+	obj := map[string]any{
+		"spec": map[string]any{
 			"nodeName": "node-1",
 		},
 		"intVal": int64(42),
@@ -626,8 +625,8 @@ func TestGetStrField(t *testing.T) {
 }
 
 func TestGetIntField(t *testing.T) {
-	obj := map[string]interface{}{
-		"status": map[string]interface{}{
+	obj := map[string]any{
+		"status": map[string]any{
 			"readyReplicas": int64(3),
 			"floatVal":      float64(7),
 			"strVal":        "nope",
@@ -660,16 +659,16 @@ func TestGetIntField(t *testing.T) {
 func TestConditionIsTrue(t *testing.T) {
 	tests := []struct {
 		name     string
-		obj      map[string]interface{}
+		obj      map[string]any
 		condType string
 		want     bool
 	}{
 		{
 			name: "condition True",
-			obj: map[string]interface{}{
-				"status": map[string]interface{}{
-					"conditions": []interface{}{
-						map[string]interface{}{"type": "Ready", "status": "True"},
+			obj: map[string]any{
+				"status": map[string]any{
+					"conditions": []any{
+						map[string]any{"type": "Ready", "status": "True"},
 					},
 				},
 			},
@@ -678,10 +677,10 @@ func TestConditionIsTrue(t *testing.T) {
 		},
 		{
 			name: "condition False",
-			obj: map[string]interface{}{
-				"status": map[string]interface{}{
-					"conditions": []interface{}{
-						map[string]interface{}{"type": "Ready", "status": "False"},
+			obj: map[string]any{
+				"status": map[string]any{
+					"conditions": []any{
+						map[string]any{"type": "Ready", "status": "False"},
 					},
 				},
 			},
@@ -690,9 +689,9 @@ func TestConditionIsTrue(t *testing.T) {
 		},
 		{
 			name: "condition missing",
-			obj: map[string]interface{}{
-				"status": map[string]interface{}{
-					"conditions": []interface{}{},
+			obj: map[string]any{
+				"status": map[string]any{
+					"conditions": []any{},
 				},
 			},
 			condType: "Ready",
@@ -700,9 +699,9 @@ func TestConditionIsTrue(t *testing.T) {
 		},
 		{
 			name: "non-map condition entry skipped",
-			obj: map[string]interface{}{
-				"status": map[string]interface{}{
-					"conditions": []interface{}{"not-a-map"},
+			obj: map[string]any{
+				"status": map[string]any{
+					"conditions": []any{"not-a-map"},
 				},
 			},
 			condType: "Ready",
@@ -710,7 +709,7 @@ func TestConditionIsTrue(t *testing.T) {
 		},
 		{
 			name:     "no conditions field",
-			obj:      map[string]interface{}{},
+			obj:      map[string]any{},
 			condType: "Ready",
 			want:     false,
 		},
@@ -729,35 +728,35 @@ func TestConditionIsTrue(t *testing.T) {
 func TestNestedSlice(t *testing.T) {
 	tests := []struct {
 		name      string
-		obj       map[string]interface{}
+		obj       map[string]any
 		keys      []string
 		wantLen   int
 		wantFound bool
 	}{
 		{
 			name:      "valid path",
-			obj:       map[string]interface{}{"a": map[string]interface{}{"b": []interface{}{1, 2}}},
+			obj:       map[string]any{"a": map[string]any{"b": []any{1, 2}}},
 			keys:      []string{"a", "b"},
 			wantLen:   2,
 			wantFound: true,
 		},
 		{
 			name:      "missing field",
-			obj:       map[string]interface{}{},
+			obj:       map[string]any{},
 			keys:      []string{"a", "b"},
 			wantLen:   0,
 			wantFound: false,
 		},
 		{
 			name:      "wrong type at leaf",
-			obj:       map[string]interface{}{"a": map[string]interface{}{"b": "not-a-slice"}},
+			obj:       map[string]any{"a": map[string]any{"b": "not-a-slice"}},
 			keys:      []string{"a", "b"},
 			wantLen:   0,
 			wantFound: false,
 		},
 		{
 			name:      "non-map intermediate",
-			obj:       map[string]interface{}{"a": "string"},
+			obj:       map[string]any{"a": "string"},
 			keys:      []string{"a", "b"},
 			wantLen:   0,
 			wantFound: false,
@@ -834,11 +833,11 @@ func TestNodeRoles(t *testing.T) {
 }
 
 func TestEnrichDeployment_PartiallyAvailable(t *testing.T) {
-	obj := map[string]interface{}{
-		"spec":   map[string]interface{}{"replicas": int64(3)},
-		"status": map[string]interface{}{"readyReplicas": int64(1), "updatedReplicas": int64(2), "availableReplicas": int64(1)},
+	obj := map[string]any{
+		"spec":   map[string]any{"replicas": int64(3)},
+		"status": map[string]any{"readyReplicas": int64(1), "updatedReplicas": int64(2), "availableReplicas": int64(1)},
 	}
-	s := map[string]interface{}{}
+	s := map[string]any{}
 	enrichDeployment(s, obj)
 	if s["ready"] != "1/3" {
 		t.Errorf("expected 1/3, got %v", s["ready"])
@@ -852,11 +851,11 @@ func TestEnrichDeployment_PartiallyAvailable(t *testing.T) {
 }
 
 func TestEnrichStatefulSet(t *testing.T) {
-	obj := map[string]interface{}{
-		"spec":   map[string]interface{}{"replicas": int64(5)},
-		"status": map[string]interface{}{"readyReplicas": int64(5)},
+	obj := map[string]any{
+		"spec":   map[string]any{"replicas": int64(5)},
+		"status": map[string]any{"readyReplicas": int64(5)},
 	}
-	s := map[string]interface{}{}
+	s := map[string]any{}
 	enrichStatefulSet(s, obj)
 	if s["ready"] != "5/5" {
 		t.Errorf("expected 5/5, got %v", s["ready"])
@@ -864,14 +863,14 @@ func TestEnrichStatefulSet(t *testing.T) {
 }
 
 func TestEnrichDaemonSet(t *testing.T) {
-	obj := map[string]interface{}{
-		"status": map[string]interface{}{
+	obj := map[string]any{
+		"status": map[string]any{
 			"desiredNumberScheduled": int64(3),
 			"numberReady":            int64(3),
 			"numberAvailable":        int64(3),
 		},
 	}
-	s := map[string]interface{}{}
+	s := map[string]any{}
 	enrichDaemonSet(s, obj)
 	if s["desired"] != int64(3) {
 		t.Errorf("expected desired 3, got %v", s["desired"])

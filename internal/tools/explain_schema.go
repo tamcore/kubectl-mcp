@@ -3,6 +3,7 @@ package tools
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 
@@ -158,9 +159,7 @@ func resolveSchema(s openAPISchema, schemas map[string]openAPISchema) openAPISch
 				if merged.Properties == nil {
 					merged.Properties = make(map[string]openAPISchema)
 				}
-				for k, v := range resolved.Properties {
-					merged.Properties[k] = v
-				}
+				maps.Copy(merged.Properties, resolved.Properties)
 			}
 			if resolved.Required != nil {
 				merged.Required = append(merged.Required, resolved.Required...)

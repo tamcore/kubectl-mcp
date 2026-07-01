@@ -18,8 +18,8 @@ func TestFormatTable(t *testing.T) {
 				{Name: "Age"},
 			},
 			Rows: []metav1.TableRow{
-				{Cells: []interface{}{"pod-a", "Running", "5d"}},
-				{Cells: []interface{}{"pod-b", "Pending", "2h"}},
+				{Cells: []any{"pod-a", "Running", "5d"}},
+				{Cells: []any{"pod-b", "Pending", "2h"}},
 			},
 		}
 
@@ -70,8 +70,8 @@ func TestFormatTable(t *testing.T) {
 				{Name: "Ready"},
 			},
 			Rows: []metav1.TableRow{
-				{Cells: []interface{}{"short", "1/1"}},
-				{Cells: []interface{}{"a-very-long-name", "2/2"}},
+				{Cells: []any{"short", "1/1"}},
+				{Cells: []any{"a-very-long-name", "2/2"}},
 			},
 		}
 
@@ -94,7 +94,7 @@ func TestFormatTable(t *testing.T) {
 				{Name: "Status"},
 			},
 			Rows: []metav1.TableRow{
-				{Cells: []interface{}{"only-name"}},
+				{Cells: []any{"only-name"}},
 			},
 		}
 
@@ -107,21 +107,21 @@ func TestFormatTable(t *testing.T) {
 
 func TestFormatListAsJSON(t *testing.T) {
 	items := []unstructured.Unstructured{
-		{Object: map[string]interface{}{
+		{Object: map[string]any{
 			"apiVersion": "v1",
 			"kind":       "Pod",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name":            "pod-a",
 				"namespace":       "default",
 				"uid":             "abc-123",
 				"resourceVersion": "100",
-				"managedFields":   []interface{}{},
+				"managedFields":   []any{},
 			},
 		}},
-		{Object: map[string]interface{}{
+		{Object: map[string]any{
 			"apiVersion": "v1",
 			"kind":       "Pod",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name":      "pod-b",
 				"namespace": "default",
 				"uid":       "def-456",
@@ -153,7 +153,7 @@ func TestFormatListAsJSON(t *testing.T) {
 	}
 
 	// Verify original items are not mutated.
-	meta := items[0].Object["metadata"].(map[string]interface{})
+	meta := items[0].Object["metadata"].(map[string]any)
 	if _, ok := meta["uid"]; !ok {
 		t.Error("original item uid should not be removed (immutability violated)")
 	}
@@ -161,14 +161,14 @@ func TestFormatListAsJSON(t *testing.T) {
 
 func TestHandleListFormatStructuredContentIsObject(t *testing.T) {
 	items := []unstructured.Unstructured{
-		{Object: map[string]interface{}{
+		{Object: map[string]any{
 			"apiVersion": "v1",
 			"kind":       "Pod",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name":      "pod-a",
 				"namespace": "default",
 			},
-			"status": map[string]interface{}{"phase": "Running"},
+			"status": map[string]any{"phase": "Running"},
 		}},
 	}
 
@@ -189,7 +189,7 @@ func TestHandleListFormatStructuredContentIsObject(t *testing.T) {
 			}
 
 			// Must be a map (JSON object), not a slice.
-			envelope, ok := result.StructuredContent.(map[string]interface{})
+			envelope, ok := result.StructuredContent.(map[string]any)
 			if !ok {
 				t.Fatalf("expected map[string]interface{}, got %T", result.StructuredContent)
 			}
@@ -205,33 +205,33 @@ func TestHandleListFormatStructuredContentIsObject(t *testing.T) {
 
 func TestHandleListFormat_SummaryStructuredContentIsCompact(t *testing.T) {
 	items := []unstructured.Unstructured{
-		{Object: map[string]interface{}{
+		{Object: map[string]any{
 			"apiVersion": "v1",
 			"kind":       "Pod",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name":              "pod-a",
 				"namespace":         "default",
 				"creationTimestamp": "2024-01-01T00:00:00Z",
 			},
-			"spec": map[string]interface{}{
+			"spec": map[string]any{
 				"nodeName": "node-1",
-				"containers": []interface{}{
-					map[string]interface{}{
+				"containers": []any{
+					map[string]any{
 						"name":  "nginx",
 						"image": "nginx:latest",
-						"ports": []interface{}{
-							map[string]interface{}{"containerPort": int64(80)},
+						"ports": []any{
+							map[string]any{"containerPort": int64(80)},
 						},
 					},
 				},
 			},
-			"status": map[string]interface{}{
+			"status": map[string]any{
 				"phase": "Running",
-				"containerStatuses": []interface{}{
-					map[string]interface{}{
+				"containerStatuses": []any{
+					map[string]any{
 						"ready":        true,
 						"restartCount": int64(2),
-						"state":        map[string]interface{}{},
+						"state":        map[string]any{},
 					},
 				},
 			},
@@ -249,11 +249,11 @@ func TestHandleListFormat_SummaryStructuredContentIsCompact(t *testing.T) {
 		t.Fatal("unexpected error result")
 	}
 
-	envelope, ok := result.StructuredContent.(map[string]interface{})
+	envelope, ok := result.StructuredContent.(map[string]any)
 	if !ok {
 		t.Fatalf("expected map envelope, got %T", result.StructuredContent)
 	}
-	structItems, ok := envelope["items"].([]map[string]interface{})
+	structItems, ok := envelope["items"].([]map[string]any)
 	if !ok {
 		t.Fatalf("expected items to be []map[string]interface{}, got %T", envelope["items"])
 	}
@@ -271,7 +271,7 @@ func TestHandleListFormat_SummaryStructuredContentIsCompact(t *testing.T) {
 		t.Error("summary structuredContent item should NOT have 'kind'")
 	}
 	if statusVal, hasStatus := item["status"]; hasStatus {
-		if _, isMap := statusVal.(map[string]interface{}); isMap {
+		if _, isMap := statusVal.(map[string]any); isMap {
 			t.Error("summary structuredContent 'status' should be a string, not a nested object")
 		}
 	}

@@ -28,7 +28,7 @@ func redactMapValues(obj *unstructured.Unstructured, field string) {
 	if !ok {
 		return
 	}
-	m, ok := raw.(map[string]interface{})
+	m, ok := raw.(map[string]any)
 	if !ok {
 		return
 	}
