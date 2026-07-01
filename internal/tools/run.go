@@ -86,7 +86,7 @@ func registerRunPod(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Conf
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 
-		container := map[string]interface{}{
+		container := map[string]any{
 			"name":  name,
 			"image": image,
 		}
@@ -96,7 +96,7 @@ func registerRunPod(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Conf
 			if err != nil {
 				return mcp.NewToolResultError(fmt.Sprintf("invalid command: %v", err)), nil
 			}
-			cmdSlice := make([]interface{}, len(parts))
+			cmdSlice := make([]any, len(parts))
 			for i, p := range parts {
 				cmdSlice[i] = p
 			}
@@ -104,7 +104,7 @@ func registerRunPod(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Conf
 		}
 
 		if len(containerPorts) > 0 {
-			portsSlice := make([]interface{}, len(containerPorts))
+			portsSlice := make([]any, len(containerPorts))
 			for i, p := range containerPorts {
 				portsSlice[i] = p
 			}
@@ -112,16 +112,16 @@ func registerRunPod(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Conf
 		}
 
 		pod := &unstructured.Unstructured{
-			Object: map[string]interface{}{
+			Object: map[string]any{
 				"apiVersion": "v1",
 				"kind":       "Pod",
-				"metadata": map[string]interface{}{
+				"metadata": map[string]any{
 					"name":      name,
 					"namespace": namespace,
 				},
-				"spec": map[string]interface{}{
+				"spec": map[string]any{
 					"restartPolicy": restartPolicy,
-					"containers":    []interface{}{container},
+					"containers":    []any{container},
 				},
 			},
 		}
@@ -136,7 +136,7 @@ func registerRunPod(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Conf
 		}
 
 		// Strip managedFields for cleaner output.
-		if md, ok := result.Object["metadata"].(map[string]interface{}); ok {
+		if md, ok := result.Object["metadata"].(map[string]any); ok {
 			delete(md, "managedFields")
 		}
 
@@ -160,14 +160,14 @@ var validProtocols = map[string]bool{
 // parsePortsString parses a comma-separated ports string like "80", "80,443",
 // or "8080/TCP,9090/UDP" into a slice of container port maps ready for an
 // unstructured Pod spec.
-func parsePortsString(ports string) ([]map[string]interface{}, error) {
+func parsePortsString(ports string) ([]map[string]any, error) {
 	ports = strings.TrimSpace(ports)
 	if ports == "" {
 		return nil, nil
 	}
 
 	parts := strings.Split(ports, ",")
-	result := make([]map[string]interface{}, 0, len(parts))
+	result := make([]map[string]any, 0, len(parts))
 
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
@@ -178,9 +178,9 @@ func parsePortsString(ports string) ([]map[string]interface{}, error) {
 		portStr := part
 		protocol := "TCP"
 
-		if idx := strings.Index(part, "/"); idx >= 0 {
-			portStr = part[:idx]
-			protocol = strings.ToUpper(part[idx+1:])
+		if before, after, ok := strings.Cut(part, "/"); ok {
+			portStr = before
+			protocol = strings.ToUpper(after)
 		}
 
 		if !validProtocols[protocol] {
@@ -195,7 +195,7 @@ func parsePortsString(ports string) ([]map[string]interface{}, error) {
 			return nil, fmt.Errorf("invalid port %d: must be between 1 and 65535", portNum)
 		}
 
-		result = append(result, map[string]interface{}{
+		result = append(result, map[string]any{
 			"containerPort": portNum,
 			"protocol":      protocol,
 		})

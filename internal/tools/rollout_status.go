@@ -99,10 +99,10 @@ func registerRolloutStatus(s *server.MCPServer, pool *kube.ClientPool) {
 
 // buildRolloutStatus extracts status fields from the raw object and determines
 // whether the rollout is complete.
-func buildRolloutStatus(kind, name, namespace string, obj map[string]interface{}) rolloutStatusResult {
-	status, _ := obj["status"].(map[string]interface{})
+func buildRolloutStatus(kind, name, namespace string, obj map[string]any) rolloutStatusResult {
+	status, _ := obj["status"].(map[string]any)
 	if status == nil {
-		status = map[string]interface{}{}
+		status = map[string]any{}
 	}
 
 	result := rolloutStatusResult{
@@ -127,8 +127,8 @@ func buildRolloutStatus(kind, name, namespace string, obj map[string]interface{}
 	return result
 }
 
-func deploymentComplete(obj, status map[string]interface{}, replicas map[string]int64) bool {
-	spec, _ := obj["spec"].(map[string]interface{})
+func deploymentComplete(obj, status map[string]any, replicas map[string]int64) bool {
+	spec, _ := obj["spec"].(map[string]any)
 	desired := toInt64(spec, "replicas")
 	ready := toInt64(status, "readyReplicas")
 	updated := toInt64(status, "updatedReplicas")
@@ -142,8 +142,8 @@ func deploymentComplete(obj, status map[string]interface{}, replicas map[string]
 	return desired > 0 && ready == desired && updated == desired && available == desired
 }
 
-func statefulSetComplete(obj, status map[string]interface{}, replicas map[string]int64) bool {
-	spec, _ := obj["spec"].(map[string]interface{})
+func statefulSetComplete(obj, status map[string]any, replicas map[string]int64) bool {
+	spec, _ := obj["spec"].(map[string]any)
 	desired := toInt64(spec, "replicas")
 	ready := toInt64(status, "readyReplicas")
 	updated := toInt64(status, "updatedReplicas")
@@ -155,7 +155,7 @@ func statefulSetComplete(obj, status map[string]interface{}, replicas map[string
 	return desired > 0 && ready == desired && updated == desired
 }
 
-func daemonSetComplete(status map[string]interface{}, replicas map[string]int64) bool {
+func daemonSetComplete(status map[string]any, replicas map[string]int64) bool {
 	desired := toInt64(status, "desiredNumberScheduled")
 	ready := toInt64(status, "numberReady")
 	updated := toInt64(status, "updatedNumberScheduled")
@@ -170,15 +170,15 @@ func daemonSetComplete(status map[string]interface{}, replicas map[string]int64)
 }
 
 // extractConditions pulls condition entries from the status object.
-func extractConditions(status map[string]interface{}) []statusCondition {
-	raw, ok := status["conditions"].([]interface{})
+func extractConditions(status map[string]any) []statusCondition {
+	raw, ok := status["conditions"].([]any)
 	if !ok {
 		return nil
 	}
 
 	conditions := make([]statusCondition, 0, len(raw))
 	for _, item := range raw {
-		m, ok := item.(map[string]interface{})
+		m, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -193,7 +193,7 @@ func extractConditions(status map[string]interface{}) []statusCondition {
 }
 
 // toInt64 safely extracts an int64 from an unstructured map.
-func toInt64(m map[string]interface{}, key string) int64 {
+func toInt64(m map[string]any, key string) int64 {
 	if m == nil {
 		return 0
 	}
@@ -214,7 +214,7 @@ func toInt64(m map[string]interface{}, key string) int64 {
 }
 
 // toString safely extracts a string from an unstructured map.
-func toString(m map[string]interface{}, key string) string {
+func toString(m map[string]any, key string) string {
 	if m == nil {
 		return ""
 	}

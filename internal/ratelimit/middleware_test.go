@@ -35,7 +35,7 @@ func TestWrap_ReturnsErrorWhenRateLimited(t *testing.T) {
 
 	// Subsequent calls should be rate limited.
 	var rateLimited bool
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		res, err := wrapped(context.Background(), mcp.CallToolRequest{})
 		if err != nil {
 			t.Fatal(err)
@@ -56,7 +56,7 @@ func TestWrap_ReturnsErrorWhenRateLimited(t *testing.T) {
 func TestWrap_NilLimiterPassesThrough(t *testing.T) {
 	wrapped := Wrap(dummyHandler, nil)
 
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		res, err := wrapped(context.Background(), mcp.CallToolRequest{})
 		if err != nil {
 			t.Fatal(err)
@@ -71,7 +71,7 @@ func TestWrap_UnlimitedLimiterPassesThrough(t *testing.T) {
 	l := NewLimiter(0) // unlimited
 	wrapped := Wrap(dummyHandler, l)
 
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		res, err := wrapped(context.Background(), mcp.CallToolRequest{})
 		if err != nil {
 			t.Fatal(err)

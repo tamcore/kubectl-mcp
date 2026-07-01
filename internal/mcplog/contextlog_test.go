@@ -201,7 +201,7 @@ func TestContextLogWriter_ConcurrentAccess(t *testing.T) {
 	defer func() { _ = clw.Close() }()
 
 	var wg sync.WaitGroup
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		wg.Add(1)
 		go func(n int) {
 			defer wg.Done()
@@ -213,7 +213,7 @@ func TestContextLogWriter_ConcurrentAccess(t *testing.T) {
 	wg.Wait()
 
 	// Verify all 5 context files were created.
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		logFile := filepath.Join(clw.Dir(), fmt.Sprintf("ctx-%d.log", i))
 		if _, err := os.Stat(logFile); err != nil {
 			t.Errorf("expected log file %s to exist: %v", logFile, err)

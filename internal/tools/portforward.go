@@ -91,9 +91,9 @@ var supportedKinds = []string{"Pod", "Service", "Deployment", "StatefulSet"}
 // (canonicalKind, name). Kind is lowercased and alias-expanded.
 // Unknown kinds are returned as-is (lowercased).
 func parseResource(resource string) (kind, name string) {
-	if idx := strings.IndexByte(resource, '/'); idx >= 0 {
-		rawKind := strings.ToLower(resource[:idx])
-		name = resource[idx+1:]
+	if before, after, ok := strings.Cut(resource, "/"); ok {
+		rawKind := strings.ToLower(before)
+		name = after
 		if canonical, ok := kindAliases[rawKind]; ok {
 			return canonical, name
 		}

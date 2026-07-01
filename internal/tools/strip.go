@@ -1,5 +1,7 @@
 package tools
 
+import "maps"
+
 // noisyMetadataKeys lists metadata fields that are stripped to reduce token usage.
 var noisyMetadataKeys = []string{
 	"uid",
@@ -15,14 +17,14 @@ var noisyMetadataKeys = []string{
 // metadata are also removed.
 //
 // The input map is never mutated.
-func StripNoisyMetadata(obj map[string]interface{}) map[string]interface{} {
+func StripNoisyMetadata(obj map[string]any) map[string]any {
 	result := shallowCopyMap(obj)
 
 	rawMeta, ok := result["metadata"]
 	if !ok {
 		return result
 	}
-	metaMap, ok := rawMeta.(map[string]interface{})
+	metaMap, ok := rawMeta.(map[string]any)
 	if !ok {
 		return result
 	}
@@ -46,25 +48,23 @@ func StripNoisyMetadata(obj map[string]interface{}) map[string]interface{} {
 }
 
 // shallowCopyMap returns a new map with the same key-value pairs.
-func shallowCopyMap(m map[string]interface{}) map[string]interface{} {
-	cp := make(map[string]interface{}, len(m))
-	for k, v := range m {
-		cp[k] = v
-	}
+func shallowCopyMap(m map[string]any) map[string]any {
+	cp := make(map[string]any, len(m))
+	maps.Copy(cp, m)
 	return cp
 }
 
 // isEmpty returns true for nil, empty string, empty map, or empty slice values.
-func isEmpty(v interface{}) bool {
+func isEmpty(v any) bool {
 	if v == nil {
 		return true
 	}
 	switch val := v.(type) {
 	case string:
 		return val == ""
-	case map[string]interface{}:
+	case map[string]any:
 		return len(val) == 0
-	case []interface{}:
+	case []any:
 		return len(val) == 0
 	default:
 		return false

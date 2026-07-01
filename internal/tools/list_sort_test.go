@@ -16,8 +16,8 @@ import (
 
 func TestSortUnstructured(t *testing.T) {
 	makeItem := func(name string) unstructured.Unstructured {
-		return unstructured.Unstructured{Object: map[string]interface{}{
-			"metadata": map[string]interface{}{"name": name},
+		return unstructured.Unstructured{Object: map[string]any{
+			"metadata": map[string]any{"name": name},
 		}}
 	}
 
@@ -80,8 +80,8 @@ func TestSortUnstructured(t *testing.T) {
 
 func TestSortUnstructuredByTimestamp(t *testing.T) {
 	makeItemWithTS := func(name, ts string) unstructured.Unstructured {
-		return unstructured.Unstructured{Object: map[string]interface{}{
-			"metadata": map[string]interface{}{
+		return unstructured.Unstructured{Object: map[string]any{
+			"metadata": map[string]any{
 				"name":              name,
 				"creationTimestamp": ts,
 			},
@@ -124,35 +124,35 @@ func TestSortUnstructuredByTimestamp(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestListResourcesSortBy(t *testing.T) {
-	pod1 := &unstructured.Unstructured{Object: map[string]interface{}{
+	pod1 := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "v1",
 		"kind":       "Pod",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              "pod-charlie",
 			"namespace":         "default",
 			"creationTimestamp": "2024-03-01T00:00:00Z",
 		},
-		"status": map[string]interface{}{"phase": "Running"},
+		"status": map[string]any{"phase": "Running"},
 	}}
-	pod2 := &unstructured.Unstructured{Object: map[string]interface{}{
+	pod2 := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "v1",
 		"kind":       "Pod",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              "pod-alpha",
 			"namespace":         "default",
 			"creationTimestamp": "2024-01-01T00:00:00Z",
 		},
-		"status": map[string]interface{}{"phase": "Running"},
+		"status": map[string]any{"phase": "Running"},
 	}}
-	pod3 := &unstructured.Unstructured{Object: map[string]interface{}{
+	pod3 := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "v1",
 		"kind":       "Pod",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              "pod-bravo",
 			"namespace":         "default",
 			"creationTimestamp": "2024-02-01T00:00:00Z",
 		},
-		"status": map[string]interface{}{"phase": "Running"},
+		"status": map[string]any{"phase": "Running"},
 	}}
 
 	cfg := defaultCfg()

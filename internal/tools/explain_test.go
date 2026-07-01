@@ -33,7 +33,7 @@ func TestExplainResource_SimpleKind(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal([]byte(text), &result); err != nil {
 		t.Fatalf("expected JSON output, got: %s", text)
 	}
@@ -68,7 +68,7 @@ func TestExplainResource_WithApiVersion(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal([]byte(text), &result); err != nil {
 		t.Fatalf("expected JSON output, got: %s", text)
 	}
@@ -103,7 +103,7 @@ func TestExplainResource_DottedPath(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal([]byte(text), &result); err != nil {
 		t.Fatalf("expected JSON output, got: %s", text)
 	}
@@ -183,12 +183,12 @@ func TestExplainResource_ContainsVerbs(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal([]byte(text), &result); err != nil {
 		t.Fatalf("expected JSON output, got: %s", text)
 	}
 
-	verbs, ok := result["verbs"].([]interface{})
+	verbs, ok := result["verbs"].([]any)
 	if !ok {
 		t.Fatal("expected verbs array")
 	}

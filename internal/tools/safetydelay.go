@@ -16,19 +16,13 @@ func applySafetyDelay(ctx context.Context, req mcp.CallToolRequest, delay time.D
 		return nil
 	}
 
-	total := int(delay.Seconds())
-	if total < 1 {
-		total = 1
-	}
+	total := max(int(delay.Seconds()), 1)
 
 	elapsed := 0
 	remaining := delay
 
 	for remaining > 0 {
-		tick := time.Second
-		if remaining < tick {
-			tick = remaining
-		}
+		tick := min(remaining, time.Second)
 
 		msg := fmt.Sprintf("safety delay: %ds remaining", int(remaining.Seconds()))
 		sendProgress(ctx, req, elapsed, total, msg)

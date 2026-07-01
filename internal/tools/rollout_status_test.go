@@ -14,30 +14,30 @@ import (
 )
 
 func testDeploymentWithStatus(name, ns string, replicas, ready, updated, available int64) *unstructured.Unstructured {
-	return &unstructured.Unstructured{Object: map[string]interface{}{
+	return &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "apps/v1",
 		"kind":       "Deployment",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              name,
 			"namespace":         ns,
 			"creationTimestamp": "2024-01-01T00:00:00Z",
 		},
-		"spec": map[string]interface{}{
+		"spec": map[string]any{
 			"replicas": replicas,
 		},
-		"status": map[string]interface{}{
+		"status": map[string]any{
 			"replicas":          replicas,
 			"readyReplicas":     ready,
 			"updatedReplicas":   updated,
 			"availableReplicas": available,
-			"conditions": []interface{}{
-				map[string]interface{}{
+			"conditions": []any{
+				map[string]any{
 					"type":    "Available",
 					"status":  "True",
 					"reason":  "MinimumReplicasAvailable",
 					"message": "Deployment has minimum availability.",
 				},
-				map[string]interface{}{
+				map[string]any{
 					"type":    "Progressing",
 					"status":  "True",
 					"reason":  "NewReplicaSetAvailable",
@@ -49,18 +49,18 @@ func testDeploymentWithStatus(name, ns string, replicas, ready, updated, availab
 }
 
 func testStatefulSetWithStatus(name, ns string, replicas, ready, updated int64) *unstructured.Unstructured {
-	return &unstructured.Unstructured{Object: map[string]interface{}{
+	return &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "apps/v1",
 		"kind":       "StatefulSet",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              name,
 			"namespace":         ns,
 			"creationTimestamp": "2024-01-01T00:00:00Z",
 		},
-		"spec": map[string]interface{}{
+		"spec": map[string]any{
 			"replicas": replicas,
 		},
-		"status": map[string]interface{}{
+		"status": map[string]any{
 			"replicas":        replicas,
 			"readyReplicas":   ready,
 			"updatedReplicas": updated,
@@ -69,15 +69,15 @@ func testStatefulSetWithStatus(name, ns string, replicas, ready, updated int64) 
 }
 
 func testDaemonSetWithStatus(name, ns string, desired, ready, updated, available int64) *unstructured.Unstructured {
-	return &unstructured.Unstructured{Object: map[string]interface{}{
+	return &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "apps/v1",
 		"kind":       "DaemonSet",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              name,
 			"namespace":         ns,
 			"creationTimestamp": "2024-01-01T00:00:00Z",
 		},
-		"status": map[string]interface{}{
+		"status": map[string]any{
 			"desiredNumberScheduled": desired,
 			"numberReady":            ready,
 			"updatedNumberScheduled": updated,
@@ -110,7 +110,7 @@ func TestRolloutStatus_DeploymentComplete(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal([]byte(text), &result); err != nil {
 		t.Fatalf("expected JSON output, got: %s", text)
 	}
@@ -147,7 +147,7 @@ func TestRolloutStatus_DeploymentInProgress(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal([]byte(text), &result); err != nil {
 		t.Fatalf("expected JSON output, got: %s", text)
 	}
@@ -178,7 +178,7 @@ func TestRolloutStatus_StatefulSet(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal([]byte(text), &result); err != nil {
 		t.Fatalf("expected JSON output, got: %s", text)
 	}
@@ -212,7 +212,7 @@ func TestRolloutStatus_DaemonSet(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal([]byte(text), &result); err != nil {
 		t.Fatalf("expected JSON output, got: %s", text)
 	}

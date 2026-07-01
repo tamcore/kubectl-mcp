@@ -115,11 +115,11 @@ func registerExplainResource(s *server.MCPServer, pool *kube.ClientPool) {
 // "Deployment.spec.replicas" -> ("Deployment", "spec.replicas")
 // "Pod" -> ("Pod", "")
 func parseResourcePath(s string) (string, string) {
-	idx := strings.IndexByte(s, '.')
-	if idx < 0 {
+	before, after, ok := strings.Cut(s, ".")
+	if !ok {
 		return s, ""
 	}
-	return s[:idx], s[idx+1:]
+	return before, after
 }
 
 // findAPIResource looks up the metav1.APIResource for the given GVR.

@@ -1,20 +1,19 @@
 package kube
 
 import (
+	"maps"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func newUnstructured(kind string, fields map[string]interface{}) *unstructured.Unstructured {
-	obj := &unstructured.Unstructured{Object: map[string]interface{}{
+func newUnstructured(kind string, fields map[string]any) *unstructured.Unstructured {
+	obj := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "v1",
 		"kind":       kind,
-		"metadata":   map[string]interface{}{"name": "test", "namespace": "default"},
+		"metadata":   map[string]any{"name": "test", "namespace": "default"},
 	}}
-	for k, v := range fields {
-		obj.Object[k] = v
-	}
+	maps.Copy(obj.Object, fields)
 	return obj
 }
 
@@ -26,14 +25,14 @@ func TestRedactSecrets(t *testing.T) {
 	}{
 		{
 			name: "secret with data and stringData gets redacted",
-			obj: newUnstructured("Secret", map[string]interface{}{
-				"data":       map[string]interface{}{"token": "c2VjcmV0", "key": "dmFsdWU="},
-				"stringData": map[string]interface{}{"password": "hunter2"},
+			obj: newUnstructured("Secret", map[string]any{
+				"data":       map[string]any{"token": "c2VjcmV0", "key": "dmFsdWU="},
+				"stringData": map[string]any{"password": "hunter2"},
 			}),
 			check: func(t *testing.T, obj *unstructured.Unstructured) {
 				t.Helper()
 				for _, field := range []string{"data", "stringData"} {
-					m, ok := obj.Object[field].(map[string]interface{})
+					m, ok := obj.Object[field].(map[string]any)
 					if !ok {
 						t.Fatalf("expected %s to be a map", field)
 					}
@@ -47,12 +46,12 @@ func TestRedactSecrets(t *testing.T) {
 		},
 		{
 			name: "non-Secret is untouched",
-			obj: newUnstructured("ConfigMap", map[string]interface{}{
-				"data": map[string]interface{}{"key": "value"},
+			obj: newUnstructured("ConfigMap", map[string]any{
+				"data": map[string]any{"key": "value"},
 			}),
 			check: func(t *testing.T, obj *unstructured.Unstructured) {
 				t.Helper()
-				m := obj.Object["data"].(map[string]interface{})
+				m := obj.Object["data"].(map[string]any)
 				if m["key"] != "value" {
 					t.Errorf("data[key] = %v, want value", m["key"])
 				}
@@ -73,7 +72,7 @@ func TestRedactSecrets(t *testing.T) {
 		},
 		{
 			name: "secret with non-map data field",
-			obj: newUnstructured("Secret", map[string]interface{}{
+			obj: newUnstructured("Secret", map[string]any{
 				"data": "not-a-map",
 			}),
 			check: func(t *testing.T, obj *unstructured.Unstructured) {
@@ -94,14 +93,14 @@ func TestRedactSecrets(t *testing.T) {
 }
 
 func TestRedactSecretsList(t *testing.T) {
-	secret := newUnstructured("Secret", map[string]interface{}{
-		"data": map[string]interface{}{"token": "c2VjcmV0"},
+	secret := newUnstructured("Secret", map[string]any{
+		"data": map[string]any{"token": "c2VjcmV0"},
 	})
-	configMap := newUnstructured("ConfigMap", map[string]interface{}{
-		"data": map[string]interface{}{"key": "value"},
+	configMap := newUnstructured("ConfigMap", map[string]any{
+		"data": map[string]any{"key": "value"},
 	})
-	secret2 := newUnstructured("Secret", map[string]interface{}{
-		"stringData": map[string]interface{}{"pass": "s3cret"},
+	secret2 := newUnstructured("Secret", map[string]any{
+		"stringData": map[string]any{"pass": "s3cret"},
 	})
 
 	list := &unstructured.UnstructuredList{
@@ -111,19 +110,19 @@ func TestRedactSecretsList(t *testing.T) {
 	RedactSecretsList(list)
 
 	// First item: Secret data redacted
-	m := list.Items[0].Object["data"].(map[string]interface{})
+	m := list.Items[0].Object["data"].(map[string]any)
 	if m["token"] != redactedValue {
 		t.Errorf("Items[0] data[token] = %v, want %s", m["token"], redactedValue)
 	}
 
 	// Second item: ConfigMap untouched
-	m = list.Items[1].Object["data"].(map[string]interface{})
+	m = list.Items[1].Object["data"].(map[string]any)
 	if m["key"] != "value" {
 		t.Errorf("Items[1] data[key] = %v, want value", m["key"])
 	}
 
 	// Third item: Secret stringData redacted
-	m = list.Items[2].Object["stringData"].(map[string]interface{})
+	m = list.Items[2].Object["stringData"].(map[string]any)
 	if m["pass"] != redactedValue {
 		t.Errorf("Items[2] stringData[pass] = %v, want %s", m["pass"], redactedValue)
 	}
@@ -138,13 +137,13 @@ func TestRedactMapValues(t *testing.T) {
 	}{
 		{
 			name: "map present is redacted",
-			obj: newUnstructured("Secret", map[string]interface{}{
-				"data": map[string]interface{}{"a": "1", "b": "2"},
+			obj: newUnstructured("Secret", map[string]any{
+				"data": map[string]any{"a": "1", "b": "2"},
 			}),
 			field: "data",
 			check: func(t *testing.T, obj *unstructured.Unstructured) {
 				t.Helper()
-				m := obj.Object["data"].(map[string]interface{})
+				m := obj.Object["data"].(map[string]any)
 				for k, v := range m {
 					if v != redactedValue {
 						t.Errorf("data[%s] = %v, want %s", k, v, redactedValue)
@@ -165,7 +164,7 @@ func TestRedactMapValues(t *testing.T) {
 		},
 		{
 			name: "non-map value is not modified",
-			obj: newUnstructured("Secret", map[string]interface{}{
+			obj: newUnstructured("Secret", map[string]any{
 				"data": "a-string",
 			}),
 			field: "data",

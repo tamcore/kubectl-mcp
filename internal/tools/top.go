@@ -202,17 +202,17 @@ func registerTopPods(s *server.MCPServer, pool *kube.ClientPool) {
 
 // sumContainerUsage sums CPU (millicores) and memory (bytes) across all
 // containers in a PodMetrics unstructured object.
-func sumContainerUsage(obj map[string]interface{}) (cpuMillis int64, memBytes int64) {
-	containers, ok := obj["containers"].([]interface{})
+func sumContainerUsage(obj map[string]any) (cpuMillis int64, memBytes int64) {
+	containers, ok := obj["containers"].([]any)
 	if !ok {
 		return 0, 0
 	}
 	for _, c := range containers {
-		cm, ok := c.(map[string]interface{})
+		cm, ok := c.(map[string]any)
 		if !ok {
 			continue
 		}
-		usage, ok := cm["usage"].(map[string]interface{})
+		usage, ok := cm["usage"].(map[string]any)
 		if !ok {
 			continue
 		}
@@ -237,18 +237,18 @@ type containerMetric struct {
 }
 
 // eachContainerUsage returns per-container CPU and memory from a PodMetrics object.
-func eachContainerUsage(obj map[string]interface{}) []containerMetric {
-	containers, ok := obj["containers"].([]interface{})
+func eachContainerUsage(obj map[string]any) []containerMetric {
+	containers, ok := obj["containers"].([]any)
 	if !ok {
 		return nil
 	}
 	result := make([]containerMetric, 0, len(containers))
 	for _, c := range containers {
-		cm, ok := c.(map[string]interface{})
+		cm, ok := c.(map[string]any)
 		if !ok {
 			continue
 		}
-		usage, ok := cm["usage"].(map[string]interface{})
+		usage, ok := cm["usage"].(map[string]any)
 		if !ok {
 			continue
 		}
@@ -378,7 +378,7 @@ func registerTopNodes(s *server.MCPServer, pool *kube.ClientPool) {
 
 		items := make([]nodeUsage, 0, len(metricsList))
 		for _, m := range metricsList {
-			usage, ok := m.Object["usage"].(map[string]interface{})
+			usage, ok := m.Object["usage"].(map[string]any)
 			if !ok {
 				continue
 			}
@@ -422,12 +422,12 @@ type nodeAllocatable struct {
 }
 
 // extractAllocatable pulls .status.allocatable.{cpu,memory} from a Node object.
-func extractAllocatable(obj map[string]interface{}) nodeAllocatable {
-	status, ok := obj["status"].(map[string]interface{})
+func extractAllocatable(obj map[string]any) nodeAllocatable {
+	status, ok := obj["status"].(map[string]any)
 	if !ok {
 		return nodeAllocatable{}
 	}
-	alloc, ok := status["allocatable"].(map[string]interface{})
+	alloc, ok := status["allocatable"].(map[string]any)
 	if !ok {
 		return nodeAllocatable{}
 	}

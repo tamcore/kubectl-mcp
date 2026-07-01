@@ -17,8 +17,6 @@ import (
 	"github.com/tamcore/kubectl-mcp/internal/config"
 )
 
-func int32Ptr(i int32) *int32 { return &i }
-
 func newScaleFakeClientset(objs ...runtime.Object) *fake.Clientset {
 	fakeCS := fake.NewClientset(objs...)
 
@@ -96,7 +94,7 @@ func TestScaleResource_Deployment(t *testing.T) {
 
 	deploy := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-deploy", Namespace: "default"},
-		Spec:       appsv1.DeploymentSpec{Replicas: int32Ptr(3)},
+		Spec:       appsv1.DeploymentSpec{Replicas: new(int32(3))},
 	}
 	fakeCS := newScaleFakeClientset(deploy)
 	dynClient := newWriteFakeDynClient()
@@ -131,7 +129,7 @@ func TestScaleResource_StatefulSet(t *testing.T) {
 
 	sts := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-sts", Namespace: "default"},
-		Spec:       appsv1.StatefulSetSpec{Replicas: int32Ptr(2)},
+		Spec:       appsv1.StatefulSetSpec{Replicas: new(int32(2))},
 	}
 	fakeCS := newScaleFakeClientset(sts)
 	dynClient := newWriteFakeDynClient()
@@ -166,7 +164,7 @@ func TestScaleResource_ReplicaSet(t *testing.T) {
 
 	rs := &appsv1.ReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-rs", Namespace: "default"},
-		Spec:       appsv1.ReplicaSetSpec{Replicas: int32Ptr(1)},
+		Spec:       appsv1.ReplicaSetSpec{Replicas: new(int32(1))},
 	}
 	fakeCS := newScaleFakeClientset(rs)
 	dynClient := newWriteFakeDynClient()

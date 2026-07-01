@@ -12,28 +12,28 @@ import (
 )
 
 func TestGetResourceFormatParameter(t *testing.T) {
-	pod := &unstructured.Unstructured{Object: map[string]interface{}{
+	pod := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "v1",
 		"kind":       "Pod",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              "fmt-pod",
 			"namespace":         "default",
 			"creationTimestamp": "2024-01-01T00:00:00Z",
 			"uid":               "uid-abc",
 			"resourceVersion":   "42",
-			"managedFields":     []interface{}{map[string]interface{}{"manager": "kubectl"}},
+			"managedFields":     []any{map[string]any{"manager": "kubectl"}},
 		},
-		"spec": map[string]interface{}{
+		"spec": map[string]any{
 			"nodeName": "node-1",
 		},
-		"status": map[string]interface{}{
+		"status": map[string]any{
 			"phase": "Running",
-			"containerStatuses": []interface{}{
-				map[string]interface{}{
+			"containerStatuses": []any{
+				map[string]any{
 					"ready":        true,
 					"restartCount": int64(0),
-					"state": map[string]interface{}{
-						"running": map[string]interface{}{
+					"state": map[string]any{
+						"running": map[string]any{
 							"startedAt": "2024-01-01T00:00:00Z",
 						},
 					},
@@ -194,13 +194,13 @@ func TestGetResourceFormatParameter(t *testing.T) {
 
 func TestGetResourceSummaryGenericKind(t *testing.T) {
 	// Test summary format for an unknown kind (not Pod, Deployment, etc.)
-	ns := &unstructured.Unstructured{Object: map[string]interface{}{
+	ns := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "v1",
 		"kind":       "Namespace",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              "test-ns",
 			"creationTimestamp": "2024-01-01T00:00:00Z",
-			"labels":            map[string]interface{}{"env": "test"},
+			"labels":            map[string]any{"env": "test"},
 		},
 	}}
 
@@ -240,12 +240,12 @@ func TestGetResourceSummaryGenericKind(t *testing.T) {
 }
 
 func TestEnrichGeneric(t *testing.T) {
-	obj := &unstructured.Unstructured{Object: map[string]interface{}{
+	obj := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "v1",
 		"kind":       "ConfigMap",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name": "test-cm",
-			"labels": map[string]interface{}{
+			"labels": map[string]any{
 				"app": "web",
 			},
 		},
@@ -270,10 +270,10 @@ func TestEnrichGeneric(t *testing.T) {
 }
 
 func TestEnrichGenericNoLabels(t *testing.T) {
-	obj := &unstructured.Unstructured{Object: map[string]interface{}{
+	obj := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "v1",
 		"kind":       "ConfigMap",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name": "test-cm",
 		},
 	}}

@@ -53,11 +53,11 @@ func registerListRBACBindings(s *server.MCPServer, pool *kube.ClientPool) {
 		subjectKind := req.GetString("subjectKind", "")
 
 		type bindingItem struct {
-			Kind      string      `json:"kind"`
-			Name      string      `json:"name"`
-			Namespace string      `json:"namespace,omitempty"`
-			RoleRef   interface{} `json:"roleRef"`
-			Subjects  interface{} `json:"subjects"`
+			Kind      string `json:"kind"`
+			Name      string `json:"name"`
+			Namespace string `json:"namespace,omitempty"`
+			RoleRef   any    `json:"roleRef"`
+			Subjects  any    `json:"subjects"`
 		}
 
 		var items []bindingItem
@@ -110,7 +110,7 @@ func registerListRBACBindings(s *server.MCPServer, pool *kube.ClientPool) {
 }
 
 // subjectsMatch returns true if all non-empty filters match at least one subject.
-func subjectsMatch(subjects interface{}, name, kind string) bool {
+func subjectsMatch(subjects any, name, kind string) bool {
 	if name == "" && kind == "" {
 		return true
 	}
@@ -180,7 +180,7 @@ func registerListRBACRoles(s *server.MCPServer, pool *kube.ClientPool) {
 				if err != nil {
 					return mcp.NewToolResultError(fmt.Sprintf("role %q not found in namespace %q: %v", name, namespace, err)), nil
 				}
-				result := map[string]interface{}{
+				result := map[string]any{
 					"kind":      "Role",
 					"name":      role.Name,
 					"namespace": role.Namespace,
@@ -196,7 +196,7 @@ func registerListRBACRoles(s *server.MCPServer, pool *kube.ClientPool) {
 			if err != nil {
 				return mcp.NewToolResultError(fmt.Sprintf("cluster role %q not found: %v", name, err)), nil
 			}
-			result := map[string]interface{}{
+			result := map[string]any{
 				"kind":  "ClusterRole",
 				"name":  clusterRole.Name,
 				"rules": clusterRole.Rules,
@@ -292,7 +292,7 @@ func registerListServiceAccounts(s *server.MCPServer, pool *kube.ClientPool) {
 			for _, ref := range sa.Secrets {
 				secretNames = append(secretNames, ref.Name)
 			}
-			result := map[string]interface{}{
+			result := map[string]any{
 				"name":      sa.Name,
 				"namespace": sa.Namespace,
 				"secrets":   secretNames,

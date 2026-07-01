@@ -17,20 +17,20 @@ import (
 )
 
 // testRunningPod returns an unstructured Pod with the given labels and Running phase.
-func testRunningPod(name, ns string, labels map[string]interface{}) *unstructured.Unstructured {
-	return &unstructured.Unstructured{Object: map[string]interface{}{
+func testRunningPod(name, ns string, labels map[string]any) *unstructured.Unstructured {
+	return &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "v1",
 		"kind":       "Pod",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              name,
 			"namespace":         ns,
 			"labels":            labels,
 			"creationTimestamp": "2024-01-01T00:00:00Z",
 		},
-		"spec": map[string]interface{}{
+		"spec": map[string]any{
 			"nodeName": "node-1",
 		},
-		"status": map[string]interface{}{
+		"status": map[string]any{
 			"phase": "Running",
 		},
 	}}
@@ -92,9 +92,9 @@ func TestGetLogs_LabelSelectorFindsPods(t *testing.T) {
 	cfg := defaultCfg()
 	fakeCS := fake.NewClientset()
 	dynClient := newFakeDynClient(
-		testRunningPod("nginx-1", "default", map[string]interface{}{"app": "nginx"}),
-		testRunningPod("nginx-2", "default", map[string]interface{}{"app": "nginx"}),
-		testRunningPod("redis-1", "default", map[string]interface{}{"app": "redis"}),
+		testRunningPod("nginx-1", "default", map[string]any{"app": "nginx"}),
+		testRunningPod("nginx-2", "default", map[string]any{"app": "nginx"}),
+		testRunningPod("redis-1", "default", map[string]any{"app": "redis"}),
 	)
 	pool := buildPool(cfg, defaultRawConfig(), dynClient, fakeCS)
 
@@ -371,7 +371,7 @@ func TestGetLogs_ReadFollowStream_BufferCapLines(t *testing.T) {
 	pr, pw := io.Pipe()
 	go func() {
 		defer func() { _ = pw.Close() }()
-		for i := 0; i < 10100; i++ {
+		for i := range 10100 {
 			_, _ = fmt.Fprintf(pw, "log line %d\n", i)
 		}
 	}()
@@ -392,7 +392,7 @@ func TestGetLogs_ReadFollowStream_BufferCapBytes(t *testing.T) {
 		defer func() { _ = pw.Close() }()
 		// Write lines that total > 1MB.
 		line := strings.Repeat("x", 1000) + "\n"
-		for i := 0; i < 1100; i++ {
+		for range 1100 {
 			_, _ = fmt.Fprint(pw, line)
 		}
 	}()

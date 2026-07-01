@@ -702,17 +702,17 @@ func TestScaleResource_SafetyDelayApplied(t *testing.T) {
 
 // testDaemonSet returns an unstructured DaemonSet object.
 func testDaemonSet(name, ns string) *unstructured.Unstructured {
-	return &unstructured.Unstructured{Object: map[string]interface{}{
+	return &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "apps/v1",
 		"kind":       "DaemonSet",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              name,
 			"namespace":         ns,
 			"creationTimestamp": "2024-01-01T00:00:00Z",
 		},
-		"spec": map[string]interface{}{
-			"template": map[string]interface{}{
-				"metadata": map[string]interface{}{},
+		"spec": map[string]any{
+			"template": map[string]any{
+				"metadata": map[string]any{},
 			},
 		},
 	}}

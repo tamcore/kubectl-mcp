@@ -102,7 +102,7 @@ type podCleanupEntry struct {
 // parseStates parses a comma-separated list of state names into a lookup set.
 func parseStates(s string) map[string]bool {
 	states := make(map[string]bool)
-	for _, part := range strings.Split(s, ",") {
+	for part := range strings.SplitSeq(s, ",") {
 		part = strings.TrimSpace(part)
 		if part != "" {
 			states[part] = true

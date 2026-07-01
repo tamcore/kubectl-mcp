@@ -27,7 +27,7 @@ func parseSortBy(raw string) (fieldPath string, descending bool) {
 // For RFC3339 timestamps it returns a zero-padded representation so that
 // lexicographic ordering equals chronological ordering.
 // Returns ("", false) when the field is absent.
-func extractSortKey(obj map[string]interface{}, fieldPath string) (string, bool) {
+func extractSortKey(obj map[string]any, fieldPath string) (string, bool) {
 	parts := strings.Split(fieldPath, ".")
 	raw, found := nestedFieldValue(obj, parts)
 	if !found {

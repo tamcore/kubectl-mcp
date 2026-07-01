@@ -159,7 +159,7 @@ func splitYAMLDocuments(manifest string) []string {
 	normalized := strings.ReplaceAll(manifest, "\r\n", "\n")
 	var docs []string
 	var current strings.Builder
-	for _, line := range strings.Split(normalized, "\n") {
+	for line := range strings.SplitSeq(normalized, "\n") {
 		if strings.TrimSpace(line) == "---" {
 			docs = append(docs, current.String())
 			current.Reset()

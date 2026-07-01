@@ -15,18 +15,18 @@ import (
 
 // testReplicaSet returns an unstructured ReplicaSet with revision annotation and owner reference.
 func testReplicaSet(name, ns, revision, ownerName string) *unstructured.Unstructured {
-	return &unstructured.Unstructured{Object: map[string]interface{}{
+	return &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "apps/v1",
 		"kind":       "ReplicaSet",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":              name,
 			"namespace":         ns,
 			"creationTimestamp": "2024-01-01T00:00:00Z",
-			"annotations": map[string]interface{}{
+			"annotations": map[string]any{
 				"deployment.kubernetes.io/revision": revision,
 			},
-			"ownerReferences": []interface{}{
-				map[string]interface{}{
+			"ownerReferences": []any{
+				map[string]any{
 					"apiVersion": "apps/v1",
 					"kind":       "Deployment",
 					"name":       ownerName,
@@ -34,12 +34,12 @@ func testReplicaSet(name, ns, revision, ownerName string) *unstructured.Unstruct
 				},
 			},
 		},
-		"spec": map[string]interface{}{
+		"spec": map[string]any{
 			"replicas": int64(3),
-			"template": map[string]interface{}{
-				"spec": map[string]interface{}{
-					"containers": []interface{}{
-						map[string]interface{}{
+			"template": map[string]any{
+				"spec": map[string]any{
+					"containers": []any{
+						map[string]any{
 							"name":  "web",
 							"image": "nginx:1." + revision,
 						},
@@ -47,7 +47,7 @@ func testReplicaSet(name, ns, revision, ownerName string) *unstructured.Unstruct
 				},
 			},
 		},
-		"status": map[string]interface{}{
+		"status": map[string]any{
 			"replicas":      int64(3),
 			"readyReplicas": int64(3),
 		},
@@ -82,12 +82,12 @@ func TestRolloutHistory_DeploymentAllRevisions(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal([]byte(text), &result); err != nil {
 		t.Fatalf("expected JSON output, got: %s", text)
 	}
 
-	revisions, ok := result["revisions"].([]interface{})
+	revisions, ok := result["revisions"].([]any)
 	if !ok {
 		t.Fatalf("expected revisions array, got: %v", result["revisions"])
 	}
@@ -96,11 +96,11 @@ func TestRolloutHistory_DeploymentAllRevisions(t *testing.T) {
 	}
 
 	// Verify sorted by revision number.
-	rev1 := revisions[0].(map[string]interface{})
+	rev1 := revisions[0].(map[string]any)
 	if rev1["revision"].(float64) != 1 {
 		t.Errorf("expected first revision=1, got %v", rev1["revision"])
 	}
-	rev3 := revisions[2].(map[string]interface{})
+	rev3 := revisions[2].(map[string]any)
 	if rev3["revision"].(float64) != 3 {
 		t.Errorf("expected last revision=3, got %v", rev3["revision"])
 	}
@@ -134,7 +134,7 @@ func TestRolloutHistory_DeploymentSpecificRevision(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal([]byte(text), &result); err != nil {
 		t.Fatalf("expected JSON output, got: %s", text)
 	}
@@ -231,12 +231,12 @@ func TestRolloutHistory_NoReplicaSetsFound(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal([]byte(text), &result); err != nil {
 		t.Fatalf("expected JSON output, got: %s", text)
 	}
 
-	revisions := result["revisions"].([]interface{})
+	revisions := result["revisions"].([]any)
 	if len(revisions) != 0 {
 		t.Errorf("expected 0 revisions, got %d", len(revisions))
 	}
@@ -291,12 +291,12 @@ func TestRolloutHistory_FiltersUnrelatedReplicaSets(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal([]byte(text), &result); err != nil {
 		t.Fatalf("expected JSON output, got: %s", text)
 	}
 
-	revisions := result["revisions"].([]interface{})
+	revisions := result["revisions"].([]any)
 	if len(revisions) != 1 {
 		t.Errorf("expected 1 revision (only owned by my-deploy), got %d", len(revisions))
 	}
