@@ -3,7 +3,7 @@ module github.com/tamcore/kubectl-mcp
 go 1.26.2
 
 require (
-	github.com/mark3labs/mcp-go v0.52.0
+	github.com/mark3labs/mcp-go v0.55.1
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	golang.org/x/time v0.15.0
