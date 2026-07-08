@@ -22,7 +22,7 @@ jobs:
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
-      - uses: helm/kind-action@v1.14.0
+      - uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
         with:
           cluster_name: e2e
       - run: go test -v -race -count=1 -tags=e2e -timeout=10m ./e2e/...
