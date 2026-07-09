@@ -3,7 +3,8 @@
 package e2e
 
 import (
-	"encoding/base64"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -46,6 +47,37 @@ func TestCopyFromPod(t *testing.T) {
 				}
 			})
 
+			t.Run("to_local_file", func(t *testing.T) {
+				// Write a file via exec, then copy_from_pod into a local file.
+				callTool(t, c, "exec_pod", map[string]any{
+					"namespace": testNamespace,
+					"pod":       podName,
+					"command":   []any{"sh", "-c", "echo 'saved to disk' > /tmp/cp-local.txt"},
+				})
+
+				local := filepath.Join(t.TempDir(), "pulled.txt")
+				result := callTool(t, c, "copy_from_pod", map[string]any{
+					"namespace":  testNamespace,
+					"pod":        podName,
+					"src_path":   "/tmp/cp-local.txt",
+					"local_path": local,
+				})
+				if result.IsError {
+					t.Fatalf("copy_from_pod to local error: %s", resultText(result))
+				}
+				text := resultText(result)
+				if strings.Contains(text, "saved to disk") {
+					t.Errorf("expected metadata-only result, content was echoed: %s", text)
+				}
+				got, err := os.ReadFile(local)
+				if err != nil {
+					t.Fatalf("reading local file: %v", err)
+				}
+				if !strings.Contains(string(got), "saved to disk") {
+					t.Errorf("expected content in local file, got: %q", string(got))
+				}
+			})
+
 			t.Run("nonexistent_file", func(t *testing.T) {
 				result := callTool(t, c, "copy_from_pod", map[string]any{
 					"namespace": testNamespace,
@@ -75,12 +107,17 @@ func TestCopyToPod(t *testing.T) {
 			t.Cleanup(func() { deleteViaKubectl(t, "pod", podName, testNamespace) })
 			waitForPodReady(t, podName, testNamespace)
 
-			t.Run("text_content", func(t *testing.T) {
+			t.Run("local_file", func(t *testing.T) {
+				local := filepath.Join(t.TempDir(), "src.txt")
+				if err := os.WriteFile(local, []byte("injected content\n"), 0644); err != nil {
+					t.Fatalf("writing local file: %v", err)
+				}
+
 				result := callTool(t, c, "copy_to_pod", map[string]any{
-					"namespace": testNamespace,
-					"pod":       podName,
-					"dest_path": "/tmp/injected.txt",
-					"content":   "injected content\n",
+					"namespace":  testNamespace,
+					"pod":        podName,
+					"dest_path":  "/tmp/injected.txt",
+					"local_path": local,
 				})
 				if result.IsError {
 					t.Fatalf("copy_to_pod error: %s", resultText(result))
@@ -99,19 +136,21 @@ func TestCopyToPod(t *testing.T) {
 				}
 			})
 
-			t.Run("base64_content", func(t *testing.T) {
+			t.Run("binary_file", func(t *testing.T) {
 				binaryData := []byte{0x00, 0x01, 0x02, 0x03, 0xff}
-				encoded := base64.StdEncoding.EncodeToString(binaryData)
+				local := filepath.Join(t.TempDir(), "src.bin")
+				if err := os.WriteFile(local, binaryData, 0644); err != nil {
+					t.Fatalf("writing local binary file: %v", err)
+				}
 
 				result := callTool(t, c, "copy_to_pod", map[string]any{
-					"namespace": testNamespace,
-					"pod":       podName,
-					"dest_path": "/tmp/binary.bin",
-					"content":   encoded,
-					"encoding":  "base64",
+					"namespace":  testNamespace,
+					"pod":        podName,
+					"dest_path":  "/tmp/binary.bin",
+					"local_path": local,
 				})
 				if result.IsError {
-					t.Fatalf("copy_to_pod base64 error: %s", resultText(result))
+					t.Fatalf("copy_to_pod binary error: %s", resultText(result))
 				}
 
 				// Verify byte count via exec.
@@ -124,7 +163,7 @@ func TestCopyToPod(t *testing.T) {
 				}
 			})
 
-			})
+		})
 	}
 }
 
@@ -138,10 +177,10 @@ func TestCopyToPod_RejectedWithoutAllowWrite(t *testing.T) {
 			c := tc.clientFunc(t, base)
 
 			_, err := callToolMayFail(t, c, "copy_to_pod", map[string]any{
-				"namespace": testNamespace,
-				"pod":       "any-pod",
-				"dest_path": "/tmp/test.txt",
-				"content":   "data",
+				"namespace":  testNamespace,
+				"pod":        "any-pod",
+				"dest_path":  "/tmp/test.txt",
+				"local_path": "/tmp/whatever",
 			})
 			if err == nil {
 				t.Error("expected error — copy_to_pod should not be registered without --allow-write")
