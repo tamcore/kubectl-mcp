@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -78,6 +80,142 @@ func TestCopyFromPod_TextFile(t *testing.T) {
 	}
 	if !strings.Contains(text, "encoding: text") {
 		t.Errorf("expected text encoding, got: %s", text)
+	}
+}
+
+func TestCopyFromPod_WritesLocalFile(t *testing.T) {
+	cfg := defaultCfg()
+	pool := buildWritePool(cfg, newWriteFakeDynClient(), fake.NewClientset())
+
+	tarBytes := buildTar("etc/myconfig", []byte("hello world\n"))
+	runner := &fakeTarExecRunner{tarContent: tarBytes}
+	handler := getHandler(t, "copy_from_pod", func(s *server.MCPServer) {
+		registerCopyFromPod(s, pool, runner, cfg)
+	})
+
+	local := filepath.Join(t.TempDir(), "out.txt")
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"namespace":  "default",
+		"pod":        "my-pod",
+		"src_path":   "/etc/myconfig",
+		"local_path": local,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	text := resultText(t, res)
+	// Metadata only — content must NOT be echoed inline.
+	if strings.Contains(text, "hello world") {
+		t.Errorf("expected metadata-only result, but content was echoed: %s", text)
+	}
+	if !strings.Contains(text, local) {
+		t.Errorf("expected local path in result, got: %s", text)
+	}
+
+	got, err := os.ReadFile(local)
+	if err != nil {
+		t.Fatalf("reading written file: %v", err)
+	}
+	if string(got) != "hello world\n" {
+		t.Errorf("expected written file contents, got: %q", string(got))
+	}
+}
+
+func TestCopyFromPod_ExistingFileNoOverwrite(t *testing.T) {
+	cfg := defaultCfg()
+	pool := buildWritePool(cfg, newWriteFakeDynClient(), fake.NewClientset())
+
+	tarBytes := buildTar("etc/myconfig", []byte("new content\n"))
+	runner := &fakeTarExecRunner{tarContent: tarBytes}
+	handler := getHandler(t, "copy_from_pod", func(s *server.MCPServer) {
+		registerCopyFromPod(s, pool, runner, cfg)
+	})
+
+	local := filepath.Join(t.TempDir(), "out.txt")
+	if err := os.WriteFile(local, []byte("original\n"), 0644); err != nil {
+		t.Fatalf("seeding file: %v", err)
+	}
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"namespace":  "default",
+		"pod":        "my-pod",
+		"src_path":   "/etc/myconfig",
+		"local_path": local,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.IsError {
+		t.Fatal("expected error when local file exists without overwrite")
+	}
+	if !strings.Contains(resultText(t, res), "already exists") {
+		t.Errorf("expected already-exists error, got: %s", resultText(t, res))
+	}
+
+	// Original file must be untouched.
+	got, _ := os.ReadFile(local)
+	if string(got) != "original\n" {
+		t.Errorf("expected original file preserved, got: %q", string(got))
+	}
+}
+
+func TestCopyFromPod_ExistingFileOverwrite(t *testing.T) {
+	cfg := defaultCfg()
+	pool := buildWritePool(cfg, newWriteFakeDynClient(), fake.NewClientset())
+
+	tarBytes := buildTar("etc/myconfig", []byte("new content\n"))
+	runner := &fakeTarExecRunner{tarContent: tarBytes}
+	handler := getHandler(t, "copy_from_pod", func(s *server.MCPServer) {
+		registerCopyFromPod(s, pool, runner, cfg)
+	})
+
+	local := filepath.Join(t.TempDir(), "out.txt")
+	if err := os.WriteFile(local, []byte("original\n"), 0644); err != nil {
+		t.Fatalf("seeding file: %v", err)
+	}
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"namespace":  "default",
+		"pod":        "my-pod",
+		"src_path":   "/etc/myconfig",
+		"local_path": local,
+		"overwrite":  true,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.IsError {
+		t.Fatalf("unexpected error: %s", resultText(t, res))
+	}
+
+	got, _ := os.ReadFile(local)
+	if string(got) != "new content\n" {
+		t.Errorf("expected file overwritten, got: %q", string(got))
+	}
+}
+
+func TestCopyFromPod_LocalPathNotAbsolute(t *testing.T) {
+	cfg := defaultCfg()
+	pool := buildWritePool(cfg, newWriteFakeDynClient(), fake.NewClientset())
+
+	tarBytes := buildTar("etc/myconfig", []byte("data"))
+	runner := &fakeTarExecRunner{tarContent: tarBytes}
+	handler := getHandler(t, "copy_from_pod", func(s *server.MCPServer) {
+		registerCopyFromPod(s, pool, runner, cfg)
+	})
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"namespace":  "default",
+		"pod":        "my-pod",
+		"src_path":   "/etc/myconfig",
+		"local_path": "relative/out.txt",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(resultText(t, res), "absolute") {
+		t.Errorf("expected absolute-path error, got: %s", resultText(t, res))
 	}
 }
 

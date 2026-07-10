@@ -138,7 +138,7 @@ kube-context. If omitted, the configured default context is used.
 | `list_rbac_bindings` | List ClusterRoleBindings or RoleBindings with optional subject/kind filter |
 | `list_rbac_roles` | List ClusterRoles or Roles; get detailed rules for a named role |
 | `list_service_accounts` | List ServiceAccounts or get details (exposes secret names, never token data) |
-| `copy_from_pod` | Copy a file from a pod container and return its contents (text as-is, binary base64-encoded) |
+| `copy_from_pod` | Copy a file from a pod container; returns contents inline (text as-is, binary base64-encoded), or writes to a local path when `local_path` is given |
 
 ### Write tools (require `--allow-write`)
 
@@ -157,7 +157,7 @@ kube-context. If omitted, the configured default context is used.
 | `rollout_resume` | Resume a paused Deployment rollout |
 | `run_pod` | Create and run a pod with a given image (like `kubectl run`) |
 | `port_forward` | Forward a local port to a pod, service, deployment, or statefulset port (with auto-timeout) |
-| `copy_to_pod` | Copy content to a file in a pod container (use `encoding=base64` for binary data) |
+| `copy_to_pod` | Copy a local file into a pod container (file-to-file, like `kubectl cp`) |
 
 ### Destructive tools (require `--allow-destructive`)
 
