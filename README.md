@@ -11,6 +11,7 @@ lets LLMs query and manage your clusters safely.
 - **Secrets redacted by default** — `.data` and `.stringData` replaced with `<redacted>`
 - **Multi-kubeconfig** — honours `KUBECONFIG` with colon-separated paths
 - **Context filtering** — allow/deny contexts via glob (`prod-*`) or regex (`/^staging-.+$/`)
+- **Explicit context mode** — `--require-context` requires every context-aware tool call to name its target kube-context
 - **Three transports** — stdio (default), SSE, and streamable-HTTP
 - **Write operations** — opt-in via `--allow-write` for apply, patch, scale, restart, cordon, uncordon, exec, rollout undo, run, port-forward
 - **Destructive operations** — opt-in via `--allow-destructive` for delete and drain
@@ -33,33 +34,37 @@ go install github.com/tamcore/kubectl-mcp/cmd/kubectl-mcp@latest
 
 ## Usage
 
+The examples use the optional `--require-context` flag as a safety best
+practice. It makes clients identify the target cluster for each context-aware
+tool call.
+
 ```bash
 # Start with stdio transport (default)
-kubectl-mcp serve
+kubectl-mcp serve --require-context
 
 # Start with SSE transport
-kubectl-mcp serve --transport sse --sse-address :9090
+kubectl-mcp serve --require-context --transport sse --sse-address :9090
 
 # Start with streamable-HTTP transport
-kubectl-mcp serve --transport streamable-http --http-address :9090
+kubectl-mcp serve --require-context --transport streamable-http --http-address :9090
 
 # Use a specific kubeconfig and context
-kubectl-mcp serve --kubeconfig ~/.kube/config --context my-cluster
+kubectl-mcp serve --require-context --kubeconfig ~/.kube/config --context my-cluster
 
 # Allow secrets and restrict to specific contexts
-kubectl-mcp serve --allow-secrets --allowed-contexts "dev-*,staging-*"
+kubectl-mcp serve --require-context --allow-secrets --allowed-contexts "dev-*,staging-*"
 
 # Deny production contexts
-kubectl-mcp serve --denied-contexts "/^prod-/"
+kubectl-mcp serve --require-context --denied-contexts "/^prod-/"
 
 # Enable write operations
-kubectl-mcp serve --allow-write
+kubectl-mcp serve --require-context --allow-write
 
 # Enable all operations including delete and drain
-kubectl-mcp serve --allow-write --allow-destructive
+kubectl-mcp serve --require-context --allow-write --allow-destructive
 
 # Enable raw API access (bypasses secret redaction)
-kubectl-mcp serve --allow-write --allow-raw
+kubectl-mcp serve --require-context --allow-write --allow-raw
 ```
 
 ## Configuration
@@ -74,6 +79,7 @@ All flags can also be set via environment variables with a `KUBECTL_MCP_` prefix
 | `--http-address` | `KUBECTL_MCP_HTTP_ADDRESS` | `:8080` | Streamable-HTTP listen address |
 | `--kubeconfig` | `KUBECONFIG` | `~/.kube/config` | Colon-separated kubeconfig paths |
 | `--context` | `KUBECTL_MCP_CONTEXT` | *(current-context)* | Default kube-context override |
+| `--require-context` | `KUBECTL_MCP_REQUIRE_CONTEXT` | `false` | Require every context-aware tool call to specify its kube-context |
 | `--allowed-contexts` | `KUBECTL_MCP_ALLOWED_CONTEXTS` | `*` | Comma-separated glob/regex allow patterns |
 | `--denied-contexts` | `KUBECTL_MCP_DENIED_CONTEXTS` | *(none)* | Comma-separated glob/regex deny patterns |
 | `--allow-write` | `KUBECTL_MCP_ALLOW_WRITE` | `false` | Enable write operations (apply, patch, scale, restart, cordon, uncordon, exec, rollout undo, rollout pause/resume, run, port-forward) |
@@ -100,7 +106,7 @@ When logging is enabled (`--log-level info` or `debug`), the server writes **per
 └── staging.log         # Tool calls targeting staging
 ```
 
-Each tool call is routed to the log file matching the target kubecontext. The `context` parameter from the tool request determines the file; if omitted, the default context is used.
+Each tool call is routed to the log file matching the target kubecontext. The `context` parameter from the tool request determines the file. Without `--require-context`, an omitted parameter uses the default context.
 
 ### Context Filtering
 
@@ -112,8 +118,9 @@ Contexts are allowed if they match at least one `--allowed-contexts` pattern
 
 ## MCP Tools
 
-All tools accept an optional `context` parameter to target a specific
-kube-context. If omitted, the configured default context is used.
+Tools that target Kubernetes resources accept a `context` parameter. Without
+`--require-context`, the parameter is optional and the configured default
+context is used when it is omitted.
 
 ### Read-only tools (always available)
 
@@ -204,17 +211,45 @@ Noisy metadata (managedFields, last-applied-configuration) is automatically stri
 
 ## MCP Client Configuration
 
+### OpenAI Codex (stdio)
+
+Add two portable profiles to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.kubectl]
+command = "kubectl-mcp"
+args = ["serve", "--require-context"]
+env_vars = ["KUBECONFIG"]
+
+[mcp_servers.kubectl-destructive]
+command = "kubectl-mcp"
+args = [
+  "serve",
+  "--allow-write",
+  "--allow-secrets",
+  "--allow-destructive",
+  "--allow-raw",
+  "--require-context",
+]
+env_vars = ["KUBECONFIG"]
+```
+
+Use `kubectl` for routine work. `kubectl-destructive` exposes Secret data and
+raw, write, and destructive operations. Add the privileged profile only when
+you need those capabilities.
+
 ### Claude Code (stdio)
 
 ```bash
-claude mcp add --transport stdio --scope user kubectl -- kubectl-mcp serve
+claude mcp add --transport stdio --scope user kubectl -- kubectl-mcp serve --require-context
 ```
 
 With options:
 
 ```bash
 claude mcp add --transport stdio --scope user kubectl -- \
-  kubectl-mcp serve --allow-write --allow-secrets --denied-contexts "/^prod-/"
+  kubectl-mcp serve --require-context --allow-write --allow-secrets \
+  --denied-contexts "/^prod-/"
 ```
 
 To run directly from source (e.g. during development):
@@ -222,7 +257,7 @@ To run directly from source (e.g. during development):
 ```bash
 claude mcp add --transport stdio --scope user kubectl -- \
   go run -C /path/to/kubectl-mcp ./cmd/kubectl-mcp serve \
-  --allow-write --allow-destructive --allow-secrets
+  --require-context --allow-write --allow-destructive --allow-secrets
 ```
 
 > **Note:** Use absolute paths — `~` is not expanded. Use `--scope local` (default) for project-only config.
@@ -232,7 +267,7 @@ claude mcp add --transport stdio --scope user kubectl -- \
 Start the server, then register it:
 
 ```bash
-kubectl-mcp serve --transport sse &
+kubectl-mcp serve --require-context --transport sse &
 claude mcp add --transport sse --scope user kubectl http://localhost:8080/sse
 ```
 
@@ -241,7 +276,7 @@ claude mcp add --transport sse --scope user kubectl http://localhost:8080/sse
 Start the server, then register it:
 
 ```bash
-kubectl-mcp serve --transport streamable-http &
+kubectl-mcp serve --require-context --transport streamable-http &
 claude mcp add --transport http --scope user kubectl http://localhost:8080/mcp
 ```
 
@@ -255,7 +290,7 @@ Add to `~/.copilot/mcp-config.json`:
     "kubectl": {
       "type": "stdio",
       "command": "kubectl-mcp",
-      "args": ["serve"],
+      "args": ["serve", "--require-context"],
       "tools": ["*"]
     }
   }
@@ -275,6 +310,7 @@ To run directly from source (e.g. during development):
         "-C", "/path/to/kubectl-mcp",
         "./cmd/kubectl-mcp",
         "serve",
+        "--require-context",
         "--allow-write",
         "--allow-destructive",
         "--allow-secrets"
@@ -292,7 +328,7 @@ To run directly from source (e.g. during development):
 Start the server, then add to `~/.copilot/mcp-config.json`:
 
 ```bash
-kubectl-mcp serve --transport sse &
+kubectl-mcp serve --require-context --transport sse &
 ```
 
 ```json
@@ -313,7 +349,7 @@ kubectl-mcp serve --transport sse &
 Start the server, then add to `~/.copilot/mcp-config.json`:
 
 ```bash
-kubectl-mcp serve --transport streamable-http &
+kubectl-mcp serve --require-context --transport streamable-http &
 ```
 
 ```json
@@ -342,7 +378,8 @@ tailored to the given arguments.
 | `investigate-node` | `node`, `context`* | Investigate a node: describe → events → node stats → top pods |
 | `safe-rollback` | `deployment`, `namespace`, `context`* | Roll back a deployment safely: inspect history → confirm with user → undo |
 
-*`context` is optional — defaults to the server's current context.
+*`context` is required when the server uses `--require-context`. Otherwise, it
+is optional and defaults to the server's current context.
 
 ### Example (Claude Code)
 
