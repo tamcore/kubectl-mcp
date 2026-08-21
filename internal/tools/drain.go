@@ -161,10 +161,8 @@ func registerDrainNode(s *server.MCPServer, pool *kube.ClientPool, cfg *config.C
 
 			// Step 3: Evict the pod.
 			eviction := &policyv1.Eviction{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      pod.Name,
-					Namespace: pod.Namespace,
-				},
+				Name:      pod.Name,
+				Namespace: pod.Namespace,
 				DeleteOptions: &metav1.DeleteOptions{
 					DryRun: dryRunOption(dryRun),
 				},

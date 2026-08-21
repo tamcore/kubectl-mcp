@@ -188,9 +188,9 @@ func TestListResourcesSortBy(t *testing.T) {
 
 			t.Run("sort_by_name", func(t *testing.T) {
 				result := callTool(t, c, "list_resources", map[string]any{
-					"kind":          "ConfigMap",
-					"namespace":     testNamespace,
-					"sortBy":        ".metadata.name",
+					"kind":      "ConfigMap",
+					"namespace": testNamespace,
+					"sortBy":    ".metadata.name",
 				})
 				text := resultText(result)
 				if result.IsError {
@@ -217,9 +217,9 @@ func TestListResourcesSortBy(t *testing.T) {
 
 			t.Run("sort_descending", func(t *testing.T) {
 				result := callTool(t, c, "list_resources", map[string]any{
-					"kind":          "ConfigMap",
-					"namespace":     testNamespace,
-					"sortBy":        "-.metadata.name",
+					"kind":      "ConfigMap",
+					"namespace": testNamespace,
+					"sortBy":    "-.metadata.name",
 				})
 				text := resultText(result)
 				if result.IsError {

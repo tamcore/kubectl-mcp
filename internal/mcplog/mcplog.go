@@ -23,8 +23,7 @@ func ClassifyK8sError(err error) (mcp.LoggingLevel, string) {
 		return "", ""
 	}
 
-	var statusErr *k8serrors.StatusError
-	if !errors.As(err, &statusErr) {
+	if _, ok := errors.AsType[*k8serrors.StatusError](err); !ok {
 		return "", ""
 	}
 

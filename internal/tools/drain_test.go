@@ -19,23 +19,19 @@ import (
 // unmanagedPod returns a pod with no owner references (not managed by any controller).
 func unmanagedPod(name, ns, nodeName string) *corev1.Pod {
 	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: ns,
-		},
-		Spec: corev1.PodSpec{NodeName: nodeName},
+		Name:      name,
+		Namespace: ns,
+		Spec:      corev1.PodSpec{NodeName: nodeName},
 	}
 }
 
 // managedPod returns a pod owned by a ReplicaSet.
 func managedPod(name, ns, nodeName string) *corev1.Pod {
 	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: ns,
-			OwnerReferences: []metav1.OwnerReference{
-				{Kind: "ReplicaSet", Name: "rs-1"},
-			},
+		Name:      name,
+		Namespace: ns,
+		OwnerReferences: []metav1.OwnerReference{
+			{Kind: "ReplicaSet", Name: "rs-1"},
 		},
 		Spec: corev1.PodSpec{NodeName: nodeName},
 	}
@@ -48,12 +44,12 @@ func TestDrainNode_Basic(t *testing.T) {
 
 	pods := []runtime.Object{
 		&corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{Name: "pod-1", Namespace: "default"},
-			Spec:       corev1.PodSpec{NodeName: "node-1"},
+			Name: "pod-1", Namespace: "default",
+			Spec: corev1.PodSpec{NodeName: "node-1"},
 		},
 		&corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{Name: "pod-2", Namespace: "default"},
-			Spec:       corev1.PodSpec{NodeName: "node-1"},
+			Name: "pod-2", Namespace: "default",
+			Spec: corev1.PodSpec{NodeName: "node-1"},
 		},
 	}
 
@@ -96,19 +92,15 @@ func TestDrainNode_SkipDaemonSet(t *testing.T) {
 
 	pods := []runtime.Object{
 		&corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "regular-pod",
-				Namespace: "default",
-			},
-			Spec: corev1.PodSpec{NodeName: "node-1"},
+			Name:      "regular-pod",
+			Namespace: "default",
+			Spec:      corev1.PodSpec{NodeName: "node-1"},
 		},
 		&corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "ds-pod",
-				Namespace: "kube-system",
-				OwnerReferences: []metav1.OwnerReference{
-					{Kind: "DaemonSet", Name: "my-ds"},
-				},
+			Name:      "ds-pod",
+			Namespace: "kube-system",
+			OwnerReferences: []metav1.OwnerReference{
+				{Kind: "DaemonSet", Name: "my-ds"},
 			},
 			Spec: corev1.PodSpec{NodeName: "node-1"},
 		},
@@ -152,12 +144,10 @@ func TestDrainNode_SkipMirrorPod(t *testing.T) {
 
 	pods := []runtime.Object{
 		&corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "mirror-pod",
-				Namespace: "kube-system",
-				Annotations: map[string]string{
-					"kubernetes.io/config.mirror": "abc123",
-				},
+			Name:      "mirror-pod",
+			Namespace: "kube-system",
+			Annotations: map[string]string{
+				"kubernetes.io/config.mirror": "abc123",
 			},
 			Spec: corev1.PodSpec{NodeName: "node-1"},
 		},
@@ -246,8 +236,8 @@ func TestDrainNode_DryRun(t *testing.T) {
 
 	pods := []runtime.Object{
 		&corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{Name: "pod-1", Namespace: "default"},
-			Spec:       corev1.PodSpec{NodeName: "node-1"},
+			Name: "pod-1", Namespace: "default",
+			Spec: corev1.PodSpec{NodeName: "node-1"},
 		},
 	}
 
@@ -440,13 +430,13 @@ func TestDrainNode_Timeout(t *testing.T) {
 	pods := []runtime.Object{
 		// pod-done is processed first and its eviction blocks for 100ms.
 		&corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{Name: "pod-done", Namespace: "default"},
-			Spec:       corev1.PodSpec{NodeName: "node-1"},
+			Name: "pod-done", Namespace: "default",
+			Spec: corev1.PodSpec{NodeName: "node-1"},
 		},
 		// slow-pod is the second pod — it should appear in the timeout error.
 		&corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{Name: "slow-pod", Namespace: "default"},
-			Spec:       corev1.PodSpec{NodeName: "node-1"},
+			Name: "slow-pod", Namespace: "default",
+			Spec: corev1.PodSpec{NodeName: "node-1"},
 		},
 	}
 
@@ -545,8 +535,8 @@ func TestDrainNode_TimeoutZero_NoTimeout(t *testing.T) {
 
 	pods := []runtime.Object{
 		&corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{Name: "pod-1", Namespace: "default"},
-			Spec:       corev1.PodSpec{NodeName: "node-1"},
+			Name: "pod-1", Namespace: "default",
+			Spec: corev1.PodSpec{NodeName: "node-1"},
 		},
 	}
 
