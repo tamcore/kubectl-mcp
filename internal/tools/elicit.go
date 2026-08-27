@@ -21,6 +21,11 @@ func confirmDestructiveAction(ctx context.Context, s *server.MCPServer, message 
 		return true, nil
 	}
 
+	if !clientSupportsElicitation(ctx) {
+		// Client did not declare elicitation capability: proceed without confirmation.
+		return true, nil
+	}
+
 	request := mcp.ElicitationRequest{
 		Params: mcp.ElicitationParams{
 			Message: message,
@@ -70,4 +75,16 @@ func confirmDestructiveAction(ctx context.Context, s *server.MCPServer, message 
 	}
 
 	return confirm, nil
+}
+
+// clientSupportsElicitation reports whether the current session declared the
+// elicitation capability during initialization. Sessions that expose no client
+// info are assumed capable so that transports without capability tracking keep
+// working.
+func clientSupportsElicitation(ctx context.Context) bool {
+	session, ok := server.ClientSessionFromContext(ctx).(server.SessionWithClientInfo)
+	if !ok {
+		return true
+	}
+	return session.GetClientCapabilities().Elicitation != nil
 }
