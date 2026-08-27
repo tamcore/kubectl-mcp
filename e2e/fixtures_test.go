@@ -253,6 +253,24 @@ func kubectlApplyStdin(manifest string) error {
 	return cmd.Run()
 }
 
+const widgetCRDName = "widgete2es.e2e.kubectl-mcp.dev"
+
+// ensureWidgetCRD applies the WidgetE2E CRD and waits until it is established.
+// Deletion blocks so that a later apply never races a terminating CRD.
+func ensureWidgetCRD(t *testing.T) {
+	t.Helper()
+	if err := kubectlApplyStdin(crdWithStatusManifest()); err != nil {
+		t.Fatalf("apply CRD: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = kubectl("delete", "crd", widgetCRDName, "--ignore-not-found")
+	})
+	if err := kubectl("wait", "--for=condition=Established",
+		"crd/"+widgetCRDName, "--timeout=60s"); err != nil {
+		t.Fatalf("CRD not established: %v", err)
+	}
+}
+
 // crdWithStatusManifest returns a CRD manifest for WidgetE2E
 // (group: e2e.kubectl-mcp.dev) with a status subresource.
 func crdWithStatusManifest() string {
