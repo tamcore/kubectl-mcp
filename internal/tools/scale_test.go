@@ -9,7 +9,6 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	clienttesting "k8s.io/client-go/testing"
@@ -30,8 +29,8 @@ func newScaleFakeClientset(objs ...runtime.Object) *fake.Clientset {
 					replicas = *d.Spec.Replicas
 				}
 				return true, &autoscalingv1.Scale{
-					ObjectMeta: metav1.ObjectMeta{Name: d.Name, Namespace: d.Namespace},
-					Spec:       autoscalingv1.ScaleSpec{Replicas: replicas},
+					Name: d.Name, Namespace: d.Namespace,
+					Spec: autoscalingv1.ScaleSpec{Replicas: replicas},
 				}, nil
 			}
 		}
@@ -51,8 +50,8 @@ func newScaleFakeClientset(objs ...runtime.Object) *fake.Clientset {
 					replicas = *s.Spec.Replicas
 				}
 				return true, &autoscalingv1.Scale{
-					ObjectMeta: metav1.ObjectMeta{Name: s.Name, Namespace: s.Namespace},
-					Spec:       autoscalingv1.ScaleSpec{Replicas: replicas},
+					Name: s.Name, Namespace: s.Namespace,
+					Spec: autoscalingv1.ScaleSpec{Replicas: replicas},
 				}, nil
 			}
 		}
@@ -72,8 +71,8 @@ func newScaleFakeClientset(objs ...runtime.Object) *fake.Clientset {
 					replicas = *r.Spec.Replicas
 				}
 				return true, &autoscalingv1.Scale{
-					ObjectMeta: metav1.ObjectMeta{Name: r.Name, Namespace: r.Namespace},
-					Spec:       autoscalingv1.ScaleSpec{Replicas: replicas},
+					Name: r.Name, Namespace: r.Namespace,
+					Spec: autoscalingv1.ScaleSpec{Replicas: replicas},
 				}, nil
 			}
 		}
@@ -93,8 +92,8 @@ func TestScaleResource_Deployment(t *testing.T) {
 	cfg.AllowWrite = true
 
 	deploy := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: "my-deploy", Namespace: "default"},
-		Spec:       appsv1.DeploymentSpec{Replicas: new(int32(3))},
+		Name: "my-deploy", Namespace: "default",
+		Spec: appsv1.DeploymentSpec{Replicas: new(int32(3))},
 	}
 	fakeCS := newScaleFakeClientset(deploy)
 	dynClient := newWriteFakeDynClient()
@@ -128,8 +127,8 @@ func TestScaleResource_StatefulSet(t *testing.T) {
 	cfg.AllowWrite = true
 
 	sts := &appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{Name: "my-sts", Namespace: "default"},
-		Spec:       appsv1.StatefulSetSpec{Replicas: new(int32(2))},
+		Name: "my-sts", Namespace: "default",
+		Spec: appsv1.StatefulSetSpec{Replicas: new(int32(2))},
 	}
 	fakeCS := newScaleFakeClientset(sts)
 	dynClient := newWriteFakeDynClient()
@@ -163,8 +162,8 @@ func TestScaleResource_ReplicaSet(t *testing.T) {
 	cfg.AllowWrite = true
 
 	rs := &appsv1.ReplicaSet{
-		ObjectMeta: metav1.ObjectMeta{Name: "my-rs", Namespace: "default"},
-		Spec:       appsv1.ReplicaSetSpec{Replicas: new(int32(1))},
+		Name: "my-rs", Namespace: "default",
+		Spec: appsv1.ReplicaSetSpec{Replicas: new(int32(1))},
 	}
 	fakeCS := newScaleFakeClientset(rs)
 	dynClient := newWriteFakeDynClient()

@@ -296,4 +296,3 @@ func widgetCRManifest(name, namespace string) string {
 		"spec": {"size": 1}
 	}`, name, namespace)
 }
-

@@ -4,9 +4,9 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
-	"encoding/base64"
 	"fmt"
 	"io"
+	"os"
 	"path"
 	"strings"
 
@@ -65,7 +65,7 @@ func registerCopyToPod(s *server.MCPServer, pool *kube.ClientPool, runner CopyRu
 	}
 
 	tool := mcp.NewTool("copy_to_pod",
-		mcp.WithDescription("Copy content to a file in a pod container. Use encoding=base64 for binary data. Requires --allow-write."),
+		mcp.WithDescription("Copy a local file into a pod container (file-to-file, like kubectl cp). Requires --allow-write."),
 		mcp.WithReadOnlyHintAnnotation(false),
 		mcp.WithDestructiveHintAnnotation(false),
 		mcp.WithIdempotentHintAnnotation(false),
@@ -88,12 +88,9 @@ func registerCopyToPod(s *server.MCPServer, pool *kube.ClientPool, runner CopyRu
 			mcp.Required(),
 			mcp.Description("Absolute destination path inside the container (e.g. /etc/myapp/config.yaml)"),
 		),
-		mcp.WithString("content",
+		mcp.WithString("local_path",
 			mcp.Required(),
-			mcp.Description("File content to write. Plain text by default; base64-encoded bytes when encoding=base64"),
-		),
-		mcp.WithString("encoding",
-			mcp.Description("Content encoding: \"text\" (default) or \"base64\""),
+			mcp.Description("Absolute path to a local file on the machine running the server to copy into the pod (file-to-file, like kubectl cp)"),
 		),
 	)
 
@@ -126,21 +123,31 @@ func registerCopyToPod(s *server.MCPServer, pool *kube.ClientPool, runner CopyRu
 		if strings.Contains(destPath, "..") {
 			return mcp.NewToolResultError("dest_path must not contain '..'"), nil
 		}
-		content, err := req.RequireString("content")
+		localPath, err := req.RequireString("local_path")
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
+		}
+		if !path.IsAbs(localPath) {
+			return mcp.NewToolResultError("local_path must be an absolute path"), nil
 		}
 		container := req.GetString("container", "")
-		encoding := req.GetString("encoding", "text")
 
-		data, err := decodeContent(content, encoding)
+		info, err := os.Stat(localPath)
 		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
+			return mcp.NewToolResultError(fmt.Sprintf("cannot read local_path: %v", err)), nil
 		}
-		if len(data) > maxCopyBytes {
+		if info.IsDir() {
+			return mcp.NewToolResultError("local_path is a directory; only single files are supported"), nil
+		}
+		if info.Size() > maxCopyBytes {
 			return mcp.NewToolResultError(
-				fmt.Sprintf("content exceeds maximum allowed size of %d MB", maxCopyBytes/(1024*1024)),
+				fmt.Sprintf("local file exceeds maximum allowed size of %d MB", maxCopyBytes/(1024*1024)),
 			), nil
+		}
+
+		data, err := os.ReadFile(localPath)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to read local file: %v", err)), nil
 		}
 
 		if err := applySafetyDelay(ctx, req, cfg.SafetyDelayWrite); err != nil {
@@ -164,18 +171,6 @@ func registerCopyToPod(s *server.MCPServer, pool *kube.ClientPool, runner CopyRu
 
 		return mcp.NewToolResultText(fmt.Sprintf("copied %d bytes to %s:%s", len(data), pod, destPath)), nil
 	})
-}
-
-// decodeContent returns the raw bytes for the given content and encoding.
-func decodeContent(content, encoding string) ([]byte, error) {
-	if encoding == "base64" {
-		decoded, err := base64.StdEncoding.DecodeString(content)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode base64 content: %w", err)
-		}
-		return decoded, nil
-	}
-	return []byte(content), nil
 }
 
 // buildTarBuffer creates an in-memory tar archive with a single file at destPath.

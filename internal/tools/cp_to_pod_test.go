@@ -4,9 +4,10 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
-	"encoding/base64"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -18,6 +19,16 @@ import (
 
 	"github.com/tamcore/kubectl-mcp/internal/config"
 )
+
+// writeTempFile writes data to a file in a temp dir and returns its absolute path.
+func writeTempFile(t *testing.T, data []byte) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "src")
+	if err := os.WriteFile(p, data, 0644); err != nil {
+		t.Fatalf("writing temp file: %v", err)
+	}
+	return p
+}
 
 // fakeCopyRunner implements CopyRunner for testing.
 type fakeCopyRunner struct {
@@ -45,21 +56,22 @@ func (f *fakeCopyRunner) Run(_ context.Context, _ kubernetes.Interface, _ *rest.
 	return nil
 }
 
-func TestCopyToPod_TextContent(t *testing.T) {
+func TestCopyToPod_LocalFile(t *testing.T) {
 	cfg := defaultCfg()
 	cfg.AllowWrite = true
 	pool := buildWritePool(cfg, newWriteFakeDynClient(), fake.NewClientset())
 
+	local := writeTempFile(t, []byte("hello world\n"))
 	runner := &fakeCopyRunner{}
 	handler := getHandler(t, "copy_to_pod", func(s *server.MCPServer) {
 		registerCopyToPod(s, pool, runner, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
-		"namespace": "default",
-		"pod":       "my-pod",
-		"dest_path": "/etc/myconfig",
-		"content":   "hello world\n",
+		"namespace":  "default",
+		"pod":        "my-pod",
+		"dest_path":  "/etc/myconfig",
+		"local_path": local,
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -72,27 +84,35 @@ func TestCopyToPod_TextContent(t *testing.T) {
 	if !strings.Contains(text, "my-pod:/etc/myconfig") {
 		t.Errorf("expected pod:path in output, got: %s", text)
 	}
+
+	// Verify the tar sent to the pod contains the file bytes.
+	tr := tar.NewReader(bytes.NewReader(runner.capturedStdin))
+	if _, err := tr.Next(); err != nil {
+		t.Fatalf("could not read tar header: %v", err)
+	}
+	got, _ := io.ReadAll(tr)
+	if string(got) != "hello world\n" {
+		t.Errorf("expected file bytes in tar, got: %q", string(got))
+	}
 }
 
-func TestCopyToPod_Base64Content(t *testing.T) {
+func TestCopyToPod_BinaryFile(t *testing.T) {
 	cfg := defaultCfg()
 	cfg.AllowWrite = true
 	pool := buildWritePool(cfg, newWriteFakeDynClient(), fake.NewClientset())
 
 	binaryData := []byte{0x00, 0x01, 0x02, 0xff}
-	encoded := base64.StdEncoding.EncodeToString(binaryData)
-
+	local := writeTempFile(t, binaryData)
 	runner := &fakeCopyRunner{}
 	handler := getHandler(t, "copy_to_pod", func(s *server.MCPServer) {
 		registerCopyToPod(s, pool, runner, cfg)
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
-		"namespace": "default",
-		"pod":       "my-pod",
-		"dest_path": "/data/binary.bin",
-		"content":   encoded,
-		"encoding":  "base64",
+		"namespace":  "default",
+		"pod":        "my-pod",
+		"dest_path":  "/data/binary.bin",
+		"local_path": local,
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -103,10 +123,9 @@ func TestCopyToPod_Base64Content(t *testing.T) {
 		t.Errorf("expected success message, got: %s", text)
 	}
 
-	// Verify the tar sent to the pod contains the decoded binary data.
+	// Verify the tar sent to the pod contains the raw binary bytes.
 	tr := tar.NewReader(bytes.NewReader(runner.capturedStdin))
-	_, err = tr.Next()
-	if err != nil {
+	if _, err := tr.Next(); err != nil {
 		t.Fatalf("could not read tar header: %v", err)
 	}
 	got, _ := io.ReadAll(tr)
@@ -115,7 +134,7 @@ func TestCopyToPod_Base64Content(t *testing.T) {
 	}
 }
 
-func TestCopyToPod_InvalidBase64(t *testing.T) {
+func TestCopyToPod_LocalPathNotAbsolute(t *testing.T) {
 	cfg := defaultCfg()
 	cfg.AllowWrite = true
 	pool := buildWritePool(cfg, newWriteFakeDynClient(), fake.NewClientset())
@@ -126,19 +145,70 @@ func TestCopyToPod_InvalidBase64(t *testing.T) {
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
-		"namespace": "default",
-		"pod":       "my-pod",
-		"dest_path": "/data/file",
-		"content":   "not!!valid!!base64!!!",
-		"encoding":  "base64",
+		"namespace":  "default",
+		"pod":        "my-pod",
+		"dest_path":  "/etc/config",
+		"local_path": "relative/file",
 	}))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	text := resultText(t, res)
-	if !strings.Contains(text, "base64") {
-		t.Errorf("expected base64 decode error, got: %s", text)
+	if !strings.Contains(text, "absolute") {
+		t.Errorf("expected absolute-path error, got: %s", text)
+	}
+}
+
+func TestCopyToPod_LocalFileMissing(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+	pool := buildWritePool(cfg, newWriteFakeDynClient(), fake.NewClientset())
+
+	runner := &fakeCopyRunner{}
+	handler := getHandler(t, "copy_to_pod", func(s *server.MCPServer) {
+		registerCopyToPod(s, pool, runner, cfg)
+	})
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"namespace":  "default",
+		"pod":        "my-pod",
+		"dest_path":  "/etc/config",
+		"local_path": filepath.Join(t.TempDir(), "does-not-exist"),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	text := resultText(t, res)
+	if !strings.Contains(text, "cannot read local_path") {
+		t.Errorf("expected missing-file error, got: %s", text)
+	}
+}
+
+func TestCopyToPod_LocalPathIsDirectory(t *testing.T) {
+	cfg := defaultCfg()
+	cfg.AllowWrite = true
+	pool := buildWritePool(cfg, newWriteFakeDynClient(), fake.NewClientset())
+
+	runner := &fakeCopyRunner{}
+	handler := getHandler(t, "copy_to_pod", func(s *server.MCPServer) {
+		registerCopyToPod(s, pool, runner, cfg)
+	})
+
+	res, err := handler(context.Background(), callToolReq(map[string]any{
+		"namespace":  "default",
+		"pod":        "my-pod",
+		"dest_path":  "/etc/config",
+		"local_path": t.TempDir(),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	text := resultText(t, res)
+	if !strings.Contains(text, "directory") {
+		t.Errorf("expected directory error, got: %s", text)
 	}
 }
 
@@ -153,9 +223,9 @@ func TestCopyToPod_MissingNamespace(t *testing.T) {
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
-		"pod":       "my-pod",
-		"dest_path": "/etc/config",
-		"content":   "data",
+		"pod":        "my-pod",
+		"dest_path":  "/etc/config",
+		"local_path": "/tmp/whatever",
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -178,9 +248,9 @@ func TestCopyToPod_MissingPod(t *testing.T) {
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
-		"namespace": "default",
-		"dest_path": "/etc/config",
-		"content":   "data",
+		"namespace":  "default",
+		"dest_path":  "/etc/config",
+		"local_path": "/tmp/whatever",
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -203,9 +273,9 @@ func TestCopyToPod_MissingDestPath(t *testing.T) {
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
-		"namespace": "default",
-		"pod":       "my-pod",
-		"content":   "data",
+		"namespace":  "default",
+		"pod":        "my-pod",
+		"local_path": "/tmp/whatever",
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -217,7 +287,7 @@ func TestCopyToPod_MissingDestPath(t *testing.T) {
 	}
 }
 
-func TestCopyToPod_MissingContent(t *testing.T) {
+func TestCopyToPod_MissingLocalPath(t *testing.T) {
 	cfg := defaultCfg()
 	cfg.AllowWrite = true
 	pool := buildWritePool(cfg, newWriteFakeDynClient(), fake.NewClientset())
@@ -237,8 +307,8 @@ func TestCopyToPod_MissingContent(t *testing.T) {
 	}
 
 	text := resultText(t, res)
-	if !strings.Contains(text, "content") {
-		t.Errorf("expected content error, got: %s", text)
+	if !strings.Contains(text, "local_path") {
+		t.Errorf("expected local_path error, got: %s", text)
 	}
 }
 
@@ -252,10 +322,10 @@ func TestCopyToPod_ContextResolutionFailure(t *testing.T) {
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
-		"namespace": "default",
-		"pod":       "my-pod",
-		"dest_path": "/etc/config",
-		"content":   "data",
+		"namespace":  "default",
+		"pod":        "my-pod",
+		"dest_path":  "/etc/config",
+		"local_path": "/tmp/whatever",
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -278,10 +348,10 @@ func TestCopyToPod_ExecError(t *testing.T) {
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
-		"namespace": "default",
-		"pod":       "my-pod",
-		"dest_path": "/etc/config",
-		"content":   "data",
+		"namespace":  "default",
+		"pod":        "my-pod",
+		"dest_path":  "/etc/config",
+		"local_path": writeTempFile(t, []byte("data")),
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -305,10 +375,10 @@ func TestCopyToPod_SafetyDelay_Disabled(t *testing.T) {
 	})
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
-		"namespace": "default",
-		"pod":       "my-pod",
-		"dest_path": "/etc/config",
-		"content":   "data",
+		"namespace":  "default",
+		"pod":        "my-pod",
+		"dest_path":  "/etc/config",
+		"local_path": writeTempFile(t, []byte("data")),
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -334,10 +404,10 @@ func TestCopyToPod_TarContainsCorrectPath(t *testing.T) {
 	})
 
 	_, err := handler(context.Background(), callToolReq(map[string]any{
-		"namespace": "default",
-		"pod":       "my-pod",
-		"dest_path": "/etc/myapp/config.yaml",
-		"content":   "key: value\n",
+		"namespace":  "default",
+		"pod":        "my-pod",
+		"dest_path":  "/etc/myapp/config.yaml",
+		"local_path": writeTempFile(t, []byte("key: value\n")),
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -373,10 +443,10 @@ func TestCopyToPod_SafetyDelayInterrupted(t *testing.T) {
 	cancel()
 
 	res, err := handler(ctx, callToolReq(map[string]any{
-		"namespace": "default",
-		"pod":       "my-pod",
-		"dest_path": "/etc/config",
-		"content":   "data",
+		"namespace":  "default",
+		"pod":        "my-pod",
+		"dest_path":  "/etc/config",
+		"local_path": writeTempFile(t, []byte("data")),
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -400,11 +470,11 @@ func TestCopyToPod_WithContainer(t *testing.T) {
 	})
 
 	_, err := handler(context.Background(), callToolReq(map[string]any{
-		"namespace": "default",
-		"pod":       "my-pod",
-		"dest_path": "/cfg",
-		"content":   "data",
-		"container": "sidecar",
+		"namespace":  "default",
+		"pod":        "my-pod",
+		"dest_path":  "/cfg",
+		"local_path": writeTempFile(t, []byte("data")),
+		"container":  "sidecar",
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -440,10 +510,10 @@ func TestCopyToPod_PathValidation(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			res, err := handler(context.Background(), callToolReq(map[string]any{
-				"namespace": "default",
-				"pod":       "my-pod",
-				"dest_path": tc.destPath,
-				"content":   "data",
+				"namespace":  "default",
+				"pod":        "my-pod",
+				"dest_path":  tc.destPath,
+				"local_path": "/tmp/whatever",
 			}))
 			if err != nil {
 				t.Fatal(err)
@@ -494,7 +564,7 @@ func TestBuildTarBuffer_EmptyData(t *testing.T) {
 	}
 }
 
-func TestCopyToPod_ContentTooLarge(t *testing.T) {
+func TestCopyToPod_LocalFileTooLarge(t *testing.T) {
 	cfg := defaultCfg()
 	cfg.AllowWrite = true
 	pool := buildWritePool(cfg, newWriteFakeDynClient(), fake.NewClientset())
@@ -504,20 +574,28 @@ func TestCopyToPod_ContentTooLarge(t *testing.T) {
 		registerCopyToPod(s, pool, runner, cfg)
 	})
 
-	// Send content that is one byte over the limit.
-	overLimit := make([]byte, maxCopyBytes+1)
+	// Create a sparse file one byte over the limit (no data written to disk).
+	big := filepath.Join(t.TempDir(), "big")
+	f, err := os.Create(big)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	_ = f.Close()
+	if err := os.Truncate(big, maxCopyBytes+1); err != nil {
+		t.Fatalf("truncate: %v", err)
+	}
 
 	res, err := handler(context.Background(), callToolReq(map[string]any{
-		"namespace": "default",
-		"pod":       "my-pod",
-		"dest_path": "/tmp/bigfile",
-		"content":   string(overLimit),
+		"namespace":  "default",
+		"pod":        "my-pod",
+		"dest_path":  "/tmp/bigfile",
+		"local_path": big,
 	}))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !res.IsError {
-		t.Fatal("expected error for oversized content")
+		t.Fatal("expected error for oversized file")
 	}
 	text := resultText(t, res)
 	if !strings.Contains(text, "exceeds") {

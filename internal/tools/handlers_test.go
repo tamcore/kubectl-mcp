@@ -429,8 +429,8 @@ func TestListContextsHandler(t *testing.T) {
 
 func TestListNamespacesHandler(t *testing.T) {
 	fakeCS := fake.NewClientset(
-		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "kube-system"}},
-		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}},
+		&corev1.Namespace{Name: "kube-system"},
+		&corev1.Namespace{Name: "default"},
 	)
 	cfg := defaultCfg()
 	pool := buildPool(cfg, defaultRawConfig(), newFakeDynClient(), fakeCS)
@@ -1183,7 +1183,7 @@ func TestDescribeResourceHandler(t *testing.T) {
 	cfg := defaultCfg()
 	// Create a clientset with an event for the pod.
 	event := &corev1.Event{
-		ObjectMeta:     metav1.ObjectMeta{Name: "evt1", Namespace: "default"},
+		Name: "evt1", Namespace: "default",
 		InvolvedObject: corev1.ObjectReference{Kind: "Pod", Name: "desc-pod"},
 		Type:           "Normal",
 		Reason:         "Scheduled",
@@ -1550,7 +1550,7 @@ func TestGetEventsHandler(t *testing.T) {
 
 	t.Run("happy path", func(t *testing.T) {
 		event := &corev1.Event{
-			ObjectMeta:     metav1.ObjectMeta{Name: "evt1", Namespace: "default"},
+			Name: "evt1", Namespace: "default",
 			InvolvedObject: corev1.ObjectReference{Kind: "Pod", Name: "my-pod"},
 			Type:           "Warning",
 			Reason:         "BackOff",
@@ -1610,7 +1610,7 @@ func TestGetEventsHandler(t *testing.T) {
 
 	t.Run("with limit and fieldSelector", func(t *testing.T) {
 		event := &corev1.Event{
-			ObjectMeta:     metav1.ObjectMeta{Name: "evt2", Namespace: "default"},
+			Name: "evt2", Namespace: "default",
 			InvolvedObject: corev1.ObjectReference{Kind: "Deployment", Name: "my-deploy"},
 			Type:           "Normal",
 			Reason:         "ScalingReplicaSet",
@@ -1639,7 +1639,7 @@ func TestGetEventsHandler(t *testing.T) {
 
 	t.Run("all namespaces", func(t *testing.T) {
 		event := &corev1.Event{
-			ObjectMeta:     metav1.ObjectMeta{Name: "evt3", Namespace: "kube-system"},
+			Name: "evt3", Namespace: "kube-system",
 			InvolvedObject: corev1.ObjectReference{Kind: "Pod", Name: "kube-dns"},
 			Type:           "Normal",
 			Reason:         "Started",
@@ -1778,7 +1778,7 @@ func TestResolveGVR(t *testing.T) {
 func TestFetchEvents(t *testing.T) {
 	t.Run("with events", func(t *testing.T) {
 		event := &corev1.Event{
-			ObjectMeta:     metav1.ObjectMeta{Name: "evt1", Namespace: "default"},
+			Name: "evt1", Namespace: "default",
 			InvolvedObject: corev1.ObjectReference{Kind: "Pod", Name: "my-pod"},
 			Type:           "Normal",
 			Reason:         "Pulled",
@@ -1815,7 +1815,7 @@ func TestFetchEvents(t *testing.T) {
 
 	t.Run("zero timestamp shows unknown age", func(t *testing.T) {
 		event := &corev1.Event{
-			ObjectMeta:     metav1.ObjectMeta{Name: "evt2", Namespace: "default"},
+			Name: "evt2", Namespace: "default",
 			InvolvedObject: corev1.ObjectReference{Kind: "Pod", Name: "zero-ts-pod"},
 			Type:           "Warning",
 			Reason:         "Failed",
@@ -1962,7 +1962,7 @@ func TestGetEventsAllNamespaces(t *testing.T) {
 
 	t.Run("allNamespaces returns events from all namespaces", func(t *testing.T) {
 		event1 := &corev1.Event{
-			ObjectMeta:     metav1.ObjectMeta{Name: "evt-a", Namespace: "ns-one"},
+			Name: "evt-a", Namespace: "ns-one",
 			InvolvedObject: corev1.ObjectReference{Kind: "Pod", Name: "pod-a"},
 			Type:           "Normal",
 			Reason:         "Started",
@@ -1970,7 +1970,7 @@ func TestGetEventsAllNamespaces(t *testing.T) {
 			LastTimestamp:  metav1.Now(),
 		}
 		event2 := &corev1.Event{
-			ObjectMeta:     metav1.ObjectMeta{Name: "evt-b", Namespace: "ns-two"},
+			Name: "evt-b", Namespace: "ns-two",
 			InvolvedObject: corev1.ObjectReference{Kind: "Pod", Name: "pod-b"},
 			Type:           "Warning",
 			Reason:         "BackOff",

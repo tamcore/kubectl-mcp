@@ -106,13 +106,12 @@ func buildRolloutStatus(kind, name, namespace string, obj map[string]any) rollou
 	}
 
 	result := rolloutStatusResult{
-		Kind:      kind,
-		Name:      name,
-		Namespace: namespace,
-		Replicas:  make(map[string]int64),
+		Kind:       kind,
+		Name:       name,
+		Namespace:  namespace,
+		Replicas:   make(map[string]int64),
+		Conditions: extractConditions(status),
 	}
-
-	result.Conditions = extractConditions(status)
 
 	lowerKind := strings.ToLower(kind)
 	switch lowerKind {

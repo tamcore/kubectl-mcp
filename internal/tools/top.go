@@ -65,8 +65,7 @@ func isMetricsNotAvailable(err error) bool {
 	}
 	// NotFound on the resource type itself (not a specific object name).
 	if errors.IsNotFound(err) {
-		var statusErr *errors.StatusError
-		if stderrors.As(err, &statusErr) {
+		if statusErr, ok := stderrors.AsType[*errors.StatusError](err); ok {
 			// When metrics-server is missing, the "name" in the status is
 			// typically empty or describes the resource, not a user-supplied
 			// object name.

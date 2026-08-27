@@ -36,13 +36,13 @@ func defaultConfig() *config.Config {
 		kubeconfig = home + "/.kube/config"
 	}
 	return &config.Config{
-		Kubeconfig:      kubeconfig,
-		AllowedContexts: []string{"*"},
-		AllowWrite:      true,
+		Kubeconfig:       kubeconfig,
+		AllowedContexts:  []string{"*"},
+		AllowWrite:       true,
 		AllowDestructive: true,
-		AllowSecrets:    false,
-		RateLimitRead:   0, // unlimited for tests
-		RateLimitWrite:  0,
+		AllowSecrets:     false,
+		RateLimitRead:    0, // unlimited for tests
+		RateLimitWrite:   0,
 	}
 }
 

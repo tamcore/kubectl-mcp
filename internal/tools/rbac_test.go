@@ -9,7 +9,6 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/tamcore/kubectl-mcp/internal/config"
@@ -22,15 +21,15 @@ import (
 func TestListRBACBindings_ClusterRoleBindings(t *testing.T) {
 	fakeCS := fake.NewClientset(
 		&rbacv1.ClusterRoleBinding{
-			ObjectMeta: metav1.ObjectMeta{Name: "cluster-admin-binding"},
-			RoleRef:    rbacv1.RoleRef{Kind: "ClusterRole", Name: "cluster-admin", APIGroup: "rbac.authorization.k8s.io"},
+			Name:    "cluster-admin-binding",
+			RoleRef: rbacv1.RoleRef{Kind: "ClusterRole", Name: "cluster-admin", APIGroup: "rbac.authorization.k8s.io"},
 			Subjects: []rbacv1.Subject{
 				{Kind: "User", Name: "admin@example.com", APIGroup: "rbac.authorization.k8s.io"},
 			},
 		},
 		&rbacv1.ClusterRoleBinding{
-			ObjectMeta: metav1.ObjectMeta{Name: "view-binding"},
-			RoleRef:    rbacv1.RoleRef{Kind: "ClusterRole", Name: "view", APIGroup: "rbac.authorization.k8s.io"},
+			Name:    "view-binding",
+			RoleRef: rbacv1.RoleRef{Kind: "ClusterRole", Name: "view", APIGroup: "rbac.authorization.k8s.io"},
 			Subjects: []rbacv1.Subject{
 				{Kind: "Group", Name: "developers", APIGroup: "rbac.authorization.k8s.io"},
 			},
@@ -68,15 +67,15 @@ func TestListRBACBindings_ClusterRoleBindings(t *testing.T) {
 func TestListRBACBindings_RoleBindings(t *testing.T) {
 	fakeCS := fake.NewClientset(
 		&rbacv1.RoleBinding{
-			ObjectMeta: metav1.ObjectMeta{Name: "edit-binding", Namespace: "default"},
-			RoleRef:    rbacv1.RoleRef{Kind: "Role", Name: "editor", APIGroup: "rbac.authorization.k8s.io"},
+			Name: "edit-binding", Namespace: "default",
+			RoleRef: rbacv1.RoleRef{Kind: "Role", Name: "editor", APIGroup: "rbac.authorization.k8s.io"},
 			Subjects: []rbacv1.Subject{
 				{Kind: "ServiceAccount", Name: "my-sa", Namespace: "default"},
 			},
 		},
 		&rbacv1.RoleBinding{
-			ObjectMeta: metav1.ObjectMeta{Name: "view-binding", Namespace: "other-ns"},
-			RoleRef:    rbacv1.RoleRef{Kind: "ClusterRole", Name: "view", APIGroup: "rbac.authorization.k8s.io"},
+			Name: "view-binding", Namespace: "other-ns",
+			RoleRef: rbacv1.RoleRef{Kind: "ClusterRole", Name: "view", APIGroup: "rbac.authorization.k8s.io"},
 			Subjects: []rbacv1.Subject{
 				{Kind: "User", Name: "bob", APIGroup: "rbac.authorization.k8s.io"},
 			},
@@ -113,14 +112,14 @@ func TestListRBACBindings_RoleBindings(t *testing.T) {
 func TestListRBACBindings_SubjectFilter(t *testing.T) {
 	fakeCS := fake.NewClientset(
 		&rbacv1.ClusterRoleBinding{
-			ObjectMeta: metav1.ObjectMeta{Name: "sa-binding"},
-			RoleRef:    rbacv1.RoleRef{Kind: "ClusterRole", Name: "editor"},
-			Subjects:   []rbacv1.Subject{{Kind: "ServiceAccount", Name: "target-sa", Namespace: "default"}},
+			Name:     "sa-binding",
+			RoleRef:  rbacv1.RoleRef{Kind: "ClusterRole", Name: "editor"},
+			Subjects: []rbacv1.Subject{{Kind: "ServiceAccount", Name: "target-sa", Namespace: "default"}},
 		},
 		&rbacv1.ClusterRoleBinding{
-			ObjectMeta: metav1.ObjectMeta{Name: "other-binding"},
-			RoleRef:    rbacv1.RoleRef{Kind: "ClusterRole", Name: "viewer"},
-			Subjects:   []rbacv1.Subject{{Kind: "User", Name: "alice"}},
+			Name:     "other-binding",
+			RoleRef:  rbacv1.RoleRef{Kind: "ClusterRole", Name: "viewer"},
+			Subjects: []rbacv1.Subject{{Kind: "User", Name: "alice"}},
 		},
 	)
 	cfg := defaultCfg()
@@ -151,14 +150,14 @@ func TestListRBACBindings_SubjectFilter(t *testing.T) {
 func TestListRBACBindings_SubjectKindFilter(t *testing.T) {
 	fakeCS := fake.NewClientset(
 		&rbacv1.ClusterRoleBinding{
-			ObjectMeta: metav1.ObjectMeta{Name: "user-binding"},
-			RoleRef:    rbacv1.RoleRef{Kind: "ClusterRole", Name: "editor"},
-			Subjects:   []rbacv1.Subject{{Kind: "User", Name: "alice"}},
+			Name:     "user-binding",
+			RoleRef:  rbacv1.RoleRef{Kind: "ClusterRole", Name: "editor"},
+			Subjects: []rbacv1.Subject{{Kind: "User", Name: "alice"}},
 		},
 		&rbacv1.ClusterRoleBinding{
-			ObjectMeta: metav1.ObjectMeta{Name: "sa-binding"},
-			RoleRef:    rbacv1.RoleRef{Kind: "ClusterRole", Name: "viewer"},
-			Subjects:   []rbacv1.Subject{{Kind: "ServiceAccount", Name: "my-sa", Namespace: "default"}},
+			Name:     "sa-binding",
+			RoleRef:  rbacv1.RoleRef{Kind: "ClusterRole", Name: "viewer"},
+			Subjects: []rbacv1.Subject{{Kind: "ServiceAccount", Name: "my-sa", Namespace: "default"}},
 		},
 	)
 	cfg := defaultCfg()
@@ -228,13 +227,13 @@ func TestListRBACBindings_ContextNotAllowed(t *testing.T) {
 func TestListRBACRoles_ClusterRoles(t *testing.T) {
 	fakeCS := fake.NewClientset(
 		&rbacv1.ClusterRole{
-			ObjectMeta: metav1.ObjectMeta{Name: "admin"},
+			Name: "admin",
 			Rules: []rbacv1.PolicyRule{
 				{APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"get", "list"}},
 			},
 		},
 		&rbacv1.ClusterRole{
-			ObjectMeta: metav1.ObjectMeta{Name: "view"},
+			Name: "view",
 			Rules: []rbacv1.PolicyRule{
 				{APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"get", "list"}},
 			},
@@ -263,13 +262,13 @@ func TestListRBACRoles_ClusterRoles(t *testing.T) {
 func TestListRBACRoles_Roles(t *testing.T) {
 	fakeCS := fake.NewClientset(
 		&rbacv1.Role{
-			ObjectMeta: metav1.ObjectMeta{Name: "pod-reader", Namespace: "default"},
+			Name: "pod-reader", Namespace: "default",
 			Rules: []rbacv1.PolicyRule{
 				{APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"get", "list"}},
 			},
 		},
 		&rbacv1.Role{
-			ObjectMeta: metav1.ObjectMeta{Name: "secret-reader", Namespace: "other-ns"},
+			Name: "secret-reader", Namespace: "other-ns",
 			Rules: []rbacv1.PolicyRule{
 				{APIGroups: []string{""}, Resources: []string{"secrets"}, Verbs: []string{"get"}},
 			},
@@ -303,7 +302,7 @@ func TestListRBACRoles_Roles(t *testing.T) {
 func TestListRBACRoles_NamedClusterRole(t *testing.T) {
 	fakeCS := fake.NewClientset(
 		&rbacv1.ClusterRole{
-			ObjectMeta: metav1.ObjectMeta{Name: "custom-role"},
+			Name: "custom-role",
 			Rules: []rbacv1.PolicyRule{
 				{
 					APIGroups: []string{"apps"},
@@ -342,7 +341,7 @@ func TestListRBACRoles_NamedClusterRole(t *testing.T) {
 func TestListRBACRoles_NamedRole(t *testing.T) {
 	fakeCS := fake.NewClientset(
 		&rbacv1.Role{
-			ObjectMeta: metav1.ObjectMeta{Name: "pod-reader", Namespace: "default"},
+			Name: "pod-reader", Namespace: "default",
 			Rules: []rbacv1.PolicyRule{
 				{APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"get", "list"}},
 			},
@@ -418,13 +417,13 @@ func TestListRBACRoles_NotFound(t *testing.T) {
 func TestListServiceAccounts_List(t *testing.T) {
 	fakeCS := fake.NewClientset(
 		&corev1.ServiceAccount{
-			ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: "default"},
+			Name: "default", Namespace: "default",
 		},
 		&corev1.ServiceAccount{
-			ObjectMeta: metav1.ObjectMeta{Name: "my-sa", Namespace: "default"},
+			Name: "my-sa", Namespace: "default",
 		},
 		&corev1.ServiceAccount{
-			ObjectMeta: metav1.ObjectMeta{Name: "other-sa", Namespace: "kube-system"},
+			Name: "other-sa", Namespace: "kube-system",
 		},
 	)
 	cfg := defaultCfg()
@@ -452,10 +451,10 @@ func TestListServiceAccounts_List(t *testing.T) {
 func TestListServiceAccounts_AllNamespaces(t *testing.T) {
 	fakeCS := fake.NewClientset(
 		&corev1.ServiceAccount{
-			ObjectMeta: metav1.ObjectMeta{Name: "sa1", Namespace: "ns1"},
+			Name: "sa1", Namespace: "ns1",
 		},
 		&corev1.ServiceAccount{
-			ObjectMeta: metav1.ObjectMeta{Name: "sa2", Namespace: "ns2"},
+			Name: "sa2", Namespace: "ns2",
 		},
 	)
 	cfg := defaultCfg()
@@ -481,10 +480,8 @@ func TestListServiceAccounts_AllNamespaces(t *testing.T) {
 func TestListServiceAccounts_Named(t *testing.T) {
 	fakeCS := fake.NewClientset(
 		&corev1.ServiceAccount{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "my-sa",
-				Namespace: "default",
-			},
+			Name:      "my-sa",
+			Namespace: "default",
 			Secrets: []corev1.ObjectReference{
 				{Name: "my-sa-token-xyz"},
 			},
@@ -525,8 +522,8 @@ func TestListServiceAccounts_NoTokenData(t *testing.T) {
 	// Ensure secret data is never exposed, only names are shown.
 	fakeCS := fake.NewClientset(
 		&corev1.ServiceAccount{
-			ObjectMeta: metav1.ObjectMeta{Name: "token-sa", Namespace: "default"},
-			Secrets:    []corev1.ObjectReference{{Name: "token-sa-token-abc"}},
+			Name: "token-sa", Namespace: "default",
+			Secrets: []corev1.ObjectReference{{Name: "token-sa-token-abc"}},
 		},
 	)
 	cfg := defaultCfg()

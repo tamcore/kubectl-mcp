@@ -7,6 +7,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"os"
+	"path"
 	"strings"
 	"unicode/utf8"
 
@@ -23,7 +25,7 @@ func registerCopyFromPod(s *server.MCPServer, pool *kube.ClientPool, runner Exec
 	}
 
 	tool := mcp.NewTool("copy_from_pod",
-		mcp.WithDescription("Copy a file from a pod container and return its contents. Text files are returned as-is; binary files are base64-encoded."),
+		mcp.WithDescription("Copy a file from a pod container. Returns contents by default (text as-is, binary base64-encoded); if local_path is set, writes the file there instead (use overwrite=true to replace an existing file)."),
 		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithDestructiveHintAnnotation(false),
 		mcp.WithIdempotentHintAnnotation(true),
@@ -45,6 +47,12 @@ func registerCopyFromPod(s *server.MCPServer, pool *kube.ClientPool, runner Exec
 		mcp.WithString("src_path",
 			mcp.Required(),
 			mcp.Description("Absolute path of the file to copy from the container"),
+		),
+		mcp.WithString("local_path",
+			mcp.Description("Absolute local path to write the file to. If set, the file is saved there instead of being returned inline."),
+		),
+		mcp.WithBoolean("overwrite",
+			mcp.Description("Overwrite the local file if it already exists (only used with local_path)"),
 		),
 	)
 
@@ -72,6 +80,21 @@ func registerCopyFromPod(s *server.MCPServer, pool *kube.ClientPool, runner Exec
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 		container := req.GetString("container", "")
+		localPath := req.GetString("local_path", "")
+		overwrite := req.GetBool("overwrite", false)
+
+		if localPath != "" {
+			if !path.IsAbs(localPath) {
+				return mcp.NewToolResultError("local_path must be an absolute path"), nil
+			}
+			if !overwrite {
+				if _, statErr := os.Stat(localPath); statErr == nil {
+					return mcp.NewToolResultError(
+						fmt.Sprintf("local file %s already exists; set overwrite=true to replace it", localPath),
+					), nil
+				}
+			}
+		}
 
 		var stdout, stderr bytes.Buffer
 		if err := runner.Run(ctx, cc.Clientset, cc.RestConfig, namespace, pod, container,
@@ -86,6 +109,15 @@ func registerCopyFromPod(s *server.MCPServer, pool *kube.ClientPool, runner Exec
 		content, err := extractTarFile(&stdout)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to read tar stream: %v", err)), nil
+		}
+
+		if localPath != "" {
+			if err := os.WriteFile(localPath, content, 0644); err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("failed to write local file: %v", err)), nil
+			}
+			return mcp.NewToolResultText(
+				fmt.Sprintf("copied %d bytes from %s:%s to %s", len(content), pod, srcPath, localPath),
+			), nil
 		}
 
 		return mcp.NewToolResultText(formatCopyFromResult(srcPath, content)), nil

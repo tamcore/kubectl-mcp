@@ -423,11 +423,9 @@ func TestPortForward_ResourceService(t *testing.T) {
 
 	// Create a ready pod matching the service selector.
 	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "svc-pod",
-			Namespace: "default",
-			Labels:    map[string]string{"app": "my-svc"},
-		},
+		Name:      "svc-pod",
+		Namespace: "default",
+		Labels:    map[string]string{"app": "my-svc"},
 		Status: corev1.PodStatus{
 			Phase: corev1.PodRunning,
 			Conditions: []corev1.PodCondition{
@@ -437,10 +435,8 @@ func TestPortForward_ResourceService(t *testing.T) {
 	}
 	// Create a Service with a selector and named port.
 	svc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "my-svc",
-			Namespace: "default",
-		},
+		Name:      "my-svc",
+		Namespace: "default",
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{"app": "my-svc"},
 			Ports: []corev1.ServicePort{
@@ -491,11 +487,9 @@ func TestPortForward_ResourceServiceNamedPort(t *testing.T) {
 	cfg.AllowWrite = true
 
 	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "svc-pod",
-			Namespace: "default",
-			Labels:    map[string]string{"app": "my-svc"},
-		},
+		Name:      "svc-pod",
+		Namespace: "default",
+		Labels:    map[string]string{"app": "my-svc"},
 		Status: corev1.PodStatus{
 			Phase: corev1.PodRunning,
 			Conditions: []corev1.PodCondition{
@@ -504,10 +498,8 @@ func TestPortForward_ResourceServiceNamedPort(t *testing.T) {
 		},
 	}
 	svc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "my-svc",
-			Namespace: "default",
-		},
+		Name:      "my-svc",
+		Namespace: "default",
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{"app": "my-svc"},
 			Ports: []corev1.ServicePort{
@@ -557,11 +549,9 @@ func TestPortForward_ResourceDeployment(t *testing.T) {
 	cfg.AllowWrite = true
 
 	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "deploy-pod",
-			Namespace: "default",
-			Labels:    map[string]string{"app": "my-deploy"},
-		},
+		Name:      "deploy-pod",
+		Namespace: "default",
+		Labels:    map[string]string{"app": "my-deploy"},
 		Status: corev1.PodStatus{
 			Phase: corev1.PodRunning,
 			Conditions: []corev1.PodCondition{
@@ -571,10 +561,8 @@ func TestPortForward_ResourceDeployment(t *testing.T) {
 	}
 
 	deploy := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "my-deploy",
-			Namespace: "default",
-		},
+		Name:      "my-deploy",
+		Namespace: "default",
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app": "my-deploy"},
@@ -621,11 +609,9 @@ func TestPortForward_ResourceStatefulSet(t *testing.T) {
 
 	// StatefulSet prefers pod-0.
 	pod0 := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "my-sts-0",
-			Namespace: "default",
-			Labels:    map[string]string{"app": "my-sts"},
-		},
+		Name:      "my-sts-0",
+		Namespace: "default",
+		Labels:    map[string]string{"app": "my-sts"},
 		Status: corev1.PodStatus{
 			Phase: corev1.PodRunning,
 			Conditions: []corev1.PodCondition{
@@ -634,11 +620,9 @@ func TestPortForward_ResourceStatefulSet(t *testing.T) {
 		},
 	}
 	pod1 := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "my-sts-1",
-			Namespace: "default",
-			Labels:    map[string]string{"app": "my-sts"},
-		},
+		Name:      "my-sts-1",
+		Namespace: "default",
+		Labels:    map[string]string{"app": "my-sts"},
 		Status: corev1.PodStatus{
 			Phase: corev1.PodRunning,
 			Conditions: []corev1.PodCondition{
@@ -648,10 +632,8 @@ func TestPortForward_ResourceStatefulSet(t *testing.T) {
 	}
 
 	sts := &appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "my-sts",
-			Namespace: "default",
-		},
+		Name:      "my-sts",
+		Namespace: "default",
 		Spec: appsv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app": "my-sts"},
@@ -729,11 +711,9 @@ func TestPortForward_NoReadyPods(t *testing.T) {
 
 	// Pod exists but is not ready.
 	notReadyPod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pending-pod",
-			Namespace: "default",
-			Labels:    map[string]string{"app": "my-svc"},
-		},
+		Name:      "pending-pod",
+		Namespace: "default",
+		Labels:    map[string]string{"app": "my-svc"},
 		Status: corev1.PodStatus{
 			Phase: corev1.PodPending,
 			Conditions: []corev1.PodCondition{
@@ -742,10 +722,8 @@ func TestPortForward_NoReadyPods(t *testing.T) {
 		},
 	}
 	svc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "my-svc",
-			Namespace: "default",
-		},
+		Name:      "my-svc",
+		Namespace: "default",
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{"app": "my-svc"},
 			Ports: []corev1.ServicePort{
