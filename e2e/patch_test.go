@@ -181,16 +181,7 @@ func TestPatch(t *testing.T) {
 			})
 
 			t.Run("with_subresource_status", func(t *testing.T) {
-				if err := kubectlApplyStdin(crdWithStatusManifest()); err != nil {
-					t.Fatalf("apply CRD: %v", err)
-				}
-				t.Cleanup(func() {
-					_ = kubectl("delete", "crd", "widgete2es.e2e.kubectl-mcp.dev", "--ignore-not-found", "--wait=false")
-				})
-				if err := kubectl("wait", "--for=condition=Established",
-					"crd/widgete2es.e2e.kubectl-mcp.dev", "--timeout=30s"); err != nil {
-					t.Fatalf("CRD not established: %v", err)
-				}
+				ensureWidgetCRD(t)
 
 				name := "e2e-widget-status"
 				callTool(t, c, "apply_resource", map[string]any{
@@ -252,16 +243,7 @@ func TestPatch(t *testing.T) {
 			})
 
 			t.Run("with_subresource_status_no_spec_mutation", func(t *testing.T) {
-				if err := kubectlApplyStdin(crdWithStatusManifest()); err != nil {
-					t.Fatalf("apply CRD: %v", err)
-				}
-				t.Cleanup(func() {
-					_ = kubectl("delete", "crd", "widgete2es.e2e.kubectl-mcp.dev", "--ignore-not-found", "--wait=false")
-				})
-				if err := kubectl("wait", "--for=condition=Established",
-					"crd/widgete2es.e2e.kubectl-mcp.dev", "--timeout=30s"); err != nil {
-					t.Fatalf("CRD not established: %v", err)
-				}
+				ensureWidgetCRD(t)
 
 				name := "e2e-widget-nospec"
 				callTool(t, c, "apply_resource", map[string]any{
