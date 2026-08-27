@@ -5,7 +5,6 @@ package e2e
 import (
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestCleanupPods(t *testing.T) {
@@ -24,8 +23,7 @@ func TestCleanupPods(t *testing.T) {
 				})
 				t.Cleanup(func() { deleteViaKubectl(t, "pod", name, testNamespace) })
 
-				// Wait for the pod to complete.
-				time.Sleep(5 * time.Second)
+				waitForPodPhase(t, name, testNamespace, "Succeeded")
 
 				result := callTool(t, c, "cleanup_pods", map[string]any{
 					"namespace": testNamespace,
@@ -49,8 +47,7 @@ func TestCleanupPods(t *testing.T) {
 				})
 				t.Cleanup(func() { deleteViaKubectl(t, "pod", name, testNamespace) })
 
-				// Wait for the pod to fail.
-				time.Sleep(5 * time.Second)
+				waitForPodPhase(t, name, testNamespace, "Failed")
 
 				result := callTool(t, c, "cleanup_pods", map[string]any{
 					"namespace": testNamespace,

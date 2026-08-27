@@ -47,6 +47,15 @@ func waitForPodReady(t *testing.T, name, namespace string) {
 	}
 }
 
+func waitForPodPhase(t *testing.T, name, namespace, phase string) {
+	t.Helper()
+	err := kubectl("wait", fmt.Sprintf("--for=jsonpath={.status.phase}=%s", phase),
+		fmt.Sprintf("pod/%s", name), "-n", namespace, "--timeout=120s")
+	if err != nil {
+		t.Fatalf("waiting for pod %s/%s phase %s: %v", namespace, name, phase, err)
+	}
+}
+
 func deleteViaKubectl(t *testing.T, kind, name, namespace string) {
 	t.Helper()
 	args := []string{"delete", kind, name, "--ignore-not-found", "--wait=false"}
