@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -22,7 +21,7 @@ func TestExplainResource_SimpleKind(t *testing.T) {
 		registerExplainResource(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"resource": "Pod",
 	}))
 	if err != nil {
@@ -56,7 +55,7 @@ func TestExplainResource_WithApiVersion(t *testing.T) {
 		registerExplainResource(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"resource":   "Deployment",
 		"apiVersion": "apps/v1",
 	}))
@@ -92,7 +91,7 @@ func TestExplainResource_DottedPath(t *testing.T) {
 	})
 
 	// "Pod.spec" - should resolve the kind and include path info.
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"resource": "Pod.spec",
 	}))
 	if err != nil {
@@ -126,7 +125,7 @@ func TestExplainResource_UnknownKind(t *testing.T) {
 		registerExplainResource(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"resource": "BogusKind",
 	}))
 	if err != nil {
@@ -152,7 +151,7 @@ func TestExplainResource_ContextNotAllowed(t *testing.T) {
 		registerExplainResource(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"resource": "Pod",
 	}))
 	if err != nil {
@@ -175,7 +174,7 @@ func TestExplainResource_ContainsVerbs(t *testing.T) {
 		registerExplainResource(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"resource": "Pod",
 	}))
 	if err != nil {

@@ -37,7 +37,7 @@ func TestProgressNotifications(t *testing.T) {
 			// Wait for the pods to reach Failed state (up to 60s).
 			for _, pod := range []string{pod1, pod2} {
 				if err := kubectl("wait",
-					fmt.Sprintf("--for=jsonpath={.status.phase}=Failed"),
+					"--for=jsonpath={.status.phase}=Failed",
 					fmt.Sprintf("pod/%s", pod),
 					"-n", testNamespace,
 					"--timeout=60s",
@@ -59,7 +59,7 @@ func TestProgressNotifications(t *testing.T) {
 			})
 
 			// Call cleanup_pods with a progressToken.
-			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
 			defer cancel()
 
 			req := mcp.CallToolRequest{}

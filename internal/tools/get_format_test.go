@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -52,7 +51,7 @@ func TestGetResourceFormatParameter(t *testing.T) {
 	})
 
 	t.Run("format=full returns JSON with metadata stripped", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":      "Pod",
 			"name":      "fmt-pod",
 			"namespace": "default",
@@ -77,7 +76,7 @@ func TestGetResourceFormatParameter(t *testing.T) {
 	})
 
 	t.Run("format=json returns JSON with metadata stripped (alias for full)", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":      "Pod",
 			"name":      "fmt-pod",
 			"namespace": "default",
@@ -102,7 +101,7 @@ func TestGetResourceFormatParameter(t *testing.T) {
 	})
 
 	t.Run("default format is full", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":      "Pod",
 			"name":      "fmt-pod",
 			"namespace": "default",
@@ -121,7 +120,7 @@ func TestGetResourceFormatParameter(t *testing.T) {
 	})
 
 	t.Run("format=summary returns compact output", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":      "Pod",
 			"name":      "fmt-pod",
 			"namespace": "default",
@@ -147,7 +146,7 @@ func TestGetResourceFormatParameter(t *testing.T) {
 	})
 
 	t.Run("format=yaml returns YAML output", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":      "Pod",
 			"name":      "fmt-pod",
 			"namespace": "default",
@@ -173,7 +172,7 @@ func TestGetResourceFormatParameter(t *testing.T) {
 	})
 
 	t.Run("invalid format returns error", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":      "Pod",
 			"name":      "fmt-pod",
 			"namespace": "default",
@@ -213,7 +212,7 @@ func TestGetResourceSummaryGenericKind(t *testing.T) {
 		registerGetResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":   "Namespace",
 		"name":   "test-ns",
 		"format": "summary",

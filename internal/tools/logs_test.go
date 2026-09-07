@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"runtime"
@@ -47,7 +46,7 @@ func TestGetLogs_RequiresPodOrLabelSelector(t *testing.T) {
 	})
 
 	// Neither pod nor labelSelector provided.
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 	}))
 	if err != nil {
@@ -72,7 +71,7 @@ func TestGetLogs_LabelSelectorNoPods(t *testing.T) {
 		registerGetLogs(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":     "default",
 		"labelSelector": "app=nginx",
 	}))
@@ -105,7 +104,7 @@ func TestGetLogs_LabelSelectorFindsPods(t *testing.T) {
 	// The fake clientset can't stream logs, so the handler will try and
 	// fail to stream for each matched pod. But we can verify that it found
 	// the right pods by checking the error mentions both nginx pods but not redis.
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":     "default",
 		"labelSelector": "app=nginx",
 	}))
@@ -134,7 +133,7 @@ func TestGetLogs_LabelSelectorContextNotAllowed(t *testing.T) {
 		registerGetLogs(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":     "default",
 		"labelSelector": "app=nginx",
 	}))
@@ -160,7 +159,7 @@ func TestGetLogs_SinceAndSinceTimeMutuallyExclusive(t *testing.T) {
 		registerGetLogs(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"pod":       "my-pod",
 		"since":     "5m",
@@ -188,7 +187,7 @@ func TestGetLogs_SinceTimeInvalidFormat(t *testing.T) {
 		registerGetLogs(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"pod":       "my-pod",
 		"sinceTime": "not-a-date",
@@ -216,7 +215,7 @@ func TestGetLogs_PodStillWorksAlone(t *testing.T) {
 	})
 
 	// Pod-only path should still work (will error on streaming, but not on validation).
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"pod":       "my-pod",
 	}))
@@ -244,7 +243,7 @@ func TestGetLogs_FollowAndTailConflict(t *testing.T) {
 		registerGetLogs(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"pod":       "my-pod",
 		"follow":    true,
@@ -272,7 +271,7 @@ func TestGetLogs_FollowTimeoutTooLow(t *testing.T) {
 		registerGetLogs(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":     "default",
 		"pod":           "my-pod",
 		"follow":        true,
@@ -300,7 +299,7 @@ func TestGetLogs_FollowTimeoutTooHigh(t *testing.T) {
 		registerGetLogs(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":     "default",
 		"pod":           "my-pod",
 		"follow":        true,

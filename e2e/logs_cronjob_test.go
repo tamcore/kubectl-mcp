@@ -46,7 +46,7 @@ func waitForCronJobRun(t *testing.T, name, namespace string) {
 		out, err := kubectlOutput(
 			"get", "jobs",
 			"-n", namespace,
-			"-l", fmt.Sprintf("batch.kubernetes.io/controller-uid"),
+			"-l", "batch.kubernetes.io/controller-uid",
 			"--sort-by=.metadata.creationTimestamp",
 			"-o", "jsonpath={.items[?(@.metadata.ownerReferences[0].name==\""+name+"\")].metadata.name}",
 		)

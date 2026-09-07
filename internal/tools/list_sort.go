@@ -1,8 +1,9 @@
 package tools
 
 import (
+	"cmp"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -63,13 +64,13 @@ func sortUnstructured(items []unstructured.Unstructured, fieldPath string, desce
 		return fmt.Errorf("sortBy field %q not found in any item", fieldPath)
 	}
 
-	sort.SliceStable(items, func(i, j int) bool {
-		ki, _ := extractSortKey(items[i].Object, fieldPath)
-		kj, _ := extractSortKey(items[j].Object, fieldPath)
+	slices.SortStableFunc(items, func(a, b unstructured.Unstructured) int {
+		ka, _ := extractSortKey(a.Object, fieldPath)
+		kb, _ := extractSortKey(b.Object, fieldPath)
 		if descending {
-			return ki > kj
+			return cmp.Compare(kb, ka)
 		}
-		return ki < kj
+		return cmp.Compare(ka, kb)
 	})
 	return nil
 }

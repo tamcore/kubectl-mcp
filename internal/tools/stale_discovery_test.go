@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -42,7 +41,7 @@ func TestListAPIResourcesToleratesPartialDiscovery(t *testing.T) {
 		registerListAPIResources(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"context": "test-ctx",
 	}))
 	if err != nil {

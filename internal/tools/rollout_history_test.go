@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -69,7 +68,7 @@ func TestRolloutHistory_DeploymentAllRevisions(t *testing.T) {
 		registerRolloutHistory(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Deployment",
 		"name":      "my-deploy",
 		"namespace": "default",
@@ -120,7 +119,7 @@ func TestRolloutHistory_DeploymentSpecificRevision(t *testing.T) {
 		registerRolloutHistory(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Deployment",
 		"name":      "my-deploy",
 		"namespace": "default",
@@ -160,7 +159,7 @@ func TestRolloutHistory_RevisionNotFound(t *testing.T) {
 		registerRolloutHistory(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Deployment",
 		"name":      "my-deploy",
 		"namespace": "default",
@@ -189,7 +188,7 @@ func TestRolloutHistory_UnsupportedKind(t *testing.T) {
 		registerRolloutHistory(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "StatefulSet",
 		"name":      "test",
 		"namespace": "default",
@@ -218,7 +217,7 @@ func TestRolloutHistory_NoReplicaSetsFound(t *testing.T) {
 		registerRolloutHistory(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Deployment",
 		"name":      "my-deploy",
 		"namespace": "default",
@@ -252,7 +251,7 @@ func TestRolloutHistory_ContextNotAllowed(t *testing.T) {
 		registerRolloutHistory(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Deployment",
 		"name":      "test",
 		"namespace": "default",
@@ -281,7 +280,7 @@ func TestRolloutHistory_FiltersUnrelatedReplicaSets(t *testing.T) {
 		registerRolloutHistory(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Deployment",
 		"name":      "my-deploy",
 		"namespace": "default",

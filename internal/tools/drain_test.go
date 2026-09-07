@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"strings"
 	"testing"
 	"time"
@@ -66,7 +65,7 @@ func TestDrainNode_Basic(t *testing.T) {
 		registerDrainNode(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"node": "node-1",
 	}))
 	if err != nil {
@@ -117,7 +116,7 @@ func TestDrainNode_SkipDaemonSet(t *testing.T) {
 		registerDrainNode(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"node":             "node-1",
 		"ignoreDaemonSets": true,
 	}))
@@ -164,7 +163,7 @@ func TestDrainNode_SkipMirrorPod(t *testing.T) {
 		registerDrainNode(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"node": "node-1",
 	}))
 	if err != nil {
@@ -193,7 +192,7 @@ func TestDrainNode_NodeNotFound(t *testing.T) {
 		registerDrainNode(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"node": "nonexistent",
 	}))
 	if err != nil {
@@ -216,7 +215,7 @@ func TestDrainNode_ContextNotAllowed(t *testing.T) {
 		registerDrainNode(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"node": "test",
 	}))
 	if err != nil {
@@ -252,7 +251,7 @@ func TestDrainNode_DryRun(t *testing.T) {
 		registerDrainNode(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"node":   "node-1",
 		"dryRun": true,
 	}))
@@ -282,7 +281,7 @@ func TestDrainNode_NoPods(t *testing.T) {
 		registerDrainNode(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"node": "empty-node",
 	}))
 	if err != nil {
@@ -333,7 +332,7 @@ func TestDrainNode_ForceTrue(t *testing.T) {
 		registerDrainNode(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"node":  "node-1",
 		"force": true,
 	}))
@@ -396,7 +395,7 @@ func TestDrainNode_ForceFalse_UnmanagedPodError(t *testing.T) {
 	})
 
 	// force defaults to false.
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"node": "node-1",
 	}))
 	if err != nil {
@@ -459,7 +458,7 @@ func TestDrainNode_Timeout(t *testing.T) {
 
 	// timeout=0.05 → 50ms deadline; the first eviction sleeps 100ms, so the
 	// deadline will have elapsed when the loop starts the second pod.
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"node":    "node-1",
 		"timeout": float64(0.05),
 	}))
@@ -551,7 +550,7 @@ func TestDrainNode_TimeoutZero_NoTimeout(t *testing.T) {
 		registerDrainNode(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"node":    "node-1",
 		"timeout": float64(0), // explicit 0 = no timeout
 	}))
@@ -599,7 +598,7 @@ func TestDrainNode_ForceAndTimeout(t *testing.T) {
 		registerDrainNode(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"node":    "node-1",
 		"force":   true,
 		"timeout": float64(30),
@@ -651,7 +650,7 @@ func TestDrainNode_ForceAndDryRun(t *testing.T) {
 		registerDrainNode(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"node":   "node-1",
 		"force":  true,
 		"dryRun": true,

@@ -38,7 +38,7 @@ func TestRawAPI_GET_Success(t *testing.T) {
 	requester := &fakeRawRequester{response: []byte("ok"), status: 200}
 	handler := rawHandler(t, cfg, requester)
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"path": "/healthz",
 	}))
 	if err != nil {
@@ -60,7 +60,7 @@ func TestRawAPI_PathValidation(t *testing.T) {
 	handler := rawHandler(t, cfg, requester)
 
 	t.Run("missing leading slash", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"path": "healthz",
 		}))
 		if err != nil {
@@ -72,7 +72,7 @@ func TestRawAPI_PathValidation(t *testing.T) {
 	})
 
 	t.Run("empty path", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"path": "",
 		}))
 		if err != nil {
@@ -84,7 +84,7 @@ func TestRawAPI_PathValidation(t *testing.T) {
 	})
 
 	t.Run("missing path", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{}))
+		res, err := handler(t.Context(), callToolReq(map[string]any{}))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -95,7 +95,7 @@ func TestRawAPI_PathValidation(t *testing.T) {
 
 	t.Run("path too long", func(t *testing.T) {
 		longPath := "/" + strings.Repeat("a", 2048)
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"path": longPath,
 		}))
 		if err != nil {
@@ -113,7 +113,7 @@ func TestRawAPI_InvalidMethod(t *testing.T) {
 	requester := &fakeRawRequester{response: []byte("ok"), status: 200}
 	handler := rawHandler(t, cfg, requester)
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"path":   "/healthz",
 		"method": "TRACE",
 	}))
@@ -138,7 +138,7 @@ func TestRawAPI_NonGET_RequiresAllowWrite(t *testing.T) {
 
 	for _, method := range []string{"POST", "PUT", "PATCH", "DELETE"} {
 		t.Run(method, func(t *testing.T) {
-			res, err := handler(context.Background(), callToolReq(map[string]any{
+			res, err := handler(t.Context(), callToolReq(map[string]any{
 				"path":   "/api/v1/namespaces/default/configmaps",
 				"method": method,
 			}))
@@ -163,7 +163,7 @@ func TestRawAPI_POST_WithBody(t *testing.T) {
 	requester := &fakeRawRequester{response: []byte(`{"kind":"ConfigMap"}`), status: 201}
 	handler := rawHandler(t, cfg, requester)
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"path":   "/api/v1/namespaces/default/configmaps",
 		"method": "POST",
 		"body":   `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"test"}}`,
@@ -189,7 +189,7 @@ func TestRawAPI_ContextNotAllowed(t *testing.T) {
 		registerRawAPI(s, pool, cfg, requester)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"path": "/healthz",
 	}))
 	if err != nil {
@@ -210,7 +210,7 @@ func TestRawAPI_APIError(t *testing.T) {
 	}
 	handler := rawHandler(t, cfg, requester)
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"path": "/api/v1/namespaces/nonexistent",
 	}))
 	if err != nil {
@@ -227,7 +227,7 @@ func TestRawAPI_MethodCaseInsensitive(t *testing.T) {
 	requester := &fakeRawRequester{response: []byte("ok"), status: 200}
 	handler := rawHandler(t, cfg, requester)
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"path":   "/healthz",
 		"method": "get",
 	}))
@@ -256,7 +256,7 @@ func TestRawAPI_ContentTypeValidation(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			res, err := handler(context.Background(), callToolReq(map[string]any{
+			res, err := handler(t.Context(), callToolReq(map[string]any{
 				"path":         "/api/v1/pods",
 				"content_type": tc.contentType,
 			}))

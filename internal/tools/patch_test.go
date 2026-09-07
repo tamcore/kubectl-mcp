@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -25,7 +24,7 @@ func TestPatchResource_MergePatch(t *testing.T) {
 		registerPatchResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Pod",
 		"name":      "my-pod",
 		"namespace": "default",
@@ -58,7 +57,7 @@ func TestPatchResource_StrategicDefault(t *testing.T) {
 	})
 
 	// Use merge patch since the fake dynamic client doesn't support strategic merge.
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Deployment",
 		"name":      "my-deploy",
 		"namespace": "default",
@@ -87,7 +86,7 @@ func TestPatchResource_ClusterScoped(t *testing.T) {
 		registerPatchResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Node",
 		"name":      "node-1",
 		"patch":     `{"metadata":{"labels":{"role":"worker"}}}`,
@@ -115,7 +114,7 @@ func TestPatchResource_InvalidPatchType(t *testing.T) {
 		registerPatchResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Pod",
 		"name":      "test",
 		"namespace": "default",
@@ -144,7 +143,7 @@ func TestPatchResource_NotFound(t *testing.T) {
 		registerPatchResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Pod",
 		"name":      "nonexistent",
 		"namespace": "default",
@@ -171,7 +170,7 @@ func TestPatchResource_ContextNotAllowed(t *testing.T) {
 		registerPatchResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Pod",
 		"name":      "test",
 		"namespace": "default",
@@ -200,7 +199,7 @@ func TestPatchResource_PatchAsObject(t *testing.T) {
 	})
 
 	// LLM sends patch as a JSON object instead of a string.
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Pod",
 		"name":      "my-pod",
 		"namespace": "default",
@@ -235,7 +234,7 @@ func TestPatchResource_SubresourceStatus(t *testing.T) {
 		registerPatchResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":        "Deployment",
 		"name":        "my-deploy",
 		"namespace":   "default",
@@ -277,7 +276,7 @@ func TestPatchResource_SubresourceScale(t *testing.T) {
 		registerPatchResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":        "Deployment",
 		"name":        "my-deploy",
 		"namespace":   "default",
@@ -319,7 +318,7 @@ func TestPatchResource_SubresourceInvalid(t *testing.T) {
 		registerPatchResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":        "Deployment",
 		"name":        "my-deploy",
 		"namespace":   "default",
@@ -358,7 +357,7 @@ func TestPatchResource_SubresourceEmpty_DefaultsToMain(t *testing.T) {
 		registerPatchResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Pod",
 		"name":      "my-pod",
 		"namespace": "default",

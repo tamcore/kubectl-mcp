@@ -3,7 +3,6 @@
 package e2e
 
 import (
-	"context"
 	"sync"
 	"testing"
 	"time"
@@ -89,7 +88,9 @@ func TestLogLevel(t *testing.T) {
 				c := tc.clientFunc(t, base)
 
 				// Tell the server we want debug-level notifications.
-				err := c.SetLevel(context.Background(), mcp.SetLevelRequest{
+				// SetLevel is deprecated as of protocol 2026-07-28 but the
+				// server still implements it, so keep covering it.
+				err := c.SetLevel(t.Context(), mcp.SetLevelRequest{ //nolint:staticcheck // SA1019: deprecated logging feature still served
 					Params: mcp.SetLevelParams{Level: mcp.LoggingLevelDebug},
 				})
 				if err != nil {

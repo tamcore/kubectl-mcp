@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -43,7 +42,7 @@ func TestNodeLogs_PathTraversal(t *testing.T) {
 		registerNodeLogs(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"node":    "node-1",
 		"logPath": "../etc/passwd",
 	}))
@@ -68,7 +67,7 @@ func TestNodeLogs_ContextNotAllowed(t *testing.T) {
 		registerNodeLogs(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"node": "node-1",
 	}))
 	if err != nil {
@@ -102,7 +101,7 @@ func TestNodeLogs_ValidatesLogPath(t *testing.T) {
 				registerNodeLogs(s, pool)
 			})
 
-			res, err := handler(context.Background(), callToolReq(map[string]any{
+			res, err := handler(t.Context(), callToolReq(map[string]any{
 				"node":    "node-1",
 				"logPath": tt.logPath,
 			}))
@@ -131,7 +130,7 @@ func TestNodeLogs_ValidatesNodeName(t *testing.T) {
 		registerNodeLogs(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"node": "../../secrets",
 	}))
 	if err != nil {

@@ -1,10 +1,11 @@
 package tools
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -25,8 +26,8 @@ var replicaSetGVR = schema.GroupVersionResource{Group: "apps", Version: "v1", Re
 type revisionSummary struct {
 	Revision   int64  `json:"revision"`
 	ReplicaSet string `json:"replicaSet"`
-	Replicas   int64  `json:"replicas,omitempty"`
-	Ready      int64  `json:"ready,omitempty"`
+	Replicas   int64  `json:"replicas,omitzero"`
+	Ready      int64  `json:"ready,omitzero"`
 	Image      string `json:"image,omitempty"`
 }
 
@@ -153,8 +154,8 @@ func listRevisions(deployName string, rsList []unstructured.Unstructured) (*mcp.
 		})
 	}
 
-	sort.Slice(summaries, func(i, j int) bool {
-		return summaries[i].Revision < summaries[j].Revision
+	slices.SortFunc(summaries, func(a, b revisionSummary) int {
+		return cmp.Compare(a.Revision, b.Revision)
 	})
 
 	result := map[string]any{

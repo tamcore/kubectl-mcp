@@ -212,9 +212,9 @@ func TestGetLogsFollow(t *testing.T) {
 			suffix := strings.ToLower(tc.name)
 			podName := "e2e-logs-follow-" + suffix
 
-			// Pod that prints a line then exits — follow should capture it.
+			// Pod prints a line then stays alive so readiness is deterministic.
 			manifest := podManifest(podName, testNamespace, "busybox:1.36",
-				[]string{"sh", "-c", "echo follow-output-line; sleep 1"})
+				[]string{"sh", "-c", "echo follow-output-line; sleep 60"})
 			callTool(t, c, "apply_resource", map[string]any{"manifest": manifest})
 			t.Cleanup(func() { deleteViaKubectl(t, "pod", podName, testNamespace) })
 			waitForPodReady(t, podName, testNamespace)

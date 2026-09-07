@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
+	"slices"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -45,7 +45,7 @@ func registerListNamespaces(s *server.MCPServer, pool *kube.ClientPool) {
 		for _, ns := range nsList.Items {
 			names = append(names, ns.Name)
 		}
-		sort.Strings(names)
+		slices.Sort(names)
 
 		out, err := json.MarshalIndent(names, "", "  ")
 		if err != nil {

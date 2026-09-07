@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"testing"
 
 	"github.com/mark3labs/mcp-go/server"
@@ -19,7 +18,7 @@ func TestGetResource_HasStructuredContent(t *testing.T) {
 		registerGetResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Pod",
 		"name":      "structured-pod",
 		"namespace": "default",
@@ -39,7 +38,7 @@ func TestGetResource_HasStructuredContent(t *testing.T) {
 	// Verify it's the right type (map).
 	obj, ok := res.StructuredContent.(map[string]any)
 	if !ok {
-		t.Fatalf("expected StructuredContent to be map[string]interface{}, got %T", res.StructuredContent)
+		t.Fatalf("expected StructuredContent to be map[string]any, got %T", res.StructuredContent)
 	}
 
 	// Verify it contains the pod name.
@@ -69,7 +68,7 @@ func TestListResources_HasStructuredContent(t *testing.T) {
 		registerListResources(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Pod",
 		"namespace": "default",
 	}))
@@ -87,7 +86,7 @@ func TestListResources_HasStructuredContent(t *testing.T) {
 	// Verify it's an object envelope (not a raw array).
 	envelope, ok := res.StructuredContent.(map[string]any)
 	if !ok {
-		t.Fatalf("expected StructuredContent to be map[string]interface{}, got %T", res.StructuredContent)
+		t.Fatalf("expected StructuredContent to be map[string]any, got %T", res.StructuredContent)
 	}
 
 	// Verify envelope has "items" key with the actual list.
@@ -97,7 +96,7 @@ func TestListResources_HasStructuredContent(t *testing.T) {
 	}
 	items, ok := rawItems.([]map[string]any)
 	if !ok {
-		t.Fatalf("expected items to be []map[string]interface{}, got %T", rawItems)
+		t.Fatalf("expected items to be []map[string]any, got %T", rawItems)
 	}
 	if len(items) == 0 {
 		t.Error("expected at least one item in structured content")
@@ -125,7 +124,7 @@ func TestListResources_SummaryStructuredContentIsCompact(t *testing.T) {
 	})
 
 	// Default format is "summary".
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Pod",
 		"namespace": "default",
 	}))
@@ -142,7 +141,7 @@ func TestListResources_SummaryStructuredContentIsCompact(t *testing.T) {
 	}
 	items, ok := envelope["items"].([]map[string]any)
 	if !ok {
-		t.Fatalf("expected items to be []map[string]interface{}, got %T", envelope["items"])
+		t.Fatalf("expected items to be []map[string]any, got %T", envelope["items"])
 	}
 	if len(items) == 0 {
 		t.Fatal("expected at least one item")
@@ -179,7 +178,7 @@ func TestDescribeResource_HasStructuredContent(t *testing.T) {
 		registerDescribeResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Pod",
 		"name":      "desc-struct-pod",
 		"namespace": "default",

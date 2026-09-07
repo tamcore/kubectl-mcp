@@ -17,7 +17,7 @@ func TestOutputSchemaOnStructuredTools(t *testing.T) {
 			base := tc.startFunc(t, defaultConfig())
 			c := tc.clientFunc(t, base)
 
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 			defer cancel()
 
 			result, err := c.ListTools(ctx, mcp.ListToolsRequest{})
@@ -94,7 +94,7 @@ func TestStructuredContent(t *testing.T) {
 				}
 
 				// Verify structuredContent is an object envelope (not array).
-				envelope, ok := result.StructuredContent.(map[string]interface{})
+				envelope, ok := result.StructuredContent.(map[string]any)
 				if !ok {
 					t.Fatalf("expected StructuredContent to be map, got %T", result.StructuredContent)
 				}

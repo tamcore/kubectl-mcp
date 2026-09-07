@@ -252,7 +252,7 @@ func TestNewLoggingHooks(t *testing.T) {
 		t.Fatal("newLoggingHooks() returned nil")
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	req := &mcp.CallToolRequest{}
 	req.Params.Name = "test-tool"
 
@@ -299,7 +299,7 @@ func TestLoggingHooks_Off(t *testing.T) {
 	var s *server.MCPServer
 	hooks := newLoggingHooks(&s, mcplog.LogLevelOff, clw, pool)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	req := &mcp.CallToolRequest{}
 	req.Params.Name = "get_resource"
 	req.Params.Arguments = map[string]any{"kind": "Pod", "name": "nginx"}
@@ -345,7 +345,7 @@ func TestLoggingHooks_Info(t *testing.T) {
 	var s *server.MCPServer
 	hooks := newLoggingHooks(&s, mcplog.LogLevelInfo, clw, pool)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	req := &mcp.CallToolRequest{}
 	req.Params.Name = "get_resource"
 	req.Params.Arguments = map[string]any{"kind": "Pod", "name": "nginx"}
@@ -407,7 +407,7 @@ func TestLoggingHooks_Debug(t *testing.T) {
 	var s *server.MCPServer
 	hooks := newLoggingHooks(&s, mcplog.LogLevelDebug, clw, pool)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	req := &mcp.CallToolRequest{}
 	req.Params.Name = "get_resource"
 	req.Params.Arguments = map[string]any{"kind": "Pod", "name": "nginx", "namespace": "default"}
@@ -465,7 +465,7 @@ func TestLoggingHooks_RoutesToExplicitContext(t *testing.T) {
 	var s *server.MCPServer
 	hooks := newLoggingHooks(&s, mcplog.LogLevelInfo, clw, pool)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	req := &mcp.CallToolRequest{}
 	req.Params.Name = "list_resources"
 	req.Params.Arguments = map[string]any{"kind": "Pod", "context": "prod-ctx"}
@@ -510,7 +510,7 @@ func TestLoggingHooks_OnErrorUsesMainLogger(t *testing.T) {
 	var s *server.MCPServer
 	hooks := newLoggingHooks(&s, mcplog.LogLevelInfo, clw, pool)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	for _, fn := range hooks.OnError {
 		fn(ctx, "id-1", mcp.MethodToolsCall, nil, errors.New("boom"))
 	}

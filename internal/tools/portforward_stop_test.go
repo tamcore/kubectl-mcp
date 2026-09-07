@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -19,7 +18,7 @@ func TestStopPortForward_ListEmpty(t *testing.T) {
 		registerStopPortForward(s)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{}))
+	res, err := handler(t.Context(), callToolReq(map[string]any{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +50,7 @@ func TestStopPortForward_ListActive(t *testing.T) {
 		registerStopPortForward(s)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{}))
+	res, err := handler(t.Context(), callToolReq(map[string]any{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +78,7 @@ func TestStopPortForward_StopSession(t *testing.T) {
 		registerStopPortForward(s)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"sessionId": "default/my-pod/8080",
 	}))
 	if err != nil {
@@ -143,7 +142,7 @@ func TestStopPortForward_SessionNotFound(t *testing.T) {
 		registerStopPortForward(s)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"sessionId": "nonexistent/session/key",
 	}))
 	if err != nil {

@@ -1,10 +1,11 @@
 package tools
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -136,8 +137,8 @@ func findTargetRS(rsList []unstructured.Unstructured, toRevision int64) (unstruc
 	}
 
 	// Sort by revision descending.
-	sort.Slice(revisions, func(i, j int) bool {
-		return revisions[i].rev > revisions[j].rev
+	slices.SortFunc(revisions, func(a, b revRS) int {
+		return cmp.Compare(b.rev, a.rev)
 	})
 
 	// Specific revision.

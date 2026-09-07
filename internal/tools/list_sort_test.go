@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -165,7 +164,7 @@ func TestListResourcesSortBy(t *testing.T) {
 	})
 
 	t.Run("sortBy=.metadata.name ascending", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":      "Pod",
 			"namespace": "default",
 			"sortBy":    ".metadata.name",
@@ -189,7 +188,7 @@ func TestListResourcesSortBy(t *testing.T) {
 	})
 
 	t.Run("sortBy=-.metadata.name descending", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":      "Pod",
 			"namespace": "default",
 			"sortBy":    "-.metadata.name",
@@ -213,7 +212,7 @@ func TestListResourcesSortBy(t *testing.T) {
 	})
 
 	t.Run("sortBy=.metadata.creationTimestamp ascending (oldest first)", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":      "Pod",
 			"namespace": "default",
 			"sortBy":    ".metadata.creationTimestamp",
@@ -238,7 +237,7 @@ func TestListResourcesSortBy(t *testing.T) {
 	})
 
 	t.Run("sortBy=-.metadata.creationTimestamp descending (newest first)", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":      "Pod",
 			"namespace": "default",
 			"sortBy":    "-.metadata.creationTimestamp",
@@ -263,7 +262,7 @@ func TestListResourcesSortBy(t *testing.T) {
 	})
 
 	t.Run("sortBy=.nonexistent.field returns tool error", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":      "Pod",
 			"namespace": "default",
 			"sortBy":    ".nonexistent.field",
@@ -277,7 +276,7 @@ func TestListResourcesSortBy(t *testing.T) {
 	})
 
 	t.Run("sortBy works with format=json", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":      "Pod",
 			"namespace": "default",
 			"sortBy":    ".metadata.name",
@@ -302,7 +301,7 @@ func TestListResourcesSortBy(t *testing.T) {
 	})
 
 	t.Run("sortBy without leading dot also works", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":      "Pod",
 			"namespace": "default",
 			"sortBy":    "metadata.name",

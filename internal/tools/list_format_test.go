@@ -191,7 +191,7 @@ func TestHandleListFormatStructuredContentIsObject(t *testing.T) {
 			// Must be a map (JSON object), not a slice.
 			envelope, ok := result.StructuredContent.(map[string]any)
 			if !ok {
-				t.Fatalf("expected map[string]interface{}, got %T", result.StructuredContent)
+				t.Fatalf("expected map[string]any, got %T", result.StructuredContent)
 			}
 			if _, ok := envelope["items"]; !ok {
 				t.Error("expected 'items' key in envelope")
@@ -255,7 +255,7 @@ func TestHandleListFormat_SummaryStructuredContentIsCompact(t *testing.T) {
 	}
 	structItems, ok := envelope["items"].([]map[string]any)
 	if !ok {
-		t.Fatalf("expected items to be []map[string]interface{}, got %T", envelope["items"])
+		t.Fatalf("expected items to be []map[string]any, got %T", envelope["items"])
 	}
 
 	item := structItems[0]

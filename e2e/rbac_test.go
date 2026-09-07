@@ -20,7 +20,7 @@ func TestListRBACBindings(t *testing.T) {
 				if result.IsError {
 					t.Fatalf("unexpected error: %s", text)
 				}
-				var items []map[string]interface{}
+				var items []map[string]any
 				if err := json.Unmarshal([]byte(text), &items); err != nil {
 					t.Fatalf("expected JSON array, got: %s", text)
 				}
@@ -44,7 +44,7 @@ func TestListRBACBindings(t *testing.T) {
 					t.Fatalf("unexpected error: %s", text)
 				}
 				// Must be valid JSON (may be empty array).
-				var items []map[string]interface{}
+				var items []map[string]any
 				if err := json.Unmarshal([]byte(text), &items); err != nil {
 					t.Fatalf("expected JSON array, got: %s", text)
 				}
@@ -64,7 +64,7 @@ func TestListRBACBindings(t *testing.T) {
 					t.Fatalf("unexpected error: %s", text)
 				}
 				// Must be valid JSON.
-				var items []map[string]interface{}
+				var items []map[string]any
 				if err := json.Unmarshal([]byte(text), &items); err != nil {
 					t.Fatalf("expected JSON array, got: %s", text)
 				}
@@ -85,7 +85,7 @@ func TestListRBACRoles(t *testing.T) {
 				if result.IsError {
 					t.Fatalf("unexpected error: %s", text)
 				}
-				var items []map[string]interface{}
+				var items []map[string]any
 				if err := json.Unmarshal([]byte(text), &items); err != nil {
 					t.Fatalf("expected JSON array, got: %s", text)
 				}
@@ -102,7 +102,7 @@ func TestListRBACRoles(t *testing.T) {
 				if result.IsError {
 					t.Fatalf("unexpected error: %s", text)
 				}
-				var obj map[string]interface{}
+				var obj map[string]any
 				if err := json.Unmarshal([]byte(text), &obj); err != nil {
 					t.Fatalf("expected JSON object, got: %s", text)
 				}
@@ -123,7 +123,7 @@ func TestListRBACRoles(t *testing.T) {
 					t.Fatalf("unexpected error: %s", text)
 				}
 				// Must be valid JSON (may be empty array).
-				var items []map[string]interface{}
+				var items []map[string]any
 				if err := json.Unmarshal([]byte(text), &items); err != nil {
 					t.Fatalf("expected JSON array, got: %s", text)
 				}
@@ -155,7 +155,7 @@ func TestListServiceAccounts(t *testing.T) {
 				if result.IsError {
 					t.Fatalf("unexpected error: %s", text)
 				}
-				var items []map[string]interface{}
+				var items []map[string]any
 				if err := json.Unmarshal([]byte(text), &items); err != nil {
 					t.Fatalf("expected JSON array, got: %s", text)
 				}
@@ -174,7 +174,7 @@ func TestListServiceAccounts(t *testing.T) {
 				if result.IsError {
 					t.Fatalf("unexpected error: %s", text)
 				}
-				var obj map[string]interface{}
+				var obj map[string]any
 				if err := json.Unmarshal([]byte(text), &obj); err != nil {
 					t.Fatalf("expected JSON object, got: %s", text)
 				}
@@ -197,7 +197,7 @@ func TestListServiceAccounts(t *testing.T) {
 				if result.IsError {
 					t.Fatalf("unexpected error: %s", text)
 				}
-				var items []map[string]interface{}
+				var items []map[string]any
 				if err := json.Unmarshal([]byte(text), &items); err != nil {
 					t.Fatalf("expected JSON array, got: %s", text)
 				}

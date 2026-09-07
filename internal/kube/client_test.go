@@ -2,7 +2,7 @@ package kube
 
 import (
 	"net/http"
-	"sort"
+	"slices"
 	"strings"
 	"testing"
 
@@ -29,10 +29,7 @@ func newTestPool(cfg *config.Config, currentCtx string, ctxNames ...string) *Cli
 
 // sorted returns a sorted copy of a string slice for deterministic comparison.
 func sorted(ss []string) []string {
-	out := make([]string, len(ss))
-	copy(out, ss)
-	sort.Strings(out)
-	return out
+	return slices.Sorted(slices.Values(ss))
 }
 
 // --------------- Contexts() ---------------

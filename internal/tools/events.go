@@ -82,7 +82,7 @@ func registerGetEvents(s *server.MCPServer, pool *kube.ClientPool) {
 			Object    string `json:"object"`
 			Message   string `json:"message"`
 			Namespace string `json:"namespace,omitempty"`
-			Count     int32  `json:"count,omitempty"`
+			Count     int32  `json:"count,omitzero"`
 		}
 
 		items := make([]eventSummary, 0, len(events.Items))

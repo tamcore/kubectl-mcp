@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -46,7 +45,7 @@ func TestCleanupPods_DryRun(t *testing.T) {
 		registerCleanupPods(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"dryRun":    true,
 	}))
@@ -86,7 +85,7 @@ func TestCleanupPods_Execute(t *testing.T) {
 		registerCleanupPods(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 	}))
 	if err != nil {
@@ -118,7 +117,7 @@ func TestCleanupPods_CustomStates(t *testing.T) {
 	})
 
 	// Only clean up Succeeded pods.
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"states":    "Succeeded",
 		"dryRun":    true,
@@ -150,7 +149,7 @@ func TestCleanupPods_NoPods(t *testing.T) {
 		registerCleanupPods(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 	}))
 	if err != nil {
@@ -173,7 +172,7 @@ func TestCleanupPods_ContextNotAllowed(t *testing.T) {
 		registerCleanupPods(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 	}))
 	if err != nil {

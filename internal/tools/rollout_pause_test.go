@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -23,7 +22,7 @@ func TestRolloutPause_Deployment(t *testing.T) {
 		registerRolloutPause(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Deployment",
 		"name":      "my-deploy",
 		"namespace": "default",
@@ -53,7 +52,7 @@ func TestRolloutResume_Deployment(t *testing.T) {
 		registerRolloutResume(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Deployment",
 		"name":      "my-deploy",
 		"namespace": "default",
@@ -80,7 +79,7 @@ func TestRolloutPause_StatefulSetRejected(t *testing.T) {
 		registerRolloutPause(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "StatefulSet",
 		"name":      "test",
 		"namespace": "default",
@@ -110,7 +109,7 @@ func TestRolloutPause_DaemonSetRejected(t *testing.T) {
 		registerRolloutPause(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "DaemonSet",
 		"name":      "test",
 		"namespace": "default",
@@ -136,7 +135,7 @@ func TestRolloutPause_NotFound(t *testing.T) {
 		registerRolloutPause(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Deployment",
 		"name":      "nonexistent",
 		"namespace": "default",
@@ -164,7 +163,7 @@ func TestRolloutPause_ContextNotAllowed(t *testing.T) {
 		registerRolloutPause(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Deployment",
 		"name":      "test",
 		"namespace": "default",

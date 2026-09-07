@@ -3,7 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
-	"sort"
+	"slices"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -22,12 +22,12 @@ func registerListContexts(s *server.MCPServer, pool *kube.ClientPool) {
 
 	s.AddTool(tool, func(_ context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		contexts := pool.Contexts()
-		sort.Strings(contexts)
+		slices.Sort(contexts)
 		defaultCtx := pool.DefaultContext()
 
 		type ctxInfo struct {
 			Name      string `json:"name"`
-			IsDefault bool   `json:"isDefault,omitempty"`
+			IsDefault bool   `json:"isDefault,omitzero"`
 		}
 
 		items := make([]ctxInfo, 0, len(contexts))

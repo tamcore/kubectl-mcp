@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -27,7 +26,7 @@ func TestRunPod_HappyPath(t *testing.T) {
 		registerRunPod(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"name":      "debug-pod",
 		"image":     "busybox:latest",
@@ -59,7 +58,7 @@ func TestRunPod_WithCommand(t *testing.T) {
 		registerRunPod(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"name":      "debug-pod",
 		"image":     "busybox:latest",
@@ -78,7 +77,7 @@ func TestRunPod_WithCommand(t *testing.T) {
 	}
 
 	// Verify the created Pod has the correct command.
-	created, err := dynClient.Resource(testPodGVR).Namespace("default").Get(context.Background(), "debug-pod", metav1.GetOptions{})
+	created, err := dynClient.Resource(testPodGVR).Namespace("default").Get(t.Context(), "debug-pod", metav1.GetOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +101,7 @@ func TestRunPod_WithRestartPolicy(t *testing.T) {
 		registerRunPod(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":     "default",
 		"name":          "debug-pod",
 		"image":         "busybox:latest",
@@ -116,7 +115,7 @@ func TestRunPod_WithRestartPolicy(t *testing.T) {
 	}
 
 	// Check the actual pod object.
-	created, err := dynClient.Resource(testPodGVR).Namespace("default").Get(context.Background(), "debug-pod", metav1.GetOptions{})
+	created, err := dynClient.Resource(testPodGVR).Namespace("default").Get(t.Context(), "debug-pod", metav1.GetOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +136,7 @@ func TestRunPod_DefaultRestartPolicyNever(t *testing.T) {
 		registerRunPod(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"name":      "debug-pod",
 		"image":     "busybox:latest",
@@ -149,7 +148,7 @@ func TestRunPod_DefaultRestartPolicyNever(t *testing.T) {
 		t.Fatalf("unexpected error: %s", resultText(t, res))
 	}
 
-	created, err := dynClient.Resource(testPodGVR).Namespace("default").Get(context.Background(), "debug-pod", metav1.GetOptions{})
+	created, err := dynClient.Resource(testPodGVR).Namespace("default").Get(t.Context(), "debug-pod", metav1.GetOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +169,7 @@ func TestRunPod_InvalidRestartPolicy(t *testing.T) {
 		registerRunPod(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":     "default",
 		"name":          "debug-pod",
 		"image":         "busybox:latest",
@@ -200,7 +199,7 @@ func TestRunPod_OutputContainsPodSpec(t *testing.T) {
 		registerRunPod(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"name":      "debug-pod",
 		"image":     "busybox:latest",
@@ -235,7 +234,7 @@ func TestRunPod_ContextNotAllowed(t *testing.T) {
 		registerRunPod(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"name":      "debug-pod",
 		"image":     "busybox:latest",
@@ -265,7 +264,7 @@ func TestRunPod_WithSinglePort(t *testing.T) {
 		registerRunPod(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"name":      "nginx-pod",
 		"image":     "nginx:latest",
@@ -278,7 +277,7 @@ func TestRunPod_WithSinglePort(t *testing.T) {
 		t.Fatalf("unexpected error: %s", resultText(t, res))
 	}
 
-	created, err := dynClient.Resource(testPodGVR).Namespace("default").Get(context.Background(), "nginx-pod", metav1.GetOptions{})
+	created, err := dynClient.Resource(testPodGVR).Namespace("default").Get(t.Context(), "nginx-pod", metav1.GetOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -309,7 +308,7 @@ func TestRunPod_WithMultiplePorts(t *testing.T) {
 		registerRunPod(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"name":      "multi-port-pod",
 		"image":     "nginx:latest",
@@ -322,7 +321,7 @@ func TestRunPod_WithMultiplePorts(t *testing.T) {
 		t.Fatalf("unexpected error: %s", resultText(t, res))
 	}
 
-	created, err := dynClient.Resource(testPodGVR).Namespace("default").Get(context.Background(), "multi-port-pod", metav1.GetOptions{})
+	created, err := dynClient.Resource(testPodGVR).Namespace("default").Get(t.Context(), "multi-port-pod", metav1.GetOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -354,7 +353,7 @@ func TestRunPod_WithProtocol(t *testing.T) {
 		registerRunPod(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"name":      "udp-pod",
 		"image":     "nginx:latest",
@@ -367,7 +366,7 @@ func TestRunPod_WithProtocol(t *testing.T) {
 		t.Fatalf("unexpected error: %s", resultText(t, res))
 	}
 
-	created, err := dynClient.Resource(testPodGVR).Namespace("default").Get(context.Background(), "udp-pod", metav1.GetOptions{})
+	created, err := dynClient.Resource(testPodGVR).Namespace("default").Get(t.Context(), "udp-pod", metav1.GetOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -401,7 +400,7 @@ func TestRunPod_InvalidPort_OutOfRange(t *testing.T) {
 
 	for _, badPort := range []string{"0", "65536", "99999"} {
 		t.Run(badPort, func(t *testing.T) {
-			res, err := handler(context.Background(), callToolReq(map[string]any{
+			res, err := handler(t.Context(), callToolReq(map[string]any{
 				"namespace": "default",
 				"name":      "bad-port-pod",
 				"image":     "nginx:latest",
@@ -432,7 +431,7 @@ func TestRunPod_InvalidPort_NotANumber(t *testing.T) {
 		registerRunPod(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"name":      "bad-port-pod",
 		"image":     "nginx:latest",
@@ -461,7 +460,7 @@ func TestRunPod_InvalidProtocol(t *testing.T) {
 		registerRunPod(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"name":      "bad-proto-pod",
 		"image":     "nginx:latest",
@@ -490,7 +489,7 @@ func TestRunPod_SCTPProtocol(t *testing.T) {
 		registerRunPod(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"name":      "sctp-pod",
 		"image":     "nginx:latest",

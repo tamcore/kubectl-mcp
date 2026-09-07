@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -16,7 +15,7 @@ func TestNodeStats_ValidatesNodeName(t *testing.T) {
 		registerNodeStats(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"node": "../../secrets",
 	}))
 	if err != nil {

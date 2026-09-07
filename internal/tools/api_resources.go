@@ -1,11 +1,11 @@
 package tools
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -73,11 +73,11 @@ func registerListAPIResources(s *server.MCPServer, pool *kube.ClientPool) {
 
 		entries := collectAPIResources(apiLists, groupFilter, namespacedFilter, verbFilter)
 
-		sort.Slice(entries, func(i, j int) bool {
-			if entries[i].Kind != entries[j].Kind {
-				return entries[i].Kind < entries[j].Kind
-			}
-			return entries[i].APIVersion < entries[j].APIVersion
+		slices.SortFunc(entries, func(a, b apiResourceEntry) int {
+			return cmp.Or(
+				cmp.Compare(a.Kind, b.Kind),
+				cmp.Compare(a.APIVersion, b.APIVersion),
+			)
 		})
 
 		switch format {

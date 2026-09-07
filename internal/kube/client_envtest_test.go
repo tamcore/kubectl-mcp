@@ -3,7 +3,6 @@
 package kube
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -140,7 +139,7 @@ func TestClientFor_APIAccess(t *testing.T) {
 	}
 
 	nsList, err := cc.Clientset.CoreV1().Namespaces().List(
-		context.Background(), metav1.ListOptions{},
+		t.Context(), metav1.ListOptions{},
 	)
 	if err != nil {
 		t.Fatalf("listing namespaces: %v", err)

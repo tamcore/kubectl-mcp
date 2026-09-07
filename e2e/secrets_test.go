@@ -118,9 +118,9 @@ func TestDescribeResource_SecretRedaction(t *testing.T) {
 
 				// Verify structuredContent has redacted data.
 				if result.StructuredContent != nil {
-					sc, ok := result.StructuredContent.(map[string]interface{})
+					sc, ok := result.StructuredContent.(map[string]any)
 					if ok {
-						if data, ok := sc["data"].(map[string]interface{}); ok {
+						if data, ok := sc["data"].(map[string]any); ok {
 							for k, v := range data {
 								if v != "<redacted>" {
 									t.Errorf("expected data[%s] to be <redacted>, got %v", k, v)
@@ -149,9 +149,9 @@ func TestDescribeResource_SecretRedaction(t *testing.T) {
 
 				// With AllowSecrets, the structuredContent should contain the actual value.
 				if result.StructuredContent != nil {
-					sc, ok := result.StructuredContent.(map[string]interface{})
+					sc, ok := result.StructuredContent.(map[string]any)
 					if ok {
-						if data, ok := sc["data"].(map[string]interface{}); ok {
+						if data, ok := sc["data"].(map[string]any); ok {
 							if data["token"] == "<redacted>" {
 								t.Error("expected actual secret data with --allow-secrets, got <redacted>")
 							}

@@ -67,7 +67,7 @@ func TestCopyToPod_LocalFile(t *testing.T) {
 		registerCopyToPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"pod":        "my-pod",
 		"dest_path":  "/etc/myconfig",
@@ -108,7 +108,7 @@ func TestCopyToPod_BinaryFile(t *testing.T) {
 		registerCopyToPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"pod":        "my-pod",
 		"dest_path":  "/data/binary.bin",
@@ -144,7 +144,7 @@ func TestCopyToPod_LocalPathNotAbsolute(t *testing.T) {
 		registerCopyToPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"pod":        "my-pod",
 		"dest_path":  "/etc/config",
@@ -170,7 +170,7 @@ func TestCopyToPod_LocalFileMissing(t *testing.T) {
 		registerCopyToPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"pod":        "my-pod",
 		"dest_path":  "/etc/config",
@@ -196,7 +196,7 @@ func TestCopyToPod_LocalPathIsDirectory(t *testing.T) {
 		registerCopyToPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"pod":        "my-pod",
 		"dest_path":  "/etc/config",
@@ -222,7 +222,7 @@ func TestCopyToPod_MissingNamespace(t *testing.T) {
 		registerCopyToPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"pod":        "my-pod",
 		"dest_path":  "/etc/config",
 		"local_path": "/tmp/whatever",
@@ -247,7 +247,7 @@ func TestCopyToPod_MissingPod(t *testing.T) {
 		registerCopyToPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"dest_path":  "/etc/config",
 		"local_path": "/tmp/whatever",
@@ -272,7 +272,7 @@ func TestCopyToPod_MissingDestPath(t *testing.T) {
 		registerCopyToPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"pod":        "my-pod",
 		"local_path": "/tmp/whatever",
@@ -297,7 +297,7 @@ func TestCopyToPod_MissingLocalPath(t *testing.T) {
 		registerCopyToPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"pod":       "my-pod",
 		"dest_path": "/etc/config",
@@ -321,7 +321,7 @@ func TestCopyToPod_ContextResolutionFailure(t *testing.T) {
 		registerCopyToPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"pod":        "my-pod",
 		"dest_path":  "/etc/config",
@@ -347,7 +347,7 @@ func TestCopyToPod_ExecError(t *testing.T) {
 		registerCopyToPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"pod":        "my-pod",
 		"dest_path":  "/etc/config",
@@ -374,7 +374,7 @@ func TestCopyToPod_SafetyDelay_Disabled(t *testing.T) {
 		registerCopyToPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"pod":        "my-pod",
 		"dest_path":  "/etc/config",
@@ -403,7 +403,7 @@ func TestCopyToPod_TarContainsCorrectPath(t *testing.T) {
 		registerCopyToPod(s, pool, runner, cfg)
 	})
 
-	_, err := handler(context.Background(), callToolReq(map[string]any{
+	_, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"pod":        "my-pod",
 		"dest_path":  "/etc/myapp/config.yaml",
@@ -439,7 +439,7 @@ func TestCopyToPod_SafetyDelayInterrupted(t *testing.T) {
 	})
 
 	// Cancel the context immediately to interrupt the safety delay.
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	res, err := handler(ctx, callToolReq(map[string]any{
@@ -469,7 +469,7 @@ func TestCopyToPod_WithContainer(t *testing.T) {
 		registerCopyToPod(s, pool, runner, cfg)
 	})
 
-	_, err := handler(context.Background(), callToolReq(map[string]any{
+	_, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"pod":        "my-pod",
 		"dest_path":  "/cfg",
@@ -509,7 +509,7 @@ func TestCopyToPod_PathValidation(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			res, err := handler(context.Background(), callToolReq(map[string]any{
+			res, err := handler(t.Context(), callToolReq(map[string]any{
 				"namespace":  "default",
 				"pod":        "my-pod",
 				"dest_path":  tc.destPath,
@@ -585,7 +585,7 @@ func TestCopyToPod_LocalFileTooLarge(t *testing.T) {
 		t.Fatalf("truncate: %v", err)
 	}
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"pod":        "my-pod",
 		"dest_path":  "/tmp/bigfile",

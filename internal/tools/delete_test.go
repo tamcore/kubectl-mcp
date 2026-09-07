@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"strings"
 	"testing"
 	"time"
@@ -26,7 +25,7 @@ func TestDeleteResource_Namespaced(t *testing.T) {
 		registerDeleteResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Pod",
 		"name":      "to-delete",
 		"namespace": "default",
@@ -60,7 +59,7 @@ func TestDeleteResource_ClusterScoped(t *testing.T) {
 		registerDeleteResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind": "Node",
 		"name": "node-1",
 	}))
@@ -90,7 +89,7 @@ func TestDeleteResource_NotFound(t *testing.T) {
 		registerDeleteResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Pod",
 		"name":      "nonexistent",
 		"namespace": "default",
@@ -115,7 +114,7 @@ func TestDeleteResource_ContextNotAllowed(t *testing.T) {
 		registerDeleteResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind": "Pod",
 		"name": "test",
 	}))
@@ -142,7 +141,7 @@ func TestDeleteResource_ForceDelete(t *testing.T) {
 		registerDeleteResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Pod",
 		"name":      "force-pod",
 		"namespace": "default",
@@ -189,7 +188,7 @@ func TestDeleteResource_ForceAndGracePeriodConflict(t *testing.T) {
 		registerDeleteResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":               "Pod",
 		"name":               "conflict-pod",
 		"namespace":          "default",
@@ -222,7 +221,7 @@ func TestDeleteResource_ForceFalseDefaultBehaviour(t *testing.T) {
 		registerDeleteResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Pod",
 		"name":      "normal-pod",
 		"namespace": "default",
@@ -268,7 +267,7 @@ func TestDeleteResource_SafetyDelaySkippedOnDryRun(t *testing.T) {
 	})
 
 	start := time.Now()
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Pod",
 		"name":      "delay-pod",
 		"namespace": "default",
@@ -300,7 +299,7 @@ func TestDeleteResource_SafetyDelayApplied(t *testing.T) {
 	})
 
 	start := time.Now()
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Pod",
 		"name":      "timed-pod",
 		"namespace": "default",
@@ -336,7 +335,7 @@ func TestDeleteResource_ElicitationMentionsForce(t *testing.T) {
 	})
 
 	// force=true, dryRun=false — elicitation fires; without a session it degrades gracefully.
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Pod",
 		"name":      "elicit-pod",
 		"namespace": "default",

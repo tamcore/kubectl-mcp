@@ -1,14 +1,13 @@
 package tools
 
 import (
-	"context"
 	"testing"
 
 	"github.com/mark3labs/mcp-go/server"
 )
 
 func TestConfirmDestructiveAction_NilServer(t *testing.T) {
-	confirmed, err := confirmDestructiveAction(context.Background(), nil, "test message")
+	confirmed, err := confirmDestructiveAction(t.Context(), nil, "test message")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -22,7 +21,7 @@ func TestConfirmDestructiveAction_NoSession(t *testing.T) {
 	// This should gracefully degrade (ErrNoActiveSession).
 	s := server.NewMCPServer("test", "1.0", server.WithElicitation())
 
-	confirmed, err := confirmDestructiveAction(context.Background(), s, "Delete this?")
+	confirmed, err := confirmDestructiveAction(t.Context(), s, "Delete this?")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

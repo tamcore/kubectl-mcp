@@ -17,7 +17,7 @@ func TestWrap_PassesThroughUnderLimit(t *testing.T) {
 	l := NewLimiter(120)
 	wrapped := Wrap(dummyHandler, l)
 
-	res, err := wrapped(context.Background(), mcp.CallToolRequest{})
+	res, err := wrapped(t.Context(), mcp.CallToolRequest{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,12 +31,12 @@ func TestWrap_ReturnsErrorWhenRateLimited(t *testing.T) {
 	wrapped := Wrap(dummyHandler, l)
 
 	// First call uses the burst token.
-	_, _ = wrapped(context.Background(), mcp.CallToolRequest{})
+	_, _ = wrapped(t.Context(), mcp.CallToolRequest{})
 
 	// Subsequent calls should be rate limited.
 	var rateLimited bool
 	for range 10 {
-		res, err := wrapped(context.Background(), mcp.CallToolRequest{})
+		res, err := wrapped(t.Context(), mcp.CallToolRequest{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -57,7 +57,7 @@ func TestWrap_NilLimiterPassesThrough(t *testing.T) {
 	wrapped := Wrap(dummyHandler, nil)
 
 	for i := range 100 {
-		res, err := wrapped(context.Background(), mcp.CallToolRequest{})
+		res, err := wrapped(t.Context(), mcp.CallToolRequest{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -72,7 +72,7 @@ func TestWrap_UnlimitedLimiterPassesThrough(t *testing.T) {
 	wrapped := Wrap(dummyHandler, l)
 
 	for i := range 100 {
-		res, err := wrapped(context.Background(), mcp.CallToolRequest{})
+		res, err := wrapped(t.Context(), mcp.CallToolRequest{})
 		if err != nil {
 			t.Fatal(err)
 		}

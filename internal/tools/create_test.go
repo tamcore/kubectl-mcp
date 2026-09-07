@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -30,7 +29,7 @@ func TestCreateResource_NewResource(t *testing.T) {
 	})
 
 	manifest := `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"new-cm","namespace":"default"},"data":{"key":"value"}}`
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"manifest": manifest,
 	}))
 	if err != nil {
@@ -65,7 +64,7 @@ func TestCreateResource_Conflict(t *testing.T) {
 	})
 
 	manifest := `{"apiVersion":"v1","kind":"Pod","metadata":{"name":"existing-pod","namespace":"default"},"spec":{"containers":[{"name":"app","image":"nginx"}]}}`
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"manifest": manifest,
 	}))
 	if err != nil {
@@ -97,7 +96,7 @@ func TestCreateResource_DryRun(t *testing.T) {
 	})
 
 	manifest := `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"dry-run-cm","namespace":"default"}}`
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"manifest": manifest,
 		"dryRun":   true,
 	}))
@@ -126,7 +125,7 @@ func TestCreateResource_InvalidManifest(t *testing.T) {
 		registerCreateResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"manifest": "not valid yaml or json {{{",
 	}))
 	if err != nil {
@@ -169,7 +168,7 @@ metadata:
 data:
   key: val2`
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"manifest": manifest,
 	}))
 	if err != nil {
@@ -226,7 +225,7 @@ metadata:
   name: cm-second
   namespace: default`
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"manifest": manifest,
 	}))
 	if err != nil {
@@ -259,7 +258,7 @@ func TestCreateResource_ClusterScoped(t *testing.T) {
 	})
 
 	manifest := `{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"new-ns"}}`
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"manifest": manifest,
 	}))
 	if err != nil {
@@ -289,7 +288,7 @@ func TestCreateResource_SecretRedaction(t *testing.T) {
 	})
 
 	manifest := `{"apiVersion":"v1","kind":"Secret","metadata":{"name":"my-secret","namespace":"default"},"data":{"password":"c2VjcmV0"}}`
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"manifest": manifest,
 	}))
 	if err != nil {
@@ -318,7 +317,7 @@ func TestCreateResource_ContextNotAllowed(t *testing.T) {
 	})
 
 	manifest := `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"test-cm","namespace":"default"}}`
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"manifest": manifest,
 	}))
 	if err != nil {
@@ -345,7 +344,7 @@ func TestCreateResource_MissingManifest(t *testing.T) {
 		registerCreateResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{}))
+	res, err := handler(t.Context(), callToolReq(map[string]any{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -368,7 +367,7 @@ func TestCreateResource_InvalidValidate(t *testing.T) {
 	})
 
 	manifest := `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"cm","namespace":"default"}}`
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"manifest": manifest,
 		"validate": "invalid-value",
 	}))

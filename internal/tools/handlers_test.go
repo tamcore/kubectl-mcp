@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -393,7 +392,7 @@ func TestListContextsHandler(t *testing.T) {
 		registerListContexts(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(nil))
+	res, err := handler(t.Context(), callToolReq(nil))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -403,7 +402,7 @@ func TestListContextsHandler(t *testing.T) {
 	// Should be sorted and beta marked default.
 	type ctxInfo struct {
 		Name      string `json:"name"`
-		IsDefault bool   `json:"isDefault,omitempty"`
+		IsDefault bool   `json:"isDefault,omitzero"`
 	}
 	var items []ctxInfo
 	if err := json.Unmarshal([]byte(text), &items); err != nil {
@@ -440,7 +439,7 @@ func TestListNamespacesHandler(t *testing.T) {
 	})
 
 	t.Run("happy path", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{}))
+		res, err := handler(t.Context(), callToolReq(map[string]any{}))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -465,7 +464,7 @@ func TestListNamespacesHandler(t *testing.T) {
 		h := getHandler(t, "list_namespaces", func(s *server.MCPServer) {
 			registerListNamespaces(s, restrictedPool)
 		})
-		res, err := h(context.Background(), callToolReq(map[string]any{}))
+		res, err := h(t.Context(), callToolReq(map[string]any{}))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -487,7 +486,7 @@ func TestListAPIResourcesHandler(t *testing.T) {
 	})
 
 	t.Run("default format is table", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{}))
+		res, err := handler(t.Context(), callToolReq(map[string]any{}))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -509,7 +508,7 @@ func TestListAPIResourcesHandler(t *testing.T) {
 	})
 
 	t.Run("format=json", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"format": "json",
 		}))
 		if err != nil {
@@ -563,7 +562,7 @@ func TestListAPIResourcesHandler(t *testing.T) {
 		}
 		envelope, ok := res.StructuredContent.(map[string]any)
 		if !ok {
-			t.Fatalf("expected map[string]interface{}, got %T", res.StructuredContent)
+			t.Fatalf("expected map[string]any, got %T", res.StructuredContent)
 		}
 		if _, ok := envelope["items"]; !ok {
 			t.Error("expected 'items' key in structured content")
@@ -574,7 +573,7 @@ func TestListAPIResourcesHandler(t *testing.T) {
 	})
 
 	t.Run("filter by group", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"format": "json",
 			"group":  "apps",
 		}))
@@ -602,7 +601,7 @@ func TestListAPIResourcesHandler(t *testing.T) {
 	})
 
 	t.Run("filter by namespaced=true", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"format":     "json",
 			"namespaced": "true",
 		}))
@@ -633,7 +632,7 @@ func TestListAPIResourcesHandler(t *testing.T) {
 	})
 
 	t.Run("filter by namespaced=false", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"format":     "json",
 			"namespaced": "false",
 		}))
@@ -658,7 +657,7 @@ func TestListAPIResourcesHandler(t *testing.T) {
 	})
 
 	t.Run("filter by verb", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"format": "json",
 			"verb":   "list",
 		}))
@@ -684,7 +683,7 @@ func TestListAPIResourcesHandler(t *testing.T) {
 	})
 
 	t.Run("filter by core group", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"format": "json",
 			"group":  "core",
 		}))
@@ -728,7 +727,7 @@ func TestGetResourceHandler(t *testing.T) {
 	})
 
 	t.Run("namespaced resource", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":      "Pod",
 			"name":      "my-pod",
 			"namespace": "default",
@@ -750,7 +749,7 @@ func TestGetResourceHandler(t *testing.T) {
 	})
 
 	t.Run("cluster-scoped resource", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind": "Node",
 			"name": "node-1",
 		}))
@@ -767,7 +766,7 @@ func TestGetResourceHandler(t *testing.T) {
 	})
 
 	t.Run("secret redaction", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":      "Secret",
 			"name":      "my-secret",
 			"namespace": "default",
@@ -797,7 +796,7 @@ func TestGetResourceHandler(t *testing.T) {
 		h := getHandler(t, "get_resource", func(s *server.MCPServer) {
 			registerGetResource(s, pool2, allowSecretsCfg)
 		})
-		res, err := h(context.Background(), callToolReq(map[string]any{
+		res, err := h(t.Context(), callToolReq(map[string]any{
 			"kind":      "Secret",
 			"name":      "open-secret",
 			"namespace": "default",
@@ -815,7 +814,7 @@ func TestGetResourceHandler(t *testing.T) {
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":      "Pod",
 			"name":      "nonexistent",
 			"namespace": "default",
@@ -829,7 +828,7 @@ func TestGetResourceHandler(t *testing.T) {
 	})
 
 	t.Run("with apiVersion", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":       "Pod",
 			"name":       "my-pod",
 			"namespace":  "default",
@@ -844,7 +843,7 @@ func TestGetResourceHandler(t *testing.T) {
 	})
 
 	t.Run("unknown kind", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":      "Bogus",
 			"name":      "x",
 			"namespace": "default",
@@ -890,7 +889,7 @@ func TestListResourcesHandler(t *testing.T) {
 	})
 
 	t.Run("happy path all namespaces", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind": "Pod",
 		}))
 		if err != nil {
@@ -906,7 +905,7 @@ func TestListResourcesHandler(t *testing.T) {
 	})
 
 	t.Run("namespaced", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":      "Pod",
 			"namespace": "default",
 		}))
@@ -923,7 +922,7 @@ func TestListResourcesHandler(t *testing.T) {
 	})
 
 	t.Run("with filter match", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":   "Pod",
 			"filter": "status.phase=Running",
 		}))
@@ -940,7 +939,7 @@ func TestListResourcesHandler(t *testing.T) {
 	})
 
 	t.Run("filter no match", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":   "Pod",
 			"filter": "status.phase=Succeeded",
 		}))
@@ -958,7 +957,7 @@ func TestListResourcesHandler(t *testing.T) {
 		h := getHandler(t, "list_resources", func(s *server.MCPServer) {
 			registerListResources(s, emptyPool, cfg)
 		})
-		res, err := h(context.Background(), callToolReq(map[string]any{
+		res, err := h(t.Context(), callToolReq(map[string]any{
 			"kind": "Pod",
 		}))
 		if err != nil {
@@ -971,7 +970,7 @@ func TestListResourcesHandler(t *testing.T) {
 	})
 
 	t.Run("invalid filter expression", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":   "Pod",
 			"filter": "nooperator",
 		}))
@@ -990,7 +989,7 @@ func TestListResourcesHandler(t *testing.T) {
 		h := getHandler(t, "list_resources", func(s *server.MCPServer) {
 			registerListResources(s, pool2, cfg)
 		})
-		res, err := h(context.Background(), callToolReq(map[string]any{
+		res, err := h(t.Context(), callToolReq(map[string]any{
 			"kind":      "Secret",
 			"namespace": "default",
 		}))
@@ -1010,7 +1009,7 @@ func TestListResourcesHandler(t *testing.T) {
 	t.Run("default limit applied when no explicit limit", func(t *testing.T) {
 		// With 3 pods and a default limit of 100, all pods should be returned
 		// and no pagination hint about "first 100" should appear (fewer than limit).
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind": "Pod",
 		}))
 		if err != nil {
@@ -1024,7 +1023,7 @@ func TestListResourcesHandler(t *testing.T) {
 	})
 
 	t.Run("explicit limit overrides default", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":  "Pod",
 			"limit": float64(2),
 		}))
@@ -1057,7 +1056,7 @@ func TestListResourcesFormatParameter(t *testing.T) {
 	})
 
 	t.Run("invalid format returns error", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":   "Pod",
 			"format": "bogus",
 		}))
@@ -1074,7 +1073,7 @@ func TestListResourcesFormatParameter(t *testing.T) {
 	})
 
 	t.Run("table+filter returns error", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":   "Pod",
 			"format": "table",
 			"filter": "status.phase=Running",
@@ -1097,7 +1096,7 @@ func TestListResourcesFormatParameter(t *testing.T) {
 		h := getHandler(t, "list_resources", func(s *server.MCPServer) {
 			registerListResources(s, secPool, cfg)
 		})
-		res, err := h(context.Background(), callToolReq(map[string]any{
+		res, err := h(t.Context(), callToolReq(map[string]any{
 			"kind":      "Secret",
 			"namespace": "default",
 			"format":    "table",
@@ -1115,7 +1114,7 @@ func TestListResourcesFormatParameter(t *testing.T) {
 	})
 
 	t.Run("format=summary returns summary output", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":   "Pod",
 			"format": "summary",
 		}))
@@ -1151,7 +1150,7 @@ func TestListResourcesFormatParameter(t *testing.T) {
 			registerListResources(s, pool2, cfg)
 		})
 
-		res, err := h(context.Background(), callToolReq(map[string]any{
+		res, err := h(t.Context(), callToolReq(map[string]any{
 			"kind":   "Pod",
 			"format": "json",
 		}))
@@ -1199,7 +1198,7 @@ func TestDescribeResourceHandler(t *testing.T) {
 	})
 
 	t.Run("happy path with conditions and events", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":      "Pod",
 			"name":      "desc-pod",
 			"namespace": "default",
@@ -1235,7 +1234,7 @@ func TestDescribeResourceHandler(t *testing.T) {
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":      "Pod",
 			"name":      "nonexistent",
 			"namespace": "default",
@@ -1255,7 +1254,7 @@ func TestDescribeResourceHandler(t *testing.T) {
 		h := getHandler(t, "describe_resource", func(s *server.MCPServer) {
 			registerDescribeResource(s, pool2, cfg)
 		})
-		res, err := h(context.Background(), callToolReq(map[string]any{
+		res, err := h(t.Context(), callToolReq(map[string]any{
 			"kind": "Node",
 			"name": "desc-node",
 		}))
@@ -1292,7 +1291,7 @@ func TestDescribeResourceHandler(t *testing.T) {
 		h := getHandler(t, "describe_resource", func(s *server.MCPServer) {
 			registerDescribeResource(s, pool3, cfg)
 		})
-		res, err := h(context.Background(), callToolReq(map[string]any{
+		res, err := h(t.Context(), callToolReq(map[string]any{
 			"kind":      "Pod",
 			"name":      "labeled-pod",
 			"namespace": "default",
@@ -1316,7 +1315,7 @@ func TestDescribeResourceHandler(t *testing.T) {
 	})
 
 	t.Run("describe with spec", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":      "Pod",
 			"name":      "desc-pod",
 			"namespace": "default",
@@ -1355,7 +1354,7 @@ func TestDescribeResourceHandler(t *testing.T) {
 		h := getHandler(t, "describe_resource", func(s *server.MCPServer) {
 			registerDescribeResource(s, poolMF, cfg)
 		})
-		res, err := h(context.Background(), callToolReq(map[string]any{
+		res, err := h(t.Context(), callToolReq(map[string]any{
 			"kind":      "Pod",
 			"name":      "mf-pod",
 			"namespace": "default",
@@ -1411,7 +1410,7 @@ func TestGetLogsHandler(t *testing.T) {
 
 		// The fake clientset doesn't support pod log streaming natively.
 		// We can only test the error path.
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"namespace": "default",
 			"pod":       "test-pod",
 		}))
@@ -1462,7 +1461,7 @@ func TestGetLogsHandler(t *testing.T) {
 		})
 
 		// Test with since parameter to cover that code path.
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"namespace": "default",
 			"pod":       "test-pod",
 			"since":     "5m",
@@ -1483,7 +1482,7 @@ func TestGetLogsHandler(t *testing.T) {
 			registerGetLogs(s, pool)
 		})
 
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"namespace": "default",
 			"pod":       "test-pod",
 			"since":     "invalid",
@@ -1509,7 +1508,7 @@ func TestGetLogsHandler(t *testing.T) {
 			registerGetLogs(s, pool)
 		})
 
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"namespace": "default",
 			"pod":       "test-pod",
 			"container": "sidecar",
@@ -1530,7 +1529,7 @@ func TestGetLogsHandler(t *testing.T) {
 		h := getHandler(t, "get_logs", func(s *server.MCPServer) {
 			registerGetLogs(s, restrictedPool)
 		})
-		res, err := h(context.Background(), callToolReq(map[string]any{
+		res, err := h(t.Context(), callToolReq(map[string]any{
 			"namespace": "default",
 			"pod":       "test-pod",
 		}))
@@ -1566,7 +1565,7 @@ func TestGetEventsHandler(t *testing.T) {
 			registerGetEvents(s, pool)
 		})
 
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"namespace": "default",
 		}))
 		if err != nil {
@@ -1596,7 +1595,7 @@ func TestGetEventsHandler(t *testing.T) {
 			registerGetEvents(s, pool)
 		})
 
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"namespace": "default",
 		}))
 		if err != nil {
@@ -1625,7 +1624,7 @@ func TestGetEventsHandler(t *testing.T) {
 			registerGetEvents(s, pool)
 		})
 
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"namespace": "default",
 			"limit":     float64(10),
 		}))
@@ -1654,7 +1653,7 @@ func TestGetEventsHandler(t *testing.T) {
 		})
 
 		// Omit namespace to get all namespaces.
-		res, err := handler(context.Background(), callToolReq(map[string]any{}))
+		res, err := handler(t.Context(), callToolReq(map[string]any{}))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1788,7 +1787,7 @@ func TestFetchEvents(t *testing.T) {
 		fakeCS := fake.NewClientset(event)
 		cc := &kube.ContextClient{Clientset: fakeCS}
 
-		result, err := fetchEvents(context.Background(), cc, "default", "Pod", "my-pod")
+		result, err := fetchEvents(t.Context(), cc, "default", "Pod", "my-pod")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1804,7 +1803,7 @@ func TestFetchEvents(t *testing.T) {
 		fakeCS := fake.NewClientset()
 		cc := &kube.ContextClient{Clientset: fakeCS}
 
-		result, err := fetchEvents(context.Background(), cc, "default", "Pod", "nonexistent")
+		result, err := fetchEvents(t.Context(), cc, "default", "Pod", "nonexistent")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1825,7 +1824,7 @@ func TestFetchEvents(t *testing.T) {
 		fakeCS := fake.NewClientset(event)
 		cc := &kube.ContextClient{Clientset: fakeCS}
 
-		result, err := fetchEvents(context.Background(), cc, "default", "Pod", "zero-ts-pod")
+		result, err := fetchEvents(t.Context(), cc, "default", "Pod", "zero-ts-pod")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1893,7 +1892,7 @@ func TestHandlerContextErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := getHandler(t, tt.toolName, tt.register)
-			res, err := h(context.Background(), callToolReq(tt.args))
+			res, err := h(t.Context(), callToolReq(tt.args))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1920,7 +1919,7 @@ func TestListResourcesAllNamespaces(t *testing.T) {
 	})
 
 	t.Run("allNamespaces returns resources from all namespaces", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":          "Pod",
 			"allNamespaces": true,
 		}))
@@ -1937,7 +1936,7 @@ func TestListResourcesAllNamespaces(t *testing.T) {
 	})
 
 	t.Run("allNamespaces with namespace returns error", func(t *testing.T) {
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"kind":          "Pod",
 			"allNamespaces": true,
 			"namespace":     "ns-one",
@@ -1985,7 +1984,7 @@ func TestGetEventsAllNamespaces(t *testing.T) {
 			registerGetEvents(s, pool)
 		})
 
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"allNamespaces": true,
 		}))
 		if err != nil {
@@ -2009,7 +2008,7 @@ func TestGetEventsAllNamespaces(t *testing.T) {
 			registerGetEvents(s, pool)
 		})
 
-		res, err := handler(context.Background(), callToolReq(map[string]any{
+		res, err := handler(t.Context(), callToolReq(map[string]any{
 			"allNamespaces": true,
 			"namespace":     "ns-one",
 		}))
@@ -2039,7 +2038,7 @@ func TestListResourcesDeployment(t *testing.T) {
 		registerListResources(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":       "Deployment",
 		"namespace":  "default",
 		"apiVersion": "apps/v1",
@@ -2069,7 +2068,7 @@ func TestDescribeResourceSecretRedaction(t *testing.T) {
 		registerDescribeResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Secret",
 		"name":      "desc-secret",
 		"namespace": "default",

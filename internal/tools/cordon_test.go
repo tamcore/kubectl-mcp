@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -23,7 +22,7 @@ func TestCordonNode(t *testing.T) {
 		registerCordonNode(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"node": "node-1",
 	}))
 	if err != nil {
@@ -54,7 +53,7 @@ func TestUncordonNode(t *testing.T) {
 		registerUncordonNode(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"node": "node-1",
 	}))
 	if err != nil {
@@ -82,7 +81,7 @@ func TestCordonNode_NotFound(t *testing.T) {
 		registerCordonNode(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"node": "nonexistent",
 	}))
 	if err != nil {
@@ -107,7 +106,7 @@ func TestUncordonNode_NotFound(t *testing.T) {
 		registerUncordonNode(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"node": "nonexistent",
 	}))
 	if err != nil {
@@ -130,7 +129,7 @@ func TestCordonNode_ContextNotAllowed(t *testing.T) {
 		registerCordonNode(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"node": "test",
 	}))
 	if err != nil {

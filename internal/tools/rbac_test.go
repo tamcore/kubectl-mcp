@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -41,7 +40,7 @@ func TestListRBACBindings_ClusterRoleBindings(t *testing.T) {
 		registerListRBACBindings(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{}))
+	res, err := handler(t.Context(), callToolReq(map[string]any{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +86,7 @@ func TestListRBACBindings_RoleBindings(t *testing.T) {
 		registerListRBACBindings(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 	}))
 	if err != nil {
@@ -128,7 +127,7 @@ func TestListRBACBindings_SubjectFilter(t *testing.T) {
 		registerListRBACBindings(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"subject": "target-sa",
 	}))
 	if err != nil {
@@ -166,7 +165,7 @@ func TestListRBACBindings_SubjectKindFilter(t *testing.T) {
 		registerListRBACBindings(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"subjectKind": "ServiceAccount",
 	}))
 	if err != nil {
@@ -193,7 +192,7 @@ func TestListRBACBindings_Empty(t *testing.T) {
 		registerListRBACBindings(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{}))
+	res, err := handler(t.Context(), callToolReq(map[string]any{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -211,7 +210,7 @@ func TestListRBACBindings_ContextNotAllowed(t *testing.T) {
 		registerListRBACBindings(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{}))
+	res, err := handler(t.Context(), callToolReq(map[string]any{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -245,7 +244,7 @@ func TestListRBACRoles_ClusterRoles(t *testing.T) {
 		registerListRBACRoles(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{}))
+	res, err := handler(t.Context(), callToolReq(map[string]any{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -280,7 +279,7 @@ func TestListRBACRoles_Roles(t *testing.T) {
 		registerListRBACRoles(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 	}))
 	if err != nil {
@@ -318,7 +317,7 @@ func TestListRBACRoles_NamedClusterRole(t *testing.T) {
 		registerListRBACRoles(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"name": "custom-role",
 	}))
 	if err != nil {
@@ -353,7 +352,7 @@ func TestListRBACRoles_NamedRole(t *testing.T) {
 		registerListRBACRoles(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"name":      "pod-reader",
 	}))
@@ -381,7 +380,7 @@ func TestListRBACRoles_Empty(t *testing.T) {
 		registerListRBACRoles(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{}))
+	res, err := handler(t.Context(), callToolReq(map[string]any{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -399,7 +398,7 @@ func TestListRBACRoles_NotFound(t *testing.T) {
 		registerListRBACRoles(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"name": "nonexistent",
 	}))
 	if err != nil {
@@ -432,7 +431,7 @@ func TestListServiceAccounts_List(t *testing.T) {
 		registerListServiceAccounts(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 	}))
 	if err != nil {
@@ -463,7 +462,7 @@ func TestListServiceAccounts_AllNamespaces(t *testing.T) {
 		registerListServiceAccounts(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{}))
+	res, err := handler(t.Context(), callToolReq(map[string]any{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -493,7 +492,7 @@ func TestListServiceAccounts_Named(t *testing.T) {
 		registerListServiceAccounts(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"name":      "my-sa",
 	}))
@@ -532,7 +531,7 @@ func TestListServiceAccounts_NoTokenData(t *testing.T) {
 		registerListServiceAccounts(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"name":      "token-sa",
 	}))
@@ -554,7 +553,7 @@ func TestListServiceAccounts_Empty(t *testing.T) {
 		registerListServiceAccounts(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 	}))
 	if err != nil {
@@ -574,7 +573,7 @@ func TestListServiceAccounts_ContextNotAllowed(t *testing.T) {
 		registerListServiceAccounts(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{}))
+	res, err := handler(t.Context(), callToolReq(map[string]any{}))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -18,7 +18,7 @@ func TestRateLimit(t *testing.T) {
 				c := tc.clientFunc(t, base)
 
 				rateLimited := false
-				for i := 0; i < 10; i++ {
+				for range 10 {
 					result := callTool(t, c, "list_contexts", nil)
 					if result.IsError && strings.Contains(resultText(result), "Rate limited") {
 						rateLimited = true
@@ -44,7 +44,7 @@ func TestRateLimit(t *testing.T) {
 				t.Cleanup(func() { deleteViaKubectl(t, "configmap", "e2e-rl-write", testNamespace) })
 
 				rateLimited := false
-				for i := 0; i < 10; i++ {
+				for range 10 {
 					result := callTool(t, c, "patch_resource", map[string]any{
 						"kind":      "ConfigMap",
 						"name":      "e2e-rl-write",
@@ -69,7 +69,7 @@ func TestRateLimit(t *testing.T) {
 				base := tc.startFunc(t, cfg)
 				c := tc.clientFunc(t, base)
 
-				for i := 0; i < 20; i++ {
+				for i := range 20 {
 					result := callTool(t, c, "list_contexts", nil)
 					if result.IsError && strings.Contains(resultText(result), "Rate limited") {
 						t.Fatalf("unexpected rate limit at iteration %d", i)

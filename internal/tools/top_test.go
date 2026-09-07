@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -289,7 +288,7 @@ func TestTopPods_HappyPath(t *testing.T) {
 		registerTopPods(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{}))
+	res, err := handler(t.Context(), callToolReq(map[string]any{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -326,7 +325,7 @@ func TestTopPods_NamespaceFilter(t *testing.T) {
 		registerTopPods(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 	}))
 	if err != nil {
@@ -359,7 +358,7 @@ func TestTopPods_NameFilter(t *testing.T) {
 		registerTopPods(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"name":      "pod-1",
 	}))
@@ -395,7 +394,7 @@ func TestTopPods_ContainersBreakdown(t *testing.T) {
 		registerTopPods(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"containers": true,
 	}))
@@ -452,7 +451,7 @@ func TestTopPods_ContainersFalseAggregates(t *testing.T) {
 	})
 
 	// containers=false (default) should aggregate.
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 	}))
 	if err != nil {
@@ -492,7 +491,7 @@ func TestTopPods_MultiContainer(t *testing.T) {
 		registerTopPods(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 	}))
 	if err != nil {
@@ -523,7 +522,7 @@ func TestTopPods_Empty(t *testing.T) {
 		registerTopPods(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{}))
+	res, err := handler(t.Context(), callToolReq(map[string]any{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -554,7 +553,7 @@ func TestTopPods_MetricsServerNotAvailable(t *testing.T) {
 		registerTopPods(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{}))
+	res, err := handler(t.Context(), callToolReq(map[string]any{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -575,7 +574,7 @@ func TestTopPods_ContextNotAllowed(t *testing.T) {
 		registerTopPods(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{}))
+	res, err := handler(t.Context(), callToolReq(map[string]any{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -603,7 +602,7 @@ func TestTopNodes_HappyPath(t *testing.T) {
 		registerTopNodes(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{}))
+	res, err := handler(t.Context(), callToolReq(map[string]any{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -642,7 +641,7 @@ func TestTopNodes_NameFilter(t *testing.T) {
 		registerTopNodes(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"name": "node-1",
 	}))
 	if err != nil {
@@ -675,7 +674,7 @@ func TestTopNodes_MissingAllocatable(t *testing.T) {
 		registerTopNodes(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{}))
+	res, err := handler(t.Context(), callToolReq(map[string]any{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -703,7 +702,7 @@ func TestTopNodes_Empty(t *testing.T) {
 		registerTopNodes(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{}))
+	res, err := handler(t.Context(), callToolReq(map[string]any{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -733,7 +732,7 @@ func TestTopNodes_MetricsServerNotAvailable(t *testing.T) {
 		registerTopNodes(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{}))
+	res, err := handler(t.Context(), callToolReq(map[string]any{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -814,7 +813,7 @@ func TestTopNodes_LabelSelector(t *testing.T) {
 		registerTopNodes(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"labelSelector": "role=worker",
 	}))
 	if err != nil {
@@ -858,7 +857,7 @@ func TestTopNodes_LabelSelector_EmptyMatch(t *testing.T) {
 		registerTopNodes(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"labelSelector": "role=gpu",
 	}))
 	if err != nil {
@@ -883,7 +882,7 @@ func TestTopNodes_LabelSelector_And_Name_Error(t *testing.T) {
 		registerTopNodes(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"name":          "node-1",
 		"labelSelector": "role=worker",
 	}))

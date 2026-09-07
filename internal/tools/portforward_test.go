@@ -52,7 +52,7 @@ func TestPortForward_HappyPath(t *testing.T) {
 		registerPortForward(s, pool, fwd, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"resource":   "my-pod",
 		"remotePort": float64(8080),
@@ -97,7 +97,7 @@ func TestPortForward_WithLocalPort(t *testing.T) {
 		registerPortForward(s, pool, fwd, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"resource":   "my-pod",
 		"remotePort": float64(8080),
@@ -137,7 +137,7 @@ func TestPortForward_TimeoutClamped(t *testing.T) {
 		registerPortForward(s, pool, fwd, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"resource":   "my-pod",
 		"remotePort": float64(8080),
@@ -175,7 +175,7 @@ func TestPortForward_ForwardError(t *testing.T) {
 		registerPortForward(s, pool, fwd, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"resource":   "my-pod",
 		"remotePort": float64(8080),
@@ -205,7 +205,7 @@ func TestPortForward_ContextNotAllowed(t *testing.T) {
 		registerPortForward(s, pool, fwd, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"resource":   "my-pod",
 		"remotePort": float64(8080),
@@ -233,7 +233,7 @@ func TestPortForward_InvalidPort(t *testing.T) {
 		registerPortForward(s, pool, fwd, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"resource":   "my-pod",
 		"remotePort": float64(0),
@@ -279,7 +279,7 @@ func TestPortForward_PortValidation(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			res, err := handler(context.Background(), callToolReq(map[string]any{
+			res, err := handler(t.Context(), callToolReq(map[string]any{
 				"namespace":  "default",
 				"resource":   "my-pod",
 				"remotePort": tc.remotePort,
@@ -358,7 +358,7 @@ func TestPortForward_ResourceBareName(t *testing.T) {
 		registerPortForward(s, pool, fwd, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"resource":   "my-pod",
 		"remotePort": float64(8080),
@@ -395,7 +395,7 @@ func TestPortForward_ResourceExplicitPod(t *testing.T) {
 		registerPortForward(s, pool, fwd, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"resource":   "pod/my-pod",
 		"remotePort": float64(8080),
@@ -460,7 +460,7 @@ func TestPortForward_ResourceService(t *testing.T) {
 		registerPortForward(s, pool, fwd, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"resource":   "svc/my-svc",
 		"remotePort": float64(8080),
@@ -526,7 +526,7 @@ func TestPortForward_ResourceServiceNamedPort(t *testing.T) {
 	})
 
 	// remotePort=80 matches the named port "http" whose targetPort=8080.
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"resource":   "svc/my-svc",
 		"remotePort": float64(80),
@@ -581,7 +581,7 @@ func TestPortForward_ResourceDeployment(t *testing.T) {
 		registerPortForward(s, pool, fwd, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"resource":   "deploy/my-deploy",
 		"remotePort": float64(8080),
@@ -652,7 +652,7 @@ func TestPortForward_ResourceStatefulSet(t *testing.T) {
 		registerPortForward(s, pool, fwd, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"resource":   "sts/my-sts",
 		"remotePort": float64(8080),
@@ -688,7 +688,7 @@ func TestPortForward_ResourceUnknownKind(t *testing.T) {
 		registerPortForward(s, pool, fwd, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"resource":   "job/my-job",
 		"remotePort": float64(8080),
@@ -741,7 +741,7 @@ func TestPortForward_NoReadyPods(t *testing.T) {
 		registerPortForward(s, pool, fwd, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"resource":   "svc/my-svc",
 		"remotePort": float64(8080),

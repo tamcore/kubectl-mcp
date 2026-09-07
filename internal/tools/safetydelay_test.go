@@ -11,7 +11,7 @@ import (
 func TestApplySafetyDelay_ZeroDelay(t *testing.T) {
 	req := mcp.CallToolRequest{}
 	start := time.Now()
-	if err := applySafetyDelay(context.Background(), req, 0); err != nil {
+	if err := applySafetyDelay(t.Context(), req, 0); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if elapsed := time.Since(start); elapsed >= 50*time.Millisecond {
@@ -22,7 +22,7 @@ func TestApplySafetyDelay_ZeroDelay(t *testing.T) {
 func TestApplySafetyDelay_NegativeDelay(t *testing.T) {
 	req := mcp.CallToolRequest{}
 	start := time.Now()
-	if err := applySafetyDelay(context.Background(), req, -1*time.Second); err != nil {
+	if err := applySafetyDelay(t.Context(), req, -1*time.Second); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if elapsed := time.Since(start); elapsed >= 50*time.Millisecond {
@@ -34,7 +34,7 @@ func TestApplySafetyDelay_SleepsForDuration(t *testing.T) {
 	req := mcp.CallToolRequest{}
 	delay := 200 * time.Millisecond
 	start := time.Now()
-	if err := applySafetyDelay(context.Background(), req, delay); err != nil {
+	if err := applySafetyDelay(t.Context(), req, delay); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	elapsed := time.Since(start)
@@ -48,7 +48,7 @@ func TestApplySafetyDelay_SleepsForDuration(t *testing.T) {
 
 func TestApplySafetyDelay_ContextCancellation(t *testing.T) {
 	req := mcp.CallToolRequest{}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	go func() {
 		time.Sleep(50 * time.Millisecond)
 		cancel()
@@ -68,7 +68,7 @@ func TestApplySafetyDelay_NoOpProgressWithoutToken(t *testing.T) {
 	// No progressToken — helper must sleep without panicking.
 	req := mcp.CallToolRequest{}
 	delay := 150 * time.Millisecond
-	if err := applySafetyDelay(context.Background(), req, delay); err != nil {
+	if err := applySafetyDelay(t.Context(), req, delay); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

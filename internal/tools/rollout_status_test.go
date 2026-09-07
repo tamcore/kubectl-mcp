@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -97,7 +96,7 @@ func TestRolloutStatus_DeploymentComplete(t *testing.T) {
 		registerRolloutStatus(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Deployment",
 		"name":      "my-deploy",
 		"namespace": "default",
@@ -137,7 +136,7 @@ func TestRolloutStatus_DeploymentInProgress(t *testing.T) {
 		registerRolloutStatus(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Deployment",
 		"name":      "my-deploy",
 		"namespace": "default",
@@ -168,7 +167,7 @@ func TestRolloutStatus_StatefulSet(t *testing.T) {
 		registerRolloutStatus(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "StatefulSet",
 		"name":      "my-sts",
 		"namespace": "default",
@@ -202,7 +201,7 @@ func TestRolloutStatus_DaemonSet(t *testing.T) {
 		registerRolloutStatus(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "DaemonSet",
 		"name":      "my-ds",
 		"namespace": "default",
@@ -235,7 +234,7 @@ func TestRolloutStatus_UnsupportedKind(t *testing.T) {
 		registerRolloutStatus(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "ReplicaSet",
 		"name":      "test",
 		"namespace": "default",
@@ -263,7 +262,7 @@ func TestRolloutStatus_NotFound(t *testing.T) {
 		registerRolloutStatus(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Deployment",
 		"name":      "nonexistent",
 		"namespace": "default",
@@ -291,7 +290,7 @@ func TestRolloutStatus_ContextNotAllowed(t *testing.T) {
 		registerRolloutStatus(s, pool)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Deployment",
 		"name":      "test",
 		"namespace": "default",

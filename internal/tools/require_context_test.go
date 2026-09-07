@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"slices"
 	"strings"
 	"testing"
@@ -129,7 +128,7 @@ func TestRequireContext_HandlerRejectsEmpty(t *testing.T) {
 		registerGetResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind": "Pod",
 		"name": "nginx",
 	}))
@@ -162,7 +161,7 @@ func TestRequireContext_HandlerAllowsExplicit(t *testing.T) {
 		registerGetResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"context":   "test-ctx",
 		"kind":      "Pod",
 		"name":      "nginx",

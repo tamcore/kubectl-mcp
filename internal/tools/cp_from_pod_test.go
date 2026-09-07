@@ -65,7 +65,7 @@ func TestCopyFromPod_TextFile(t *testing.T) {
 		registerCopyFromPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"pod":       "my-pod",
 		"src_path":  "/etc/myconfig",
@@ -94,7 +94,7 @@ func TestCopyFromPod_WritesLocalFile(t *testing.T) {
 	})
 
 	local := filepath.Join(t.TempDir(), "out.txt")
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"pod":        "my-pod",
 		"src_path":   "/etc/myconfig",
@@ -137,7 +137,7 @@ func TestCopyFromPod_ExistingFileNoOverwrite(t *testing.T) {
 		t.Fatalf("seeding file: %v", err)
 	}
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"pod":        "my-pod",
 		"src_path":   "/etc/myconfig",
@@ -175,7 +175,7 @@ func TestCopyFromPod_ExistingFileOverwrite(t *testing.T) {
 		t.Fatalf("seeding file: %v", err)
 	}
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"pod":        "my-pod",
 		"src_path":   "/etc/myconfig",
@@ -205,7 +205,7 @@ func TestCopyFromPod_LocalPathNotAbsolute(t *testing.T) {
 		registerCopyFromPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace":  "default",
 		"pod":        "my-pod",
 		"src_path":   "/etc/myconfig",
@@ -230,7 +230,7 @@ func TestCopyFromPod_BinaryFile(t *testing.T) {
 		registerCopyFromPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"pod":       "my-pod",
 		"src_path":  "/data/binary.bin",
@@ -255,7 +255,7 @@ func TestCopyFromPod_EmptyFile(t *testing.T) {
 		registerCopyFromPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"pod":       "my-pod",
 		"src_path":  "/empty.txt",
@@ -279,7 +279,7 @@ func TestCopyFromPod_MissingNamespace(t *testing.T) {
 		registerCopyFromPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"pod":      "my-pod",
 		"src_path": "/etc/config",
 	}))
@@ -302,7 +302,7 @@ func TestCopyFromPod_MissingPod(t *testing.T) {
 		registerCopyFromPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"src_path":  "/etc/config",
 	}))
@@ -325,7 +325,7 @@ func TestCopyFromPod_MissingSrcPath(t *testing.T) {
 		registerCopyFromPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"pod":       "my-pod",
 	}))
@@ -348,7 +348,7 @@ func TestCopyFromPod_ContextResolutionFailure(t *testing.T) {
 		registerCopyFromPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"pod":       "my-pod",
 		"src_path":  "/etc/config",
@@ -372,7 +372,7 @@ func TestCopyFromPod_ExecError(t *testing.T) {
 		registerCopyFromPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"pod":       "my-pod",
 		"src_path":  "/nonexistent",
@@ -396,7 +396,7 @@ func TestCopyFromPod_InvalidTar(t *testing.T) {
 		registerCopyFromPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"pod":       "my-pod",
 		"src_path":  "/etc/config",
@@ -424,7 +424,7 @@ func TestCopyFromPod_TruncatedTar(t *testing.T) {
 		registerCopyFromPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"pod":       "my-pod",
 		"src_path":  "/file.txt",
@@ -450,7 +450,7 @@ func TestCopyFromPod_WithContainer(t *testing.T) {
 		registerCopyFromPod(s, pool, runner, cfg)
 	})
 
-	_, err := handler(context.Background(), callToolReq(map[string]any{
+	_, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"pod":       "my-pod",
 		"src_path":  "/cfg",
@@ -486,7 +486,7 @@ func TestCopyFromPod_FileTooLarge(t *testing.T) {
 		registerCopyFromPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"pod":       "my-pod",
 		"src_path":  "/bigfile",

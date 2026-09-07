@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -23,7 +22,7 @@ func TestRestartRollout_Deployment(t *testing.T) {
 		registerRestartRollout(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Deployment",
 		"name":      "my-deploy",
 		"namespace": "default",
@@ -57,7 +56,7 @@ func TestRestartRollout_DaemonSet(t *testing.T) {
 		registerRestartRollout(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "DaemonSet",
 		"name":      "my-ds",
 		"namespace": "default",
@@ -84,7 +83,7 @@ func TestRestartRollout_UnsupportedKind(t *testing.T) {
 		registerRestartRollout(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "ReplicaSet",
 		"name":      "test",
 		"namespace": "default",
@@ -111,7 +110,7 @@ func TestRestartRollout_NotFound(t *testing.T) {
 		registerRestartRollout(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Deployment",
 		"name":      "nonexistent",
 		"namespace": "default",
@@ -136,7 +135,7 @@ func TestRestartRollout_ContextNotAllowed(t *testing.T) {
 		registerRestartRollout(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Deployment",
 		"name":      "test",
 		"namespace": "default",

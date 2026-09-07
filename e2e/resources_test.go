@@ -19,7 +19,7 @@ func TestListResourceTemplates(t *testing.T) {
 			base := tc.startFunc(t, cfg)
 			c := tc.clientFunc(t, base)
 
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 			defer cancel()
 
 			result, err := c.ListResourceTemplates(ctx, mcp.ListResourceTemplatesRequest{})
@@ -71,7 +71,7 @@ func TestReadResourceNamespaced(t *testing.T) {
 			ctxName := extractCurrentContext(t, ctxText)
 
 			// Read the ConfigMap via k8s:// URI.
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 			defer cancel()
 
 			uri := "k8s://" + ctxName + "/namespaces/" + testNamespace + "/core/v1/configmaps/" + cmName
@@ -110,7 +110,7 @@ func TestReadResourceClusterScoped(t *testing.T) {
 			ctxName := extractCurrentContext(t, resultText(callTool(t, c, "list_contexts", nil)))
 			nodeName := getFirstNodeName(t)
 
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 			defer cancel()
 
 			uri := "k8s://" + ctxName + "/core/v1/nodes/" + nodeName
@@ -159,7 +159,7 @@ func TestReadResourceSecretRedaction(t *testing.T) {
 
 			ctxName := extractCurrentContext(t, resultText(callTool(t, c, "list_contexts", nil)))
 
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 			defer cancel()
 
 			uri := "k8s://" + ctxName + "/namespaces/" + testNamespace + "/core/v1/secrets/" + secretName
@@ -189,7 +189,7 @@ func TestReadResourceSecretRedaction(t *testing.T) {
 func extractCurrentContext(t *testing.T, listContextsOutput string) string {
 	t.Helper()
 	// The list_contexts tool returns a JSON array of context objects.
-	var contexts []map[string]interface{}
+	var contexts []map[string]any
 	if err := json.Unmarshal([]byte(listContextsOutput), &contexts); err != nil {
 		// Fallback: try to parse as simple text.
 		lines := strings.Split(strings.TrimSpace(listContextsOutput), "\n")

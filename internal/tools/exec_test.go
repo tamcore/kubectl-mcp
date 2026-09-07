@@ -29,7 +29,7 @@ func TestExecPod_HappyPath(t *testing.T) {
 		registerExecPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"pod":       "my-pod",
 		"command":   []any{"echo", "hello", "world"},
@@ -58,7 +58,7 @@ func TestExecPod_StderrIncluded(t *testing.T) {
 		registerExecPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"pod":       "my-pod",
 		"command":   []any{"sh", "-c", "echo out; echo err >&2"},
@@ -90,7 +90,7 @@ func TestExecPod_MissingCommand(t *testing.T) {
 		registerExecPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"pod":       "my-pod",
 	}))
@@ -118,7 +118,7 @@ func TestExecPod_ExecError(t *testing.T) {
 		registerExecPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"pod":       "my-pod",
 		"command":   []any{"nonexistent"},
@@ -145,7 +145,7 @@ func TestExecPod_ContextNotAllowed(t *testing.T) {
 		registerExecPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"pod":       "my-pod",
 		"command":   []any{"echo"},
@@ -175,7 +175,7 @@ func TestExecPod_CommandAsString(t *testing.T) {
 	})
 
 	// LLM sends command as a single string instead of array.
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"pod":       "my-pod",
 		"command":   "ls -la",
@@ -209,7 +209,7 @@ func TestExecPod_QuotedStringCommand(t *testing.T) {
 	})
 
 	// LLM sends sh -c with a quoted argument — quotes must be preserved.
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"pod":       "my-pod",
 		"command":   `sh -c "echo hello world"`,
@@ -248,7 +248,7 @@ func TestExecPod_ErrorIncludesStderr(t *testing.T) {
 		registerExecPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"pod":       "my-pod",
 		"command":   []any{"wget", "-qO-", "http://localhost"},
@@ -468,7 +468,7 @@ func TestExecPod_NoOutput(t *testing.T) {
 		registerExecPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"pod":       "my-pod",
 		"command":   []any{"true"},
@@ -498,7 +498,7 @@ func TestExecPod_TimeoutCapped(t *testing.T) {
 	})
 
 	// Request timeout larger than maxExecTimeout (300s); should be silently capped.
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"pod":       "my-pod",
 		"command":   []any{"echo", "ok"},
@@ -530,7 +530,7 @@ func TestExecPod_TimeoutZeroUsesDefault(t *testing.T) {
 	})
 
 	// Explicit timeout of 0 should fall back to the 30 s default.
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"pod":       "my-pod",
 		"command":   []any{"echo", "ok"},
@@ -561,7 +561,7 @@ func TestExecPod_ClientForError(t *testing.T) {
 		registerExecPod(s, pool, runner, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"namespace": "default",
 		"pod":       "my-pod",
 		"command":   []any{"echo"},

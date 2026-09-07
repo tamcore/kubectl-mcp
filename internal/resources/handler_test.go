@@ -1,7 +1,6 @@
 package resources
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -96,7 +95,7 @@ func TestReadResource_ConfigMap(t *testing.T) {
 	req := mcp.ReadResourceRequest{}
 	req.Params.URI = "k8s://test-ctx/namespaces/default/core/v1/configmaps/my-cm"
 
-	contents, err := readResource(context.Background(), req, pool, cfg)
+	contents, err := readResource(t.Context(), req, pool, cfg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -127,7 +126,7 @@ func TestReadResource_SecretRedacted(t *testing.T) {
 	req := mcp.ReadResourceRequest{}
 	req.Params.URI = "k8s://test-ctx/namespaces/default/core/v1/secrets/my-secret"
 
-	contents, err := readResource(context.Background(), req, pool, cfg)
+	contents, err := readResource(t.Context(), req, pool, cfg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -153,7 +152,7 @@ func TestReadResource_SecretAllowed(t *testing.T) {
 	req := mcp.ReadResourceRequest{}
 	req.Params.URI = "k8s://test-ctx/namespaces/default/core/v1/secrets/my-secret"
 
-	contents, err := readResource(context.Background(), req, pool, cfg)
+	contents, err := readResource(t.Context(), req, pool, cfg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -172,7 +171,7 @@ func TestReadResource_ClusterScoped(t *testing.T) {
 	req := mcp.ReadResourceRequest{}
 	req.Params.URI = "k8s://test-ctx/core/v1/nodes/worker-1"
 
-	contents, err := readResource(context.Background(), req, pool, cfg)
+	contents, err := readResource(t.Context(), req, pool, cfg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -191,7 +190,7 @@ func TestReadResource_InvalidURI(t *testing.T) {
 	req := mcp.ReadResourceRequest{}
 	req.Params.URI = "http://bad/uri"
 
-	_, err := readResource(context.Background(), req, pool, cfg)
+	_, err := readResource(t.Context(), req, pool, cfg)
 	if err == nil {
 		t.Fatal("expected error for invalid URI")
 	}
@@ -205,7 +204,7 @@ func TestReadResource_NotFound(t *testing.T) {
 	req := mcp.ReadResourceRequest{}
 	req.Params.URI = "k8s://test-ctx/namespaces/default/core/v1/configmaps/nonexistent"
 
-	_, err := readResource(context.Background(), req, pool, cfg)
+	_, err := readResource(t.Context(), req, pool, cfg)
 	if err == nil {
 		t.Fatal("expected error for nonexistent resource")
 	}

@@ -202,13 +202,11 @@ func TestContextLogWriter_ConcurrentAccess(t *testing.T) {
 
 	var wg sync.WaitGroup
 	for i := range 20 {
-		wg.Add(1)
-		go func(n int) {
-			defer wg.Done()
-			ctx := fmt.Sprintf("ctx-%d", n%5) // 5 unique contexts
+		wg.Go(func() {
+			ctx := fmt.Sprintf("ctx-%d", i%5) // 5 unique contexts
 			logger := clw.LoggerFor(ctx)
-			logger.Printf("message from goroutine %d", n)
-		}(i)
+			logger.Printf("message from goroutine %d", i)
+		})
 	}
 	wg.Wait()
 

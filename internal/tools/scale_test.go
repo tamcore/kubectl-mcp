@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -103,7 +102,7 @@ func TestScaleResource_Deployment(t *testing.T) {
 		registerScaleResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Deployment",
 		"name":      "my-deploy",
 		"namespace": "default",
@@ -138,7 +137,7 @@ func TestScaleResource_StatefulSet(t *testing.T) {
 		registerScaleResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "StatefulSet",
 		"name":      "my-sts",
 		"namespace": "default",
@@ -173,7 +172,7 @@ func TestScaleResource_ReplicaSet(t *testing.T) {
 		registerScaleResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "ReplicaSet",
 		"name":      "my-rs",
 		"namespace": "default",
@@ -201,7 +200,7 @@ func TestScaleResource_UnsupportedKind(t *testing.T) {
 		registerScaleResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "DaemonSet",
 		"name":      "test",
 		"namespace": "default",
@@ -229,7 +228,7 @@ func TestScaleResource_NotFound(t *testing.T) {
 		registerScaleResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Deployment",
 		"name":      "nonexistent",
 		"namespace": "default",
@@ -255,7 +254,7 @@ func TestScaleResource_ContextNotAllowed(t *testing.T) {
 		registerScaleResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Deployment",
 		"name":      "test",
 		"namespace": "default",

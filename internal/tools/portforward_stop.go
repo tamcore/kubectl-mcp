@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
+	"slices"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -44,7 +44,7 @@ func listActiveForwards() (*mcp.CallToolResult, error) {
 		return true
 	})
 
-	sort.Strings(keys)
+	slices.Sort(keys)
 
 	if len(keys) == 0 {
 		return mcp.NewToolResultText("No active port-forward sessions"), nil

@@ -18,7 +18,7 @@ func TestPrompts(t *testing.T) {
 			c := tc.clientFunc(t, base)
 
 			t.Run("list_prompts", func(t *testing.T) {
-				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 				defer cancel()
 
 				result, err := c.ListPrompts(ctx, mcp.ListPromptsRequest{})
@@ -39,7 +39,7 @@ func TestPrompts(t *testing.T) {
 			})
 
 			t.Run("get_diagnose-pod", func(t *testing.T) {
-				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 				defer cancel()
 
 				result, err := c.GetPrompt(ctx, mcp.GetPromptRequest{
@@ -63,7 +63,7 @@ func TestPrompts(t *testing.T) {
 			})
 
 			t.Run("get_diagnose-deployment", func(t *testing.T) {
-				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 				defer cancel()
 
 				result, err := c.GetPrompt(ctx, mcp.GetPromptRequest{
@@ -84,7 +84,7 @@ func TestPrompts(t *testing.T) {
 			})
 
 			t.Run("get_investigate-node", func(t *testing.T) {
-				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 				defer cancel()
 
 				result, err := c.GetPrompt(ctx, mcp.GetPromptRequest{
@@ -105,7 +105,7 @@ func TestPrompts(t *testing.T) {
 			})
 
 			t.Run("get_safe-rollback", func(t *testing.T) {
-				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 				defer cancel()
 
 				result, err := c.GetPrompt(ctx, mcp.GetPromptRequest{

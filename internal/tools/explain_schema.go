@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
-	"sort"
+	"slices"
 	"strings"
 
 	"k8s.io/client-go/discovery"
@@ -22,7 +22,7 @@ type fieldInfo struct {
 	Name        string `json:"name"`
 	Type        string `json:"type"`
 	Description string `json:"description,omitempty"`
-	Required    bool   `json:"required,omitempty"`
+	Required    bool   `json:"required,omitzero"`
 }
 
 // openAPISchema is a minimal representation of an OpenAPI v3 schema object.
@@ -192,11 +192,7 @@ func schemaToFieldDetail(s openAPISchema, schemas map[string]openAPISchema) *fie
 	}
 
 	if s.Properties != nil {
-		names := make([]string, 0, len(s.Properties))
-		for name := range s.Properties {
-			names = append(names, name)
-		}
-		sort.Strings(names)
+		names := slices.Sorted(maps.Keys(s.Properties))
 
 		for _, name := range names {
 			prop := s.Properties[name]

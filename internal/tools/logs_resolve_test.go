@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -85,7 +84,7 @@ func TestResolveResourceToLabelSelector_Deployment(t *testing.T) {
 		t.Fatalf("failed to get client: %v", err)
 	}
 
-	selector, err := resolveResourceToLabelSelector(context.Background(), cc, "default", "deployment/my-deploy")
+	selector, err := resolveResourceToLabelSelector(t.Context(), cc, "default", "deployment/my-deploy")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -105,7 +104,7 @@ func TestResolveResourceToLabelSelector_UnsupportedKind(t *testing.T) {
 		t.Fatalf("failed to get client: %v", err)
 	}
 
-	_, err = resolveResourceToLabelSelector(context.Background(), cc, "default", "configmap/test")
+	_, err = resolveResourceToLabelSelector(t.Context(), cc, "default", "configmap/test")
 	if err == nil {
 		t.Error("expected error for unsupported kind")
 	}
@@ -193,7 +192,7 @@ func TestResolveResourceToLabelSelector_CronJob(t *testing.T) {
 		t.Fatalf("failed to get client: %v", err)
 	}
 
-	selector, err := resolveResourceToLabelSelector(context.Background(), cc, "default", "cronjob/my-cronjob")
+	selector, err := resolveResourceToLabelSelector(t.Context(), cc, "default", "cronjob/my-cronjob")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -255,7 +254,7 @@ func TestResolveResourceToLabelSelector_CronJob_ShortName(t *testing.T) {
 	}
 
 	// Use short name "cj" instead of "cronjob".
-	selector, err := resolveResourceToLabelSelector(context.Background(), cc, "default", "cj/my-cj")
+	selector, err := resolveResourceToLabelSelector(t.Context(), cc, "default", "cj/my-cj")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -291,7 +290,7 @@ func TestResolveResourceToLabelSelector_CronJob_NoJobs(t *testing.T) {
 		t.Fatalf("failed to get client: %v", err)
 	}
 
-	_, err = resolveResourceToLabelSelector(context.Background(), cc, "default", "cronjob/empty-cj")
+	_, err = resolveResourceToLabelSelector(t.Context(), cc, "default", "cronjob/empty-cj")
 	if err == nil {
 		t.Error("expected error when no jobs exist for cronjob")
 	}
@@ -312,7 +311,7 @@ func TestResolveResourceToLabelSelector_NotFound(t *testing.T) {
 		t.Fatalf("failed to get client: %v", err)
 	}
 
-	_, err = resolveResourceToLabelSelector(context.Background(), cc, "default", "deployment/nonexistent")
+	_, err = resolveResourceToLabelSelector(t.Context(), cc, "default", "deployment/nonexistent")
 	if err == nil {
 		t.Error("expected error for nonexistent resource")
 	}
@@ -329,7 +328,7 @@ func TestResolveResourceToLabelSelector_InvalidRef(t *testing.T) {
 		t.Fatalf("failed to get client: %v", err)
 	}
 
-	_, err = resolveResourceToLabelSelector(context.Background(), cc, "default", "invalid")
+	_, err = resolveResourceToLabelSelector(t.Context(), cc, "default", "invalid")
 	if err == nil {
 		t.Error("expected error for invalid resource ref")
 	}
@@ -361,7 +360,7 @@ func TestResolveResourceToLabelSelector_ResolveGVRError(t *testing.T) {
 		t.Fatalf("failed to get client: %v", err)
 	}
 
-	_, err = resolveResourceToLabelSelector(context.Background(), cc, "default", "deployment/test")
+	_, err = resolveResourceToLabelSelector(t.Context(), cc, "default", "deployment/test")
 	if err == nil {
 		t.Error("expected error when resolveGVR fails")
 	}
@@ -403,7 +402,7 @@ func TestResolveCronJobToLabelSelector_ListJobsError(t *testing.T) {
 		t.Fatalf("failed to get client: %v", err)
 	}
 
-	_, err = resolveCronJobToLabelSelector(context.Background(), cc, "default", cronJob)
+	_, err = resolveCronJobToLabelSelector(t.Context(), cc, "default", cronJob)
 	if err == nil {
 		t.Error("expected error when listing jobs fails")
 	}

@@ -15,7 +15,7 @@ func TestDiagnosePodHandler(t *testing.T) {
 			Arguments: map[string]string{"pod": "myapp-abc", "namespace": "prod"},
 		},
 	}
-	result, err := diagnosePodHandler(context.Background(), req)
+	result, err := diagnosePodHandler(t.Context(), req)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -37,7 +37,7 @@ func TestDiagnoseDeploymentHandler(t *testing.T) {
 			Arguments: map[string]string{"deployment": "myapp", "namespace": "staging"},
 		},
 	}
-	result, err := diagnoseDeploymentHandler(context.Background(), req)
+	result, err := diagnoseDeploymentHandler(t.Context(), req)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestInvestigateNodeHandler(t *testing.T) {
 			Arguments: map[string]string{"node": "worker-1"},
 		},
 	}
-	result, err := investigateNodeHandler(context.Background(), req)
+	result, err := investigateNodeHandler(t.Context(), req)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -75,7 +75,7 @@ func TestSafeRollbackHandler(t *testing.T) {
 			Arguments: map[string]string{"deployment": "api-server", "namespace": "default"},
 		},
 	}
-	result, err := safeRollbackHandler(context.Background(), req)
+	result, err := safeRollbackHandler(t.Context(), req)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestHandlersMissingRequiredArgs(t *testing.T) {
 			req := mcp.GetPromptRequest{
 				Params: mcp.GetPromptParams{Arguments: tc.args},
 			}
-			_, err := tc.handler(context.Background(), req)
+			_, err := tc.handler(t.Context(), req)
 			if err == nil {
 				t.Error("expected error for missing required argument, got nil")
 			}

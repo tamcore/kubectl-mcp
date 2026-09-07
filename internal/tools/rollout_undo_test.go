@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -27,7 +26,7 @@ func TestRolloutUndo_DefaultRevision(t *testing.T) {
 	})
 
 	// Without toRevision, should roll back to the previous revision (1).
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Deployment",
 		"name":      "my-deploy",
 		"namespace": "default",
@@ -64,7 +63,7 @@ func TestRolloutUndo_SpecificRevision(t *testing.T) {
 		registerRolloutUndo(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":       "Deployment",
 		"name":       "my-deploy",
 		"namespace":  "default",
@@ -100,7 +99,7 @@ func TestRolloutUndo_RevisionNotFound(t *testing.T) {
 		registerRolloutUndo(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":       "Deployment",
 		"name":       "my-deploy",
 		"namespace":  "default",
@@ -130,7 +129,7 @@ func TestRolloutUndo_UnsupportedKind(t *testing.T) {
 		registerRolloutUndo(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "StatefulSet",
 		"name":      "test",
 		"namespace": "default",
@@ -160,7 +159,7 @@ func TestRolloutUndo_NoReplicaSets(t *testing.T) {
 		registerRolloutUndo(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Deployment",
 		"name":      "my-deploy",
 		"namespace": "default",
@@ -188,7 +187,7 @@ func TestRolloutUndo_ContextNotAllowed(t *testing.T) {
 		registerRolloutUndo(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Deployment",
 		"name":      "test",
 		"namespace": "default",

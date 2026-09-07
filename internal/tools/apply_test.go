@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"context"
 	"strings"
 	"testing"
 	"time"
@@ -34,7 +33,7 @@ func TestApplyResource_JSONManifest(t *testing.T) {
 	})
 
 	manifest := `{"apiVersion":"v1","kind":"Pod","metadata":{"name":"test-pod","namespace":"default"},"spec":{"containers":[{"name":"app","image":"nginx"}]}}`
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"manifest": manifest,
 	}))
 	if err != nil {
@@ -69,7 +68,7 @@ spec:
   - name: app
     image: nginx`
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"manifest": manifest,
 	}))
 	if err != nil {
@@ -95,7 +94,7 @@ func TestApplyResource_ClusterScoped(t *testing.T) {
 	})
 
 	manifest := `{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"test-ns"}}`
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"manifest": manifest,
 	}))
 	if err != nil {
@@ -120,7 +119,7 @@ func TestApplyResource_InvalidManifest(t *testing.T) {
 		registerApplyResource(s, pool, cfg)
 	})
 
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"manifest": "not valid yaml or json {{{",
 	}))
 	if err != nil {
@@ -145,7 +144,7 @@ func TestApplyResource_MissingKind(t *testing.T) {
 	})
 
 	manifest := `{"apiVersion":"v1","metadata":{"name":"test"}}`
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"manifest": manifest,
 	}))
 	if err != nil {
@@ -170,7 +169,7 @@ func TestApplyResource_MissingName(t *testing.T) {
 	})
 
 	manifest := `{"apiVersion":"v1","kind":"Pod"}`
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"manifest": manifest,
 	}))
 	if err != nil {
@@ -193,7 +192,7 @@ func TestApplyResource_ContextNotAllowed(t *testing.T) {
 	})
 
 	manifest := `{"apiVersion":"v1","kind":"Pod","metadata":{"name":"test-pod","namespace":"default"}}`
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"manifest": manifest,
 	}))
 	if err != nil {
@@ -219,7 +218,7 @@ func TestApplyResource_SecretRedaction(t *testing.T) {
 	})
 
 	manifest := `{"apiVersion":"v1","kind":"Secret","metadata":{"name":"my-secret","namespace":"default"},"data":{"password":"c2VjcmV0"}}`
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"manifest": manifest,
 	}))
 	if err != nil {
@@ -295,7 +294,7 @@ func TestApplyResource_ValidateStrict(t *testing.T) {
 	})
 
 	manifest := `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"strict-cm","namespace":"default"}}`
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"manifest": manifest,
 		"validate": "strict",
 	}))
@@ -331,7 +330,7 @@ func TestApplyResource_ValidateWarn(t *testing.T) {
 	})
 
 	manifest := `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"warn-cm","namespace":"default"}}`
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"manifest": manifest,
 		"validate": "warn",
 	}))
@@ -367,7 +366,7 @@ func TestApplyResource_ValidateIgnore(t *testing.T) {
 	})
 
 	manifest := `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"ignore-cm","namespace":"default"}}`
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"manifest": manifest,
 		"validate": "ignore",
 	}))
@@ -403,7 +402,7 @@ func TestApplyResource_ValidateNoneAliasesIgnore(t *testing.T) {
 	})
 
 	manifest := `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"none-cm","namespace":"default"}}`
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"manifest": manifest,
 		"validate": "none",
 	}))
@@ -440,7 +439,7 @@ func TestApplyResource_ValidateDefault(t *testing.T) {
 
 	// No validate param — should default to Strict.
 	manifest := `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"default-cm","namespace":"default"}}`
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"manifest": manifest,
 	}))
 	if err != nil {
@@ -467,7 +466,7 @@ func TestApplyResource_ValidateInvalid(t *testing.T) {
 	})
 
 	manifest := `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"bad-cm","namespace":"default"}}`
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"manifest": manifest,
 		"validate": "bogus",
 	}))
@@ -507,7 +506,7 @@ func TestApplyResource_ValidateWithDryRun(t *testing.T) {
 	})
 
 	manifest := `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"dryrun-warn-cm","namespace":"default"}}`
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"manifest": manifest,
 		"validate": "warn",
 		"dryRun":   true,
@@ -626,7 +625,7 @@ func TestApplyResource_SafetyDelaySkippedOnDryRun(t *testing.T) {
 
 	manifest := `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"cm-dry","namespace":"default"}}`
 	start := time.Now()
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"manifest": manifest,
 		"dryRun":   true,
 	}))
@@ -657,7 +656,7 @@ func TestApplyResource_SafetyDelayApplied(t *testing.T) {
 
 	manifest := `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"cm-timed","namespace":"default"}}`
 	start := time.Now()
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"manifest": manifest,
 	}))
 	elapsed := time.Since(start)
@@ -684,7 +683,7 @@ func TestScaleResource_SafetyDelayApplied(t *testing.T) {
 	})
 
 	start := time.Now()
-	res, err := handler(context.Background(), callToolReq(map[string]any{
+	res, err := handler(t.Context(), callToolReq(map[string]any{
 		"kind":      "Deployment",
 		"name":      "scale-dep",
 		"namespace": "default",
