@@ -182,7 +182,7 @@ func newSSEClient(t *testing.T, base string) *mcpclient.Client {
 	}
 	t.Cleanup(func() { _ = c.Close() })
 
-	if err := c.Start(t.Context()); err != nil {
+	if err := c.Start(context.Background()); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 
@@ -198,7 +198,7 @@ func newHTTPClient(t *testing.T, base string) *mcpclient.Client {
 	}
 	t.Cleanup(func() { _ = c.Close() })
 
-	if err := c.Start(t.Context()); err != nil {
+	if err := c.Start(context.Background()); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 
@@ -208,7 +208,7 @@ func newHTTPClient(t *testing.T, base string) *mcpclient.Client {
 
 func initClient(t *testing.T, c *mcpclient.Client) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	initReq := mcp.InitializeRequest{
@@ -234,7 +234,9 @@ func initClient(t *testing.T, c *mcpclient.Client) {
 // callToolMayFail calls a tool and returns the result and error without failing the test.
 func callToolMayFail(t *testing.T, c *mcpclient.Client, name string, args map[string]any) (*mcp.CallToolResult, error) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
+	// Not t.Context(): these helpers are also called from t.Cleanup, which
+	// runs after the test context is canceled.
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
 	req := mcp.CallToolRequest{}
@@ -246,7 +248,9 @@ func callToolMayFail(t *testing.T, c *mcpclient.Client, name string, args map[st
 
 func callTool(t *testing.T, c *mcpclient.Client, name string, args map[string]any) *mcp.CallToolResult {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
+	// Not t.Context(): these helpers are also called from t.Cleanup, which
+	// runs after the test context is canceled.
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
 	req := mcp.CallToolRequest{}
