@@ -87,18 +87,18 @@ func apiResources() []*metav1.APIResourceList {
 		{
 			GroupVersion: "v1",
 			APIResources: []metav1.APIResource{
-				{Name: "pods", Kind: "Pod", Namespaced: true, Verbs: metav1.Verbs{"get", "list"}},
-				{Name: "namespaces", Kind: "Namespace", Namespaced: false, Verbs: metav1.Verbs{"get", "list"}},
+				{Name: "pods", Kind: "Pod", Namespaced: true, ShortNames: []string{"po"}, Verbs: metav1.Verbs{"get", "list"}},
+				{Name: "namespaces", Kind: "Namespace", Namespaced: false, ShortNames: []string{"ns"}, Verbs: metav1.Verbs{"get", "list"}},
 				{Name: "secrets", Kind: "Secret", Namespaced: true, Verbs: metav1.Verbs{"get", "list"}},
 				{Name: "events", Kind: "Event", Namespaced: true, Verbs: metav1.Verbs{"get", "list"}},
 				{Name: "pods/log", Kind: "Pod", Namespaced: true, Verbs: metav1.Verbs{"get"}},
-				{Name: "nodes", Kind: "Node", Namespaced: false, Verbs: metav1.Verbs{"get", "list"}},
+				{Name: "nodes", Kind: "Node", Namespaced: false, ShortNames: []string{"no"}, Verbs: metav1.Verbs{"get", "list"}},
 			},
 		},
 		{
 			GroupVersion: "apps/v1",
 			APIResources: []metav1.APIResource{
-				{Name: "deployments", Kind: "Deployment", Namespaced: true, Verbs: metav1.Verbs{"get", "list"}},
+				{Name: "deployments", Kind: "Deployment", Namespaced: true, ShortNames: []string{"deploy"}, Verbs: metav1.Verbs{"get", "list"}},
 			},
 		},
 	}

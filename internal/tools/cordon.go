@@ -56,14 +56,9 @@ func registerUncordonNode(s *server.MCPServer, pool *kube.ClientPool, cfg *confi
 
 func cordonHandler(pool *kube.ClientPool, cfg *config.Config, cordon bool) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		ctxName, err := pool.ResolveContext(req.GetString("context", ""))
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-
-		cc, err := pool.ClientFor(ctxName)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to get client: %v", err)), nil
+		cc, ctxName, errResult := resolveClient(pool, req)
+		if errResult != nil {
+			return errResult, nil
 		}
 
 		node, _ := req.RequireString("node")
@@ -73,7 +68,7 @@ func cordonHandler(pool *kube.ClientPool, cfg *config.Config, cordon bool) serve
 		}
 
 		patch := fmt.Sprintf(`{"spec":{"unschedulable":%t}}`, cordon)
-		_, err = cc.Dynamic.Resource(nodeGVR).Patch(
+		_, err := cc.Dynamic.Resource(nodeGVR).Patch(
 			ctx, node, types.MergePatchType, []byte(patch), metav1.PatchOptions{},
 		)
 		if err != nil {

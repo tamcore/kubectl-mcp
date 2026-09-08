@@ -1,4 +1,4 @@
-package tools
+package kube
 
 import "maps"
 
@@ -18,7 +18,7 @@ var noisyMetadataKeys = []string{
 //
 // The input map is never mutated.
 func StripNoisyMetadata(obj map[string]any) map[string]any {
-	result := shallowCopyMap(obj)
+	result := maps.Clone(obj)
 
 	rawMeta, ok := result["metadata"]
 	if !ok {
@@ -29,7 +29,7 @@ func StripNoisyMetadata(obj map[string]any) map[string]any {
 		return result
 	}
 
-	cleanedMeta := shallowCopyMap(metaMap)
+	cleanedMeta := maps.Clone(metaMap)
 
 	// Remove well-known noisy keys.
 	for _, key := range noisyMetadataKeys {
@@ -45,13 +45,6 @@ func StripNoisyMetadata(obj map[string]any) map[string]any {
 
 	result["metadata"] = cleanedMeta
 	return result
-}
-
-// shallowCopyMap returns a new map with the same key-value pairs.
-func shallowCopyMap(m map[string]any) map[string]any {
-	cp := make(map[string]any, len(m))
-	maps.Copy(cp, m)
-	return cp
 }
 
 // isEmpty returns true for nil, empty string, empty map, or empty slice values.

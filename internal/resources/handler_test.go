@@ -50,8 +50,14 @@ func testConfigMap(name, ns string) *unstructured.Unstructured {
 		"apiVersion": "v1",
 		"kind":       "ConfigMap",
 		"metadata": map[string]any{
-			"name":      name,
-			"namespace": ns,
+			"name":          name,
+			"namespace":     ns,
+			"uid":           "abc-123",
+			"managedFields": []any{"something"},
+			"annotations": map[string]any{
+				"kubectl.kubernetes.io/last-applied-configuration": "{}",
+				"app.kubernetes.io/name":                           "test",
+			},
 		},
 		"data": map[string]any{
 			"key": "value",
@@ -112,6 +118,14 @@ func TestReadResource_ConfigMap(t *testing.T) {
 	}
 	if !strings.Contains(tc.Text, `"key": "value"`) {
 		t.Errorf("expected configmap data in response, got: %s", tc.Text)
+	}
+	for _, noise := range []string{"managedFields", "uid", "last-applied-configuration"} {
+		if strings.Contains(tc.Text, noise) {
+			t.Errorf("expected %s to be stripped, got: %s", noise, tc.Text)
+		}
+	}
+	if !strings.Contains(tc.Text, "app.kubernetes.io/name") {
+		t.Errorf("expected other annotations preserved, got: %s", tc.Text)
 	}
 }
 
@@ -207,50 +221,5 @@ func TestReadResource_NotFound(t *testing.T) {
 	_, err := readResource(t.Context(), req, pool, cfg)
 	if err == nil {
 		t.Fatal("expected error for nonexistent resource")
-	}
-}
-
-func TestStripNoise(t *testing.T) {
-	obj := &unstructured.Unstructured{Object: map[string]any{
-		"metadata": map[string]any{
-			"name":          "test",
-			"managedFields": []any{"something"},
-			"annotations": map[string]any{
-				"kubectl.kubernetes.io/last-applied-configuration": "{}",
-				"app.kubernetes.io/name":                           "test",
-			},
-		},
-	}}
-
-	stripNoise(obj)
-
-	meta := obj.Object["metadata"].(map[string]any)
-	if _, ok := meta["managedFields"]; ok {
-		t.Error("managedFields should have been stripped")
-	}
-	annotations := meta["annotations"].(map[string]any)
-	if _, ok := annotations["kubectl.kubernetes.io/last-applied-configuration"]; ok {
-		t.Error("last-applied-configuration should have been stripped")
-	}
-	if _, ok := annotations["app.kubernetes.io/name"]; !ok {
-		t.Error("other annotations should be preserved")
-	}
-}
-
-func TestStripNoise_EmptyAnnotations(t *testing.T) {
-	obj := &unstructured.Unstructured{Object: map[string]any{
-		"metadata": map[string]any{
-			"name": "test",
-			"annotations": map[string]any{
-				"kubectl.kubernetes.io/last-applied-configuration": "{}",
-			},
-		},
-	}}
-
-	stripNoise(obj)
-
-	meta := obj.Object["metadata"].(map[string]any)
-	if _, ok := meta["annotations"]; ok {
-		t.Error("empty annotations map should have been removed")
 	}
 }

@@ -1,4 +1,4 @@
-package tools
+package kube
 
 import (
 	"testing"

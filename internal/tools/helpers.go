@@ -9,7 +9,24 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/tamcore/kubectl-mcp/internal/kube"
 )
+
+// resolveClient resolves the request's "context" argument and returns the
+// clients for it. The returned result is non-nil when the caller must return
+// immediately.
+func resolveClient(pool *kube.ClientPool, req mcp.CallToolRequest) (*kube.ContextClient, string, *mcp.CallToolResult) {
+	ctxName, err := pool.ResolveContext(req.GetString("context", ""))
+	if err != nil {
+		return nil, "", mcp.NewToolResultError(err.Error())
+	}
+	cc, err := pool.ClientFor(ctxName)
+	if err != nil {
+		return nil, "", mcp.NewToolResultError(fmt.Sprintf("failed to get client: %v", err))
+	}
+	return cc, ctxName, nil
+}
 
 // maxCopyBytes is the upper bound for in-memory file transfers in copy operations.
 const maxCopyBytes = 100 * 1024 * 1024 // 100 MB

@@ -50,14 +50,9 @@ func registerCreateResource(s *server.MCPServer, pool *kube.ClientPool, cfg *con
 			return mcp.NewToolResultError(fmt.Sprintf("failed to parse manifest: %v", err)), nil
 		}
 
-		ctxName, err := pool.ResolveContext(req.GetString("context", ""))
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-
-		cc, err := pool.ClientFor(ctxName)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to get client: %v", err)), nil
+		cc, ctxName, errResult := resolveClient(pool, req)
+		if errResult != nil {
+			return errResult, nil
 		}
 
 		dryRun := dryRunOption(req.GetBool("dryRun", false))

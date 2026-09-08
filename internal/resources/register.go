@@ -20,7 +20,7 @@ func RegisterAll(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config)
 	}
 
 	namespacedTemplate := mcp.NewResourceTemplate(
-		"k8s://{context}/namespaces/{namespace}/{group}/{version}/{resource}/{name}",
+		namespacedURITemplate,
 		"Namespaced Kubernetes Resource",
 		mcp.WithTemplateDescription(
 			"Read a namespaced Kubernetes resource by context, namespace, API group, version, resource type, and name. "+
@@ -30,7 +30,7 @@ func RegisterAll(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config)
 	)
 
 	clusterTemplate := mcp.NewResourceTemplate(
-		"k8s://{context}/{group}/{version}/{resource}/{name}",
+		clusterURITemplate,
 		"Cluster-scoped Kubernetes Resource",
 		mcp.WithTemplateDescription(
 			"Read a cluster-scoped Kubernetes resource by context, API group, version, resource type, and name. "+

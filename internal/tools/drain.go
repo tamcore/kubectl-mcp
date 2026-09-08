@@ -57,14 +57,9 @@ func registerDrainNode(s *server.MCPServer, pool *kube.ClientPool, cfg *config.C
 	)
 
 	s.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		ctxName, err := pool.ResolveContext(req.GetString("context", ""))
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-
-		cc, err := pool.ClientFor(ctxName)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to get client: %v", err)), nil
+		cc, ctxName, errResult := resolveClient(pool, req)
+		if errResult != nil {
+			return errResult, nil
 		}
 
 		node, _ := req.RequireString("node")
@@ -99,7 +94,7 @@ func registerDrainNode(s *server.MCPServer, pool *kube.ClientPool, cfg *config.C
 
 		// Step 1: Cordon the node.
 		cordonPatch := `{"spec":{"unschedulable":true}}`
-		_, err = cc.Dynamic.Resource(nodeGVR).Patch(
+		_, err := cc.Dynamic.Resource(nodeGVR).Patch(
 			ctx, node, types.MergePatchType, []byte(cordonPatch), metav1.PatchOptions{
 				DryRun: dryRunOption(dryRun),
 			},

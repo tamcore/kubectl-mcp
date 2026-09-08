@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"text/tabwriter"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -18,27 +19,11 @@ func formatResourceList(items []unstructured.Unstructured) (string, []map[string
 		return "[]", nil, nil
 	}
 
-	kind := items[0].GetKind()
 	summaries := make([]map[string]any, 0, len(items))
 
 	for _, item := range items {
 		s := baseFields(item)
-		switch kind {
-		case "Pod":
-			enrichPod(s, item.Object)
-		case "Deployment":
-			enrichDeployment(s, item.Object)
-		case "StatefulSet":
-			enrichStatefulSet(s, item.Object)
-		case "DaemonSet":
-			enrichDaemonSet(s, item.Object)
-		case "Job":
-			enrichJob(s, item.Object)
-		case "Node":
-			enrichNode(s, item)
-		case "Service":
-			enrichService(s, item.Object)
-		}
+		enrichByKind(s, item)
 		summaries = append(summaries, s)
 	}
 
@@ -47,6 +32,29 @@ func formatResourceList(items []unstructured.Unstructured) (string, []map[string
 		return "", nil, err
 	}
 	return string(out), summaries, nil
+}
+
+// enrichByKind adds kind-specific summary fields. Unknown kinds are left as-is.
+func enrichByKind(s map[string]any, item unstructured.Unstructured) bool {
+	switch item.GetKind() {
+	case "Pod":
+		enrichPod(s, item.Object)
+	case "Deployment":
+		enrichDeployment(s, item.Object)
+	case "StatefulSet":
+		enrichStatefulSet(s, item.Object)
+	case "DaemonSet":
+		enrichDaemonSet(s, item.Object)
+	case "Job":
+		enrichJob(s, item.Object)
+	case "Node":
+		enrichNode(s, item)
+	case "Service":
+		enrichService(s, item.Object)
+	default:
+		return false
+	}
+	return true
 }
 
 func baseFields(item unstructured.Unstructured) map[string]any {
@@ -120,7 +128,7 @@ func podStatus(obj map[string]any) string {
 	phase := getStrField(obj, "status", "phase")
 
 	// Check for container-level overrides (CrashLoopBackOff, etc.)
-	containerStatuses, _, _ := nestedSlice(obj, "status", "containerStatuses")
+	containerStatuses, _, _ := unstructured.NestedSlice(obj, "status", "containerStatuses")
 	for _, cs := range containerStatuses {
 		cm, ok := cs.(map[string]any)
 		if !ok {
@@ -135,7 +143,7 @@ func podStatus(obj map[string]any) string {
 	}
 
 	// Check init containers too.
-	initStatuses, _, _ := nestedSlice(obj, "status", "initContainerStatuses")
+	initStatuses, _, _ := unstructured.NestedSlice(obj, "status", "initContainerStatuses")
 	for _, cs := range initStatuses {
 		cm, ok := cs.(map[string]any)
 		if !ok {
@@ -166,7 +174,7 @@ func containerStateReason(cm map[string]any, stateKey string) string {
 }
 
 func podReady(obj map[string]any) string {
-	containerStatuses, _, _ := nestedSlice(obj, "status", "containerStatuses")
+	containerStatuses, _, _ := unstructured.NestedSlice(obj, "status", "containerStatuses")
 	total := len(containerStatuses)
 	ready := 0
 	for _, cs := range containerStatuses {
@@ -182,7 +190,7 @@ func podReady(obj map[string]any) string {
 }
 
 func podRestarts(obj map[string]any) string {
-	containerStatuses, _, _ := nestedSlice(obj, "status", "containerStatuses")
+	containerStatuses, _, _ := unstructured.NestedSlice(obj, "status", "containerStatuses")
 	total := 0
 	for _, cs := range containerStatuses {
 		cm, ok := cs.(map[string]any)
@@ -209,37 +217,22 @@ func resourceAge(item unstructured.Unstructured) string {
 }
 
 func getStrField(obj map[string]any, keys ...string) string {
-	current := any(obj)
-	for _, k := range keys {
-		m, ok := current.(map[string]any)
-		if !ok {
-			return ""
-		}
-		current, ok = m[k]
-		if !ok {
-			return ""
-		}
+	val, found, err := unstructured.NestedFieldNoCopy(obj, keys...)
+	if !found || err != nil || val == nil {
+		return ""
 	}
-	s, ok := current.(string)
-	if !ok {
-		return fmt.Sprintf("%v", current)
+	if str, ok := val.(string); ok {
+		return str
 	}
-	return s
+	return fmt.Sprintf("%v", val)
 }
 
 func getIntField(obj map[string]any, keys ...string) int64 {
-	current := any(obj)
-	for _, k := range keys {
-		m, ok := current.(map[string]any)
-		if !ok {
-			return 0
-		}
-		current, ok = m[k]
-		if !ok {
-			return 0
-		}
+	val, found, err := unstructured.NestedFieldNoCopy(obj, keys...)
+	if !found || err != nil {
+		return 0
 	}
-	switch v := current.(type) {
+	switch v := val.(type) {
 	case int64:
 		return v
 	case float64:
@@ -250,7 +243,7 @@ func getIntField(obj map[string]any, keys ...string) int64 {
 }
 
 func conditionIsTrue(obj map[string]any, condType string) bool {
-	conditions, _, _ := nestedSlice(obj, "status", "conditions")
+	conditions, _, _ := unstructured.NestedSlice(obj, "status", "conditions")
 	for _, c := range conditions {
 		cm, ok := c.(map[string]any)
 		if !ok {
@@ -263,22 +256,6 @@ func conditionIsTrue(obj map[string]any, condType string) bool {
 		}
 	}
 	return false
-}
-
-func nestedSlice(obj map[string]any, keys ...string) ([]any, bool, error) {
-	current := any(obj)
-	for _, k := range keys {
-		m, ok := current.(map[string]any)
-		if !ok {
-			return nil, false, nil
-		}
-		current, ok = m[k]
-		if !ok {
-			return nil, false, nil
-		}
-	}
-	s, ok := current.([]any)
-	return s, ok, nil
 }
 
 func nodeRoles(labels map[string]string) string {
@@ -304,58 +281,25 @@ func formatTable(table *metav1.Table) string {
 		return "(no data)"
 	}
 
-	// Build header names.
+	var sb strings.Builder
+	tw := tabwriter.NewWriter(&sb, 0, 0, 2, ' ', 0)
+
 	headers := make([]string, 0, len(table.ColumnDefinitions))
 	for _, col := range table.ColumnDefinitions {
 		headers = append(headers, strings.ToUpper(col.Name))
 	}
+	_, _ = fmt.Fprintln(tw, strings.Join(headers, "\t"))
 
-	// Compute column widths.
-	widths := make([]int, len(headers))
-	for i, h := range headers {
-		widths[i] = len(h)
-	}
-	rows := make([][]string, 0, len(table.Rows))
 	for _, row := range table.Rows {
 		cells := make([]string, len(headers))
 		for i := range headers {
 			if i < len(row.Cells) {
 				cells[i] = fmt.Sprintf("%v", row.Cells[i])
 			}
-			if len(cells[i]) > widths[i] {
-				widths[i] = len(cells[i])
-			}
 		}
-		rows = append(rows, cells)
+		_, _ = fmt.Fprintln(tw, strings.Join(cells, "\t"))
 	}
 
-	// Render.
-	var sb strings.Builder
-	for i, h := range headers {
-		if i > 0 {
-			sb.WriteString("  ")
-		}
-		sb.WriteString(padRight(h, widths[i]))
-	}
-	sb.WriteString("\n")
-
-	for _, row := range rows {
-		for i, cell := range row {
-			if i > 0 {
-				sb.WriteString("  ")
-			}
-			sb.WriteString(padRight(cell, widths[i]))
-		}
-		sb.WriteString("\n")
-	}
-
+	_ = tw.Flush()
 	return sb.String()
-}
-
-// padRight pads s with spaces on the right to the given width.
-func padRight(s string, width int) string {
-	if len(s) >= width {
-		return s
-	}
-	return s + strings.Repeat(" ", width-len(s))
 }

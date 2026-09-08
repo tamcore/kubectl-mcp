@@ -2,33 +2,6 @@ package tools
 
 import "strings"
 
-// shortNames maps common kubectl abbreviations to their full kind names.
-var shortNames = map[string]string{
-	"po":     "Pod",
-	"svc":    "Service",
-	"deploy": "Deployment",
-	"ds":     "DaemonSet",
-	"sts":    "StatefulSet",
-	"rs":     "ReplicaSet",
-	"cm":     "ConfigMap",
-	"sa":     "ServiceAccount",
-	"pvc":    "PersistentVolumeClaim",
-	"pv":     "PersistentVolume",
-	"ns":     "Namespace",
-	"no":     "Node",
-	"ing":    "Ingress",
-	"ep":     "Endpoints",
-	"hpa":    "HorizontalPodAutoscaler",
-	"cj":     "CronJob",
-}
-
-// resolveShortName returns the full kind for a kubectl short name.
-// The lookup is case-insensitive.
-func resolveShortName(input string) (string, bool) {
-	kind, ok := shortNames[strings.ToLower(input)]
-	return kind, ok
-}
-
 // suggestKind finds the closest known kind to the input using Levenshtein
 // distance. Returns empty string if no match is close enough (distance > 3).
 func suggestKind(input string, knownKinds []string) string {

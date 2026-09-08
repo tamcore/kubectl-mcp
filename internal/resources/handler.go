@@ -53,9 +53,10 @@ func readResource(
 		kube.RedactSecrets(obj)
 	}
 
-	stripNoise(obj)
+	obj.SetAnnotations(kube.FilterAnnotations(obj.GetAnnotations(), nil, nil))
+	cleaned := kube.StripNoisyMetadata(obj.Object)
 
-	out, err := json.MarshalIndent(obj.Object, "", "  ")
+	out, err := json.MarshalIndent(cleaned, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal resource: %w", err)
 	}
@@ -80,23 +81,4 @@ func fetchResource(
 		return cc.Dynamic.Resource(gvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
 	}
 	return cc.Dynamic.Resource(gvr).Get(ctx, name, metav1.GetOptions{})
-}
-
-// stripNoise removes managedFields and last-applied-configuration annotation
-// to reduce payload size.
-func stripNoise(obj *unstructured.Unstructured) {
-	meta, ok := obj.Object["metadata"].(map[string]any)
-	if !ok {
-		return
-	}
-
-	delete(meta, "managedFields")
-
-	annotations, ok := meta["annotations"].(map[string]any)
-	if ok {
-		delete(annotations, "kubectl.kubernetes.io/last-applied-configuration")
-		if len(annotations) == 0 {
-			delete(meta, "annotations")
-		}
-	}
 }

@@ -26,14 +26,9 @@ func registerListNamespaces(s *server.MCPServer, pool *kube.ClientPool) {
 	)
 
 	s.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		ctxName, err := pool.ResolveContext(req.GetString("context", ""))
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-
-		cc, err := pool.ClientFor(ctxName)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to get client: %v", err)), nil
+		cc, _, errResult := resolveClient(pool, req)
+		if errResult != nil {
+			return errResult, nil
 		}
 
 		nsList, err := cc.Clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})

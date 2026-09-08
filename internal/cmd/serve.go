@@ -99,12 +99,7 @@ func newLoggingHooks(sPtr **server.MCPServer, level mcplog.LogLevel, clw *mcplog
 
 	hooks.AddBeforeCallTool(func(ctx context.Context, id any, req *mcp.CallToolRequest) {
 		logger := resolveLogger(clw, pool, req)
-		var args string
-		if level == mcplog.LogLevelDebug {
-			args = fullArgs(req.GetArguments())
-		} else {
-			args = summarizeArgs(req.GetArguments())
-		}
+		args := formatArgs(req.GetArguments())
 		logger.Printf("→ %s(%s)", req.Params.Name, args)
 
 		if level == mcplog.LogLevelDebug && *sPtr != nil {
@@ -126,7 +121,7 @@ func newLoggingHooks(sPtr **server.MCPServer, level mcplog.LogLevel, clw *mcplog
 		if r.IsError {
 			logger.Printf("✗ %s failed", req.Params.Name)
 			if *sPtr != nil {
-				errText := extractErrorText(r)
+				errText := extractResultText(r)
 				_ = (*sPtr).SendLogMessageToClient(ctx, mcplog.NewNotification(
 					mcp.LoggingLevelWarning,
 					fmt.Sprintf("%s failed: %s", req.Params.Name, errText),
@@ -181,33 +176,8 @@ func resolveLogger(clw *mcplog.ContextLogWriter, pool *kube.ClientPool, req *mcp
 	return clw.LoggerFor(ctxName)
 }
 
-func extractErrorText(r *mcp.CallToolResult) string {
-	if len(r.Content) == 0 {
-		return ""
-	}
-	if tc, ok := r.Content[0].(mcp.TextContent); ok {
-		return tc.Text
-	}
-	return ""
-}
-
-func summarizeArgs(args map[string]any) string {
-	if len(args) == 0 {
-		return ""
-	}
-	b, err := json.Marshal(args)
-	if err != nil {
-		return "..."
-	}
-	s := string(b)
-	// Trim the outer braces for readability.
-	if len(s) > 2 {
-		s = s[1 : len(s)-1]
-	}
-	return s
-}
-
-func fullArgs(args map[string]any) string {
+// formatArgs renders tool arguments as JSON without the outer braces.
+func formatArgs(args map[string]any) string {
 	if len(args) == 0 {
 		return ""
 	}

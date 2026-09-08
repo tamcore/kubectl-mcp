@@ -44,15 +44,11 @@ func registerScaleResource(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 	)
 
 	s.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		ctxName, err := pool.ResolveContext(req.GetString("context", ""))
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
+		cc, ctxName, errResult := resolveClient(pool, req)
+		if errResult != nil {
+			return errResult, nil
 		}
-
-		cc, err := pool.ClientFor(ctxName)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to get client: %v", err)), nil
-		}
+		var err error
 
 		kind, _ := req.RequireString("kind")
 		name, _ := req.RequireString("name")

@@ -572,13 +572,13 @@ func writeAPIResources() []*metav1.APIResourceList {
 		{
 			GroupVersion: "apps/v1",
 			APIResources: []metav1.APIResource{
-				{Name: "deployments", Kind: "Deployment", Namespaced: true, Verbs: metav1.Verbs{"get", "list", "create", "update", "patch", "delete"}},
+				{Name: "deployments", Kind: "Deployment", Namespaced: true, ShortNames: []string{"deploy"}, Verbs: metav1.Verbs{"get", "list", "create", "update", "patch", "delete"}},
 				{Name: "deployments/scale", Kind: "Scale", Namespaced: true, Verbs: metav1.Verbs{"get", "update", "patch"}},
-				{Name: "statefulsets", Kind: "StatefulSet", Namespaced: true, Verbs: metav1.Verbs{"get", "list", "create", "update", "patch", "delete"}},
+				{Name: "statefulsets", Kind: "StatefulSet", Namespaced: true, ShortNames: []string{"sts"}, Verbs: metav1.Verbs{"get", "list", "create", "update", "patch", "delete"}},
 				{Name: "statefulsets/scale", Kind: "Scale", Namespaced: true, Verbs: metav1.Verbs{"get", "update", "patch"}},
-				{Name: "replicasets", Kind: "ReplicaSet", Namespaced: true, Verbs: metav1.Verbs{"get", "list", "create", "update", "patch", "delete"}},
+				{Name: "replicasets", Kind: "ReplicaSet", Namespaced: true, ShortNames: []string{"rs"}, Verbs: metav1.Verbs{"get", "list", "create", "update", "patch", "delete"}},
 				{Name: "replicasets/scale", Kind: "Scale", Namespaced: true, Verbs: metav1.Verbs{"get", "update", "patch"}},
-				{Name: "daemonsets", Kind: "DaemonSet", Namespaced: true, Verbs: metav1.Verbs{"get", "list", "create", "update", "patch", "delete"}},
+				{Name: "daemonsets", Kind: "DaemonSet", Namespaced: true, ShortNames: []string{"ds"}, Verbs: metav1.Verbs{"get", "list", "create", "update", "patch", "delete"}},
 			},
 		},
 		{
@@ -590,8 +590,8 @@ func writeAPIResources() []*metav1.APIResourceList {
 		{
 			GroupVersion: "batch/v1",
 			APIResources: []metav1.APIResource{
-				{Name: "jobs", Kind: "Job", Namespaced: true, Verbs: metav1.Verbs{"get", "list", "create", "update", "patch", "delete"}},
-				{Name: "cronjobs", Kind: "CronJob", Namespaced: true, Verbs: metav1.Verbs{"get", "list", "create", "update", "patch", "delete"}},
+				{Name: "jobs", Kind: "Job", Namespaced: true, ShortNames: []string{"job"}, Verbs: metav1.Verbs{"get", "list", "create", "update", "patch", "delete"}},
+				{Name: "cronjobs", Kind: "CronJob", Namespaced: true, ShortNames: []string{"cj"}, Verbs: metav1.Verbs{"get", "list", "create", "update", "patch", "delete"}},
 			},
 		},
 	}

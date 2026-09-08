@@ -7,6 +7,8 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
+
+	"github.com/tamcore/kubectl-mcp/internal/kube"
 )
 
 // formatGetResult formats a single resource according to the requested format.
@@ -25,7 +27,7 @@ func formatGetResult(obj *unstructured.Unstructured, format string) (*mcp.CallTo
 
 // formatGetFull returns the full JSON output with noisy metadata stripped.
 func formatGetFull(obj *unstructured.Unstructured) (*mcp.CallToolResult, error) {
-	cleaned := StripNoisyMetadata(obj.Object)
+	cleaned := kube.StripNoisyMetadata(obj.Object)
 
 	out, err := json.MarshalIndent(cleaned, "", "  ")
 	if err != nil {
@@ -37,25 +39,7 @@ func formatGetFull(obj *unstructured.Unstructured) (*mcp.CallToolResult, error) 
 // formatGetSummary returns a compact summary using baseFields + kind-specific enrichment.
 func formatGetSummary(obj *unstructured.Unstructured) (*mcp.CallToolResult, error) {
 	s := baseFields(*obj)
-	kind := obj.GetKind()
-
-	switch kind {
-	case "Pod":
-		enrichPod(s, obj.Object)
-	case "Deployment":
-		enrichDeployment(s, obj.Object)
-	case "StatefulSet":
-		enrichStatefulSet(s, obj.Object)
-	case "DaemonSet":
-		enrichDaemonSet(s, obj.Object)
-	case "Job":
-		enrichJob(s, obj.Object)
-	case "Node":
-		enrichNode(s, *obj)
-	case "Service":
-		enrichService(s, obj.Object)
-	default:
-		// For unknown kinds, include basic identifying info.
+	if !enrichByKind(s, *obj) {
 		enrichGeneric(s, obj)
 	}
 
@@ -77,7 +61,7 @@ func enrichGeneric(s map[string]any, obj *unstructured.Unstructured) {
 
 // formatGetYAML returns the resource as YAML with noisy metadata stripped.
 func formatGetYAML(obj *unstructured.Unstructured) (*mcp.CallToolResult, error) {
-	cleaned := StripNoisyMetadata(obj.Object)
+	cleaned := kube.StripNoisyMetadata(obj.Object)
 
 	out, err := yaml.Marshal(cleaned)
 	if err != nil {

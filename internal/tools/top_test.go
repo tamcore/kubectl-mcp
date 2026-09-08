@@ -148,52 +148,6 @@ func newMetricsFakeDynClient(objs ...runtime.Object) *fakedynamic.FakeDynamicCli
 // Formatting helper tests
 // ---------------------------------------------------------------------------
 
-func TestFormatCPU(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"250m", "250m"},
-		{"0", "0m"},
-		{"1", "1000m"},
-		{"1500m", "1500m"},
-		{"100m", "100m"},
-		{"garbage", "garbage"}, // unparseable: returned unchanged, no panic
-		{"", ""},
-	}
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := formatCPU(tt.input)
-			if got != tt.want {
-				t.Errorf("formatCPU(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestFormatMemory(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"134217728", "128Mi"},   // 128 * 1024 * 1024
-		{"1073741824", "1024Mi"}, // 1 Gi
-		{"65536Ki", "64Mi"},
-		{"128Mi", "128Mi"},
-		{"0", "0Mi"},
-		{"not-a-quantity", "not-a-quantity"}, // unparseable: returned unchanged, no panic
-		{"", ""},
-	}
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := formatMemory(tt.input)
-			if got != tt.want {
-				t.Errorf("formatMemory(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestFormatPercent(t *testing.T) {
 	tests := []struct {
 		used, alloc int64

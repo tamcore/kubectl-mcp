@@ -66,11 +66,12 @@ func TestLimiter_DenyMessage(t *testing.T) {
 	}
 }
 
-func TestLimiter_DenyMessageUnlimited(t *testing.T) {
-	l := NewLimiter(0)
-	msg := l.DenyMessage()
-	if !strings.Contains(msg, "unlimited") {
-		t.Errorf("expected 'unlimited' in message for zero-rate limiter, got: %s", msg)
+func TestLimiter_UnlimitedIsNil(t *testing.T) {
+	if NewLimiter(0) != nil {
+		t.Error("expected nil limiter for zero rate")
+	}
+	if NewLimiter(-5) != nil {
+		t.Error("expected nil limiter for negative rate")
 	}
 }
 

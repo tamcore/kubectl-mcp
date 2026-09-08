@@ -725,57 +725,6 @@ func TestConditionIsTrue(t *testing.T) {
 	}
 }
 
-func TestNestedSlice(t *testing.T) {
-	tests := []struct {
-		name      string
-		obj       map[string]any
-		keys      []string
-		wantLen   int
-		wantFound bool
-	}{
-		{
-			name:      "valid path",
-			obj:       map[string]any{"a": map[string]any{"b": []any{1, 2}}},
-			keys:      []string{"a", "b"},
-			wantLen:   2,
-			wantFound: true,
-		},
-		{
-			name:      "missing field",
-			obj:       map[string]any{},
-			keys:      []string{"a", "b"},
-			wantLen:   0,
-			wantFound: false,
-		},
-		{
-			name:      "wrong type at leaf",
-			obj:       map[string]any{"a": map[string]any{"b": "not-a-slice"}},
-			keys:      []string{"a", "b"},
-			wantLen:   0,
-			wantFound: false,
-		},
-		{
-			name:      "non-map intermediate",
-			obj:       map[string]any{"a": "string"},
-			keys:      []string{"a", "b"},
-			wantLen:   0,
-			wantFound: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, found, _ := nestedSlice(tt.obj, tt.keys...)
-			if found != tt.wantFound {
-				t.Errorf("nestedSlice() found = %v, want %v", found, tt.wantFound)
-			}
-			if len(got) != tt.wantLen {
-				t.Errorf("nestedSlice() len = %d, want %d", len(got), tt.wantLen)
-			}
-		})
-	}
-}
-
 func TestNodeRoles(t *testing.T) {
 	tests := []struct {
 		name   string

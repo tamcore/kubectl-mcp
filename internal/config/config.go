@@ -29,7 +29,6 @@ type Config struct {
 	SafetyDelayWrite       time.Duration
 	SafetyDelayDestructive time.Duration
 	LogLevel               string
-	LogFile                string
 	LogDir                 string
 	RequireContext         bool
 }
@@ -50,20 +49,8 @@ func (c *Config) Validate() error {
 	if _, err := mcplog.ParseLogLevel(c.LogLevel); err != nil {
 		return err
 	}
-	if c.LogLevel != "off" {
-		// LogDir takes precedence. If only LogFile is set, derive LogDir
-		// from its parent directory for backward compatibility.
-		if c.LogDir == "" && c.LogFile != "" {
-			c.LogDir = filepath.Dir(c.LogFile)
-		}
-		if c.LogDir == "" {
-			c.LogDir = mcplog.DefaultLogDir()
-		}
-		// Keep LogFile defaulting for backward compat (used only if
-		// callers reference it directly).
-		if c.LogFile == "" {
-			c.LogFile = mcplog.DefaultLogPath() //nolint:staticcheck // backward compat
-		}
+	if c.LogLevel != "off" && c.LogDir == "" {
+		c.LogDir = mcplog.DefaultLogDir()
 	}
 	if c.RateLimitRead < 0 {
 		return fmt.Errorf("invalid rate-limit-read %d: must be >= 0 (0 = unlimited)", c.RateLimitRead)

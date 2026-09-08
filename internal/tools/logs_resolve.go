@@ -42,7 +42,7 @@ func resolveResourceToLabelSelector(ctx context.Context, cc *kube.ContextClient,
 
 	lowerKind := strings.ToLower(kind)
 	// Resolve short names.
-	if fullKind, ok := resolveShortName(lowerKind); ok {
+	if fullKind, ok := resolveShortName(cc, lowerKind); ok {
 		lowerKind = strings.ToLower(fullKind)
 		kind = fullKind
 	}

@@ -1,6 +1,10 @@
 package tools
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/tamcore/kubectl-mcp/internal/kube"
+)
 
 func TestLevenshtein(t *testing.T) {
 	tests := []struct {
@@ -32,6 +36,8 @@ func TestLevenshtein(t *testing.T) {
 }
 
 func TestResolveShortName(t *testing.T) {
+	cc := &kube.ContextClient{Discovery: newFakeDiscovery()}
+
 	tests := []struct {
 		input string
 		want  string
@@ -40,27 +46,15 @@ func TestResolveShortName(t *testing.T) {
 		{"deploy", "Deployment", true},
 		{"Deploy", "Deployment", true},
 		{"DEPLOY", "Deployment", true},
-		{"svc", "Service", true},
-		{"sts", "StatefulSet", true},
-		{"ds", "DaemonSet", true},
-		{"rs", "ReplicaSet", true},
-		{"cm", "ConfigMap", true},
-		{"sa", "ServiceAccount", true},
-		{"pvc", "PersistentVolumeClaim", true},
-		{"pv", "PersistentVolume", true},
+		{"po", "Pod", true},
 		{"ns", "Namespace", true},
 		{"no", "Node", true},
-		{"po", "Pod", true},
-		{"ing", "Ingress", true},
-		{"ep", "Endpoints", true},
-		{"hpa", "HorizontalPodAutoscaler", true},
-		{"cj", "CronJob", true},
-		{"Deployment", "", false}, // full names don't match
+		{"Deployment", "", false}, // full names are not short names
 		{"xyz", "", false},        // unknown short name
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			got, found := resolveShortName(tt.input)
+			got, found := resolveShortName(cc, tt.input)
 			if found != tt.found {
 				t.Errorf("resolveShortName(%q) found = %v, want %v", tt.input, found, tt.found)
 			}

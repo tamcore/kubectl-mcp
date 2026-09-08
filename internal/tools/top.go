@@ -23,27 +23,6 @@ var (
 	nodeMetricsGVR = schema.GroupVersionResource{Group: "metrics.k8s.io", Version: "v1beta1", Resource: "nodes"}
 )
 
-// formatCPU converts a Kubernetes CPU quantity string to human-readable millicores.
-// Returns the raw value unchanged when it cannot be parsed as a quantity.
-func formatCPU(raw string) string {
-	q, err := resource.ParseQuantity(raw)
-	if err != nil {
-		return raw
-	}
-	return fmt.Sprintf("%dm", q.MilliValue())
-}
-
-// formatMemory converts a Kubernetes memory quantity string to human-readable MiB.
-// Returns the raw value unchanged when it cannot be parsed as a quantity.
-func formatMemory(raw string) string {
-	q, err := resource.ParseQuantity(raw)
-	if err != nil {
-		return raw
-	}
-	mib := q.Value() / (1024 * 1024)
-	return fmt.Sprintf("%dMi", mib)
-}
-
 // formatPercent returns "N/A" when allocatable is zero, otherwise "X%".
 func formatPercent(used, allocatable int64) string {
 	if allocatable == 0 {
@@ -106,14 +85,9 @@ func registerTopPods(s *server.MCPServer, pool *kube.ClientPool) {
 	)
 
 	s.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		ctxName, err := pool.ResolveContext(req.GetString("context", ""))
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-
-		cc, err := pool.ClientFor(ctxName)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to get client: %v", err)), nil
+		cc, _, errResult := resolveClient(pool, req)
+		if errResult != nil {
+			return errResult, nil
 		}
 
 		namespace := req.GetString("namespace", "")
@@ -292,14 +266,9 @@ func registerTopNodes(s *server.MCPServer, pool *kube.ClientPool) {
 	)
 
 	s.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		ctxName, err := pool.ResolveContext(req.GetString("context", ""))
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-
-		cc, err := pool.ClientFor(ctxName)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to get client: %v", err)), nil
+		cc, _, errResult := resolveClient(pool, req)
+		if errResult != nil {
+			return errResult, nil
 		}
 
 		name := req.GetString("name", "")

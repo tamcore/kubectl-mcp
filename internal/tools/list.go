@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -78,14 +79,9 @@ func registerListResources(s *server.MCPServer, pool *kube.ClientPool, cfg *conf
 	)
 
 	s.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		ctxName, err := pool.ResolveContext(req.GetString("context", ""))
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-
-		cc, err := pool.ClientFor(ctxName)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to get client: %v", err)), nil
+		cc, _, errResult := resolveClient(pool, req)
+		if errResult != nil {
+			return errResult, nil
 		}
 
 		kind, _ := req.RequireString("kind")
@@ -275,7 +271,8 @@ func matchesAllFilters(obj map[string]any, filters []filterExpr) bool {
 }
 
 // nestedFieldValue traverses the object using the dot-path and returns
-// the value as a string plus whether the field was found.
+// the value as a string plus whether the field was found. Numeric path
+// segments index into slices.
 func nestedFieldValue(obj any, path []string) (string, bool) {
 	current := obj
 	for _, key := range path {
@@ -287,14 +284,8 @@ func nestedFieldValue(obj any, path []string) (string, bool) {
 			}
 			current = val
 		case []any:
-			idx := 0
-			for _, c := range key {
-				if c < '0' || c > '9' {
-					return "", false
-				}
-				idx = idx*10 + int(c-'0')
-			}
-			if idx >= len(v) {
+			idx, err := strconv.Atoi(key)
+			if err != nil || idx < 0 || idx >= len(v) {
 				return "", false
 			}
 			current = v[idx]

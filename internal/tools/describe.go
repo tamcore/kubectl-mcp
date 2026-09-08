@@ -52,14 +52,9 @@ func registerDescribeResource(s *server.MCPServer, pool *kube.ClientPool, cfg *c
 	)
 
 	s.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		ctxName, err := pool.ResolveContext(req.GetString("context", ""))
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-
-		cc, err := pool.ClientFor(ctxName)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to get client: %v", err)), nil
+		cc, _, errResult := resolveClient(pool, req)
+		if errResult != nil {
+			return errResult, nil
 		}
 
 		kind, _ := req.RequireString("kind")
@@ -88,7 +83,7 @@ func registerDescribeResource(s *server.MCPServer, pool *kube.ClientPool, cfg *c
 		filterObjAnnotations(obj, req)
 
 		// Strip noisy metadata before building output.
-		cleaned := StripNoisyMetadata(obj.Object)
+		cleaned := kube.StripNoisyMetadata(obj.Object)
 
 		var sb strings.Builder
 
@@ -120,7 +115,7 @@ func registerDescribeResource(s *server.MCPServer, pool *kube.ClientPool, cfg *c
 		}
 
 		// Conditions (if present)
-		conditions, found, _ := unstructuredNestedSlice(cleaned, "status", "conditions")
+		conditions, found, _ := unstructured.NestedSlice(cleaned, "status", "conditions")
 		if found && len(conditions) > 0 {
 			fmt.Fprintf(&sb, "\nConditions:\n")
 			fmt.Fprintf(&sb, "  %-25s %-10s %-25s %s\n", "TYPE", "STATUS", "REASON", "MESSAGE")
@@ -159,26 +154,6 @@ func registerDescribeResource(s *server.MCPServer, pool *kube.ClientPool, cfg *c
 
 		return mcp.NewToolResultStructured(cleaned, sb.String()), nil
 	})
-}
-
-func unstructuredNestedSlice(obj map[string]any, fields ...string) ([]any, bool, error) {
-	current := obj
-	for i, field := range fields {
-		val, ok := current[field]
-		if !ok {
-			return nil, false, nil
-		}
-		if i == len(fields)-1 {
-			slice, ok := val.([]any)
-			return slice, ok, nil
-		}
-		next, ok := val.(map[string]any)
-		if !ok {
-			return nil, false, nil
-		}
-		current = next
-	}
-	return nil, false, nil
 }
 
 func mapStr(m map[string]any, key string) string {

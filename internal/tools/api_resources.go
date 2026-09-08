@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -51,14 +52,9 @@ func registerListAPIResources(s *server.MCPServer, pool *kube.ClientPool) {
 	)
 
 	s.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		ctxName, err := pool.ResolveContext(req.GetString("context", ""))
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-
-		cc, err := pool.ClientFor(ctxName)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to get client: %v", err)), nil
+		cc, _, errResult := resolveClient(pool, req)
+		if errResult != nil {
+			return errResult, nil
 		}
 
 		apiLists, err := discoverAPILists(cc)
@@ -171,28 +167,13 @@ func formatAPIResourcesTable(entries []apiResourceEntry) *mcp.CallToolResult {
 		return mcp.NewToolResultText("No API resources found")
 	}
 
-	// Calculate column widths.
-	kindW, apiW, nsW := len("KIND"), len("APIVERSION"), len("NAMESPACED")
-	for _, e := range entries {
-		if len(e.Kind) > kindW {
-			kindW = len(e.Kind)
-		}
-		if len(e.APIVersion) > apiW {
-			apiW = len(e.APIVersion)
-		}
-	}
-
 	var sb strings.Builder
-	fmtStr := fmt.Sprintf("%%-%ds  %%-%ds  %%-%ds  %%s\n", kindW, apiW, nsW)
-	fmt.Fprintf(&sb, fmtStr, "KIND", "APIVERSION", "NAMESPACED", "VERBS")
-
+	tw := tabwriter.NewWriter(&sb, 0, 0, 2, ' ', 0)
+	_, _ = fmt.Fprintln(tw, "KIND\tAPIVERSION\tNAMESPACED\tVERBS")
 	for _, e := range entries {
-		ns := "false"
-		if e.Namespaced {
-			ns = "true"
-		}
-		fmt.Fprintf(&sb, fmtStr, e.Kind, e.APIVersion, ns, strings.Join(e.Verbs, ","))
+		_, _ = fmt.Fprintf(tw, "%s\t%s\t%t\t%s\n", e.Kind, e.APIVersion, e.Namespaced, strings.Join(e.Verbs, ","))
 	}
+	_ = tw.Flush()
 
 	return mcp.NewToolResultText(strings.TrimRight(sb.String(), "\n"))
 }

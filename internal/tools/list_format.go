@@ -8,8 +8,8 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 
 	"github.com/tamcore/kubectl-mcp/internal/kube"
@@ -35,7 +35,7 @@ func wrapListEnvelope(items []map[string]any, continueToken string) map[string]a
 func formatListAsJSON(items []unstructured.Unstructured) (string, []map[string]any, error) {
 	cleaned := make([]map[string]any, 0, len(items))
 	for _, item := range items {
-		cleaned = append(cleaned, StripNoisyMetadata(item.Object))
+		cleaned = append(cleaned, kube.StripNoisyMetadata(item.Object))
 	}
 
 	out, err := json.MarshalIndent(cleaned, "", "  ")
@@ -100,7 +100,7 @@ func fetchTableList(
 func buildRESTClient(cfg *rest.Config, gvr schema.GroupVersionResource) (*rest.RESTClient, error) {
 	cfgCopy := rest.CopyConfig(cfg)
 	cfgCopy.ContentConfig = rest.ContentConfig{}
-	cfgCopy.NegotiatedSerializer = &simpleNegotiatedSerializer{}
+	cfgCopy.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
 
 	if gvr.Group == "" {
 		cfgCopy.APIPath = "/api"
@@ -128,23 +128,6 @@ func buildResourcePath(gvr schema.GroupVersionResource, namespace string) string
 		return fmt.Sprintf("%s/namespaces/%s/%s", base, namespace, gvr.Resource)
 	}
 	return fmt.Sprintf("%s/%s", base, gvr.Resource)
-}
-
-// simpleNegotiatedSerializer is a minimal implementation needed for the REST client.
-type simpleNegotiatedSerializer struct{}
-
-func (s *simpleNegotiatedSerializer) SupportedMediaTypes() []runtime.SerializerInfo {
-	return []runtime.SerializerInfo{
-		{MediaType: "application/json", MediaTypeType: "application", MediaTypeSubType: "json"},
-	}
-}
-
-func (s *simpleNegotiatedSerializer) EncoderForVersion(_ runtime.Encoder, _ runtime.GroupVersioner) runtime.Encoder {
-	return nil
-}
-
-func (s *simpleNegotiatedSerializer) DecoderToVersion(_ runtime.Decoder, _ runtime.GroupVersioner) runtime.Decoder {
-	return nil
 }
 
 // handleListTable handles the table format by fetching from the server-side Table API.

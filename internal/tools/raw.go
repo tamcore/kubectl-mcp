@@ -7,6 +7,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 
 	"github.com/tamcore/kubectl-mcp/internal/config"
@@ -34,7 +35,7 @@ type restRawRequester struct {
 func (r *restRawRequester) Do(ctx context.Context, method, path, contentType string, body []byte) ([]byte, int, error) {
 	cfgCopy := rest.CopyConfig(r.cfg)
 	cfgCopy.ContentConfig = rest.ContentConfig{}
-	cfgCopy.NegotiatedSerializer = &simpleNegotiatedSerializer{}
+	cfgCopy.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
 	cfgCopy.APIPath = "/"
 	cfgCopy.GroupVersion = nil
 
@@ -127,14 +128,9 @@ func registerRawAPI(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Conf
 		}
 
 		// Resolve context.
-		ctxName, err := pool.ResolveContext(req.GetString("context", ""))
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-
-		cc, err := pool.ClientFor(ctxName)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to get client: %v", err)), nil
+		cc, _, errResult := resolveClient(pool, req)
+		if errResult != nil {
+			return errResult, nil
 		}
 
 		// Use injected requester or build one from the rest config.

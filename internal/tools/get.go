@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -54,14 +55,9 @@ func registerGetResource(s *server.MCPServer, pool *kube.ClientPool, cfg *config
 	)
 
 	s.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		ctxName, err := pool.ResolveContext(req.GetString("context", ""))
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-
-		cc, err := pool.ClientFor(ctxName)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to get client: %v", err)), nil
+		cc, _, errResult := resolveClient(pool, req)
+		if errResult != nil {
+			return errResult, nil
 		}
 
 		kind, _ := req.RequireString("kind")
@@ -107,11 +103,6 @@ type gvrCandidate struct {
 // Supports kubectl short names (e.g. "deploy", "svc") and suggests corrections
 // for typos via fuzzy matching.
 func resolveGVR(cc *kube.ContextClient, kind, apiVersion string) (schema.GroupVersionResource, error) {
-	// Try kubectl short name first.
-	if fullKind, ok := resolveShortName(kind); ok {
-		kind = fullKind
-	}
-
 	apiLists, err := discoverAPILists(cc)
 	if err != nil {
 		return schema.GroupVersionResource{}, fmt.Errorf("discovery error: %w", err)
@@ -136,8 +127,9 @@ func resolveGVR(cc *kube.ContextClient, kind, apiVersion string) (schema.GroupVe
 			exact := strings.EqualFold(r.Kind, kind)
 			nameMatch := strings.ToLower(r.Name) == lowerKind
 			pluralMatch := matchesPlural(r.Name, lowerKind)
+			shortMatch := matchesShortName(r.ShortNames, lowerKind)
 
-			if exact || nameMatch || pluralMatch {
+			if exact || nameMatch || pluralMatch || shortMatch {
 				candidates = append(candidates, gvrCandidate{
 					gvr: schema.GroupVersionResource{
 						Group:    gv.Group,
@@ -199,6 +191,32 @@ func matchesPlural(resourceName, input string) bool {
 // discoverAPILists calls ServerGroupsAndResources and returns partial results when
 // only some API groups fail (e.g. a stale metrics-server). Hard errors that affect
 // all groups are still propagated.
+// matchesShortName reports whether lowerInput is one of the resource's
+// kubectl short names (e.g. "deploy" for Deployment).
+func matchesShortName(shortNames []string, lowerInput string) bool {
+	return slices.ContainsFunc(shortNames, func(sn string) bool {
+		return strings.ToLower(sn) == lowerInput
+	})
+}
+
+// resolveShortName maps a kubectl short name to its kind using the cluster's
+// own discovery data, which also covers CRDs.
+func resolveShortName(cc *kube.ContextClient, input string) (string, bool) {
+	apiLists, err := discoverAPILists(cc)
+	if err != nil {
+		return "", false
+	}
+	lower := strings.ToLower(input)
+	for _, list := range apiLists {
+		for _, r := range list.APIResources {
+			if matchesShortName(r.ShortNames, lower) {
+				return r.Kind, true
+			}
+		}
+	}
+	return "", false
+}
+
 func discoverAPILists(cc *kube.ContextClient) ([]*metav1.APIResourceList, error) {
 	_, lists, err := cc.Discovery.ServerGroupsAndResources()
 	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {

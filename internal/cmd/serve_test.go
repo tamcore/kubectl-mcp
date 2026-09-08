@@ -116,9 +116,9 @@ func TestSummarizeArgs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := summarizeArgs(tt.args)
+			got := formatArgs(tt.args)
 			if got != tt.want {
-				t.Fatalf("summarizeArgs() = %q, want %q", got, tt.want)
+				t.Fatalf("formatArgs() = %q, want %q", got, tt.want)
 			}
 		})
 	}
@@ -126,7 +126,7 @@ func TestSummarizeArgs(t *testing.T) {
 
 func TestSummarizeArgs_MultipleKeys(t *testing.T) {
 	args := map[string]any{"a": 1, "b": "two"}
-	got := summarizeArgs(args)
+	got := formatArgs(args)
 	if !strings.Contains(got, `"a":1`) {
 		t.Fatalf("expected key a, got %q", got)
 	}
@@ -141,7 +141,7 @@ func TestSummarizeArgs_MultipleKeys(t *testing.T) {
 func TestSummarizeArgs_NoTruncation(t *testing.T) {
 	long := strings.Repeat("x", 500)
 	args := map[string]any{"key": long}
-	got := summarizeArgs(args)
+	got := formatArgs(args)
 	if strings.HasSuffix(got, "…") {
 		t.Fatalf("expected full string, got truncated output: %q", got)
 	}
