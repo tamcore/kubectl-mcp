@@ -13,7 +13,6 @@ import (
 )
 
 func registerDeleteResource(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config) { //nolint:cyclop // elicitation adds a confirmation step
-	mcpServer := s
 	tool := mcp.NewTool("delete_resource",
 		mcp.WithDescription("Delete a Kubernetes resource by kind, name, and namespace. Requires --allow-destructive."),
 		mcp.WithReadOnlyHintAnnotation(false),
@@ -87,9 +86,9 @@ func registerDeleteResource(s *server.MCPServer, pool *kube.ClientPool, cfg *con
 			if force {
 				prompt = fmt.Sprintf("Are you sure you want to force delete %s? This bypasses graceful termination and skips pre-delete hooks.", target)
 			}
-			confirmed, err := confirmDestructiveAction(ctx, mcpServer, prompt)
-			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("elicitation error: %v", err)), nil
+			confirmed, pending := confirmDestructiveAction(ctx, req, prompt)
+			if pending != nil {
+				return pending, nil
 			}
 			if !confirmed {
 				return mcp.NewToolResultText("Delete cancelled by user"), nil

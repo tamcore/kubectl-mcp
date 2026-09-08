@@ -2,89 +2,79 @@ package tools
 
 import (
 	"context"
-	"errors"
-	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
 
-const elicitationTimeout = 5 * time.Second
+// confirmInputID keys the confirmation elicitation inside the multi round-trip
+// input requests of a destructive tool call.
+const confirmInputID = "confirm"
 
-// confirmDestructiveAction sends an elicitation request to the client asking
-// for confirmation before proceeding with a destructive operation.
-// Returns true if the user confirms, false if they decline or if elicitation
-// is not supported (graceful degradation — proceeds without confirmation).
-func confirmDestructiveAction(ctx context.Context, s *server.MCPServer, message string) (bool, error) {
-	if s == nil {
-		// No server reference: proceed without confirmation.
-		return true, nil
+// confirmDestructiveAction resolves the confirmation for a destructive tool
+// call using multi round-trip requests (SEP-2322).
+//
+// It returns a non-nil result when the caller must return immediately: the
+// client is asked to collect the confirmation and retries the tool call with
+// the answer attached. mcp-go performs the equivalent server-initiated
+// elicitation on behalf of clients using a protocol version before 2026-07-28.
+//
+// proceed reports whether the operation may run. It is false only when the
+// user declined. Clients that do not declare the elicitation capability
+// proceed without confirmation (graceful degradation).
+func confirmDestructiveAction(ctx context.Context, req mcp.CallToolRequest, message string) (proceed bool, pending *mcp.CallToolResult) {
+	if answer := server.ElicitationResponse(req.Params.InputResponses, confirmInputID); answer != nil {
+		return elicitationConfirms(answer), nil
 	}
 
 	if !clientSupportsElicitation(ctx) {
-		// Client did not declare elicitation capability: proceed without confirmation.
 		return true, nil
 	}
 
-	request := mcp.ElicitationRequest{
-		Params: mcp.ElicitationParams{
-			Message: message,
-			RequestedSchema: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"confirm": map[string]any{
-						"type":        "boolean",
-						"description": "Confirm the destructive operation",
-					},
+	params := mcp.ElicitationParams{
+		Message: message,
+		RequestedSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"confirm": map[string]any{
+					"type":        "boolean",
+					"description": "Confirm the destructive operation",
 				},
-				"required": []string{"confirm"},
 			},
+			"required": []string{"confirm"},
 		},
 	}
 
-	// Use a bounded timeout so that clients without elicitation support
-	// don't block the tool call indefinitely.
-	elicitCtx, cancel := context.WithTimeout(ctx, elicitationTimeout)
-	defer cancel()
+	return false, server.NewInputRequestBuilder("").Elicit(confirmInputID, params).ToolResult()
+}
 
-	result, err := s.RequestElicitation(elicitCtx, request)
-	if err != nil {
-		// Graceful degradation: if elicitation is not supported or times out, proceed.
-		if errors.Is(err, server.ErrElicitationNotSupported) ||
-			errors.Is(err, server.ErrNoActiveSession) ||
-			errors.Is(err, context.DeadlineExceeded) {
-			return true, nil
-		}
-		return false, err
+// elicitationConfirms reports whether an elicitation answer approves the
+// operation. Responses that cannot be parsed proceed (graceful degradation).
+func elicitationConfirms(answer *mcp.ElicitationResult) bool {
+	if answer.Action != mcp.ElicitationResponseActionAccept {
+		return false
 	}
 
-	if result.Action != mcp.ElicitationResponseActionAccept {
-		return false, nil
-	}
-
-	// Extract the confirm field from the response.
-	data, ok := result.Content.(map[string]any)
+	data, ok := answer.Content.(map[string]any)
 	if !ok {
-		// If we can't parse the response, proceed (graceful degradation).
-		return true, nil
+		return true
 	}
 
 	confirm, ok := data["confirm"].(bool)
 	if !ok {
-		return true, nil
+		return true
 	}
-
-	return confirm, nil
+	return confirm
 }
 
 // clientSupportsElicitation reports whether the current session declared the
-// elicitation capability during initialization. Sessions that expose no client
-// info are assumed capable so that transports without capability tracking keep
-// working.
+// elicitation capability during initialization. Sessions that track no client
+// info cannot answer an input request, so they count as unsupported and the
+// operation proceeds without confirmation.
 func clientSupportsElicitation(ctx context.Context) bool {
 	session, ok := server.ClientSessionFromContext(ctx).(server.SessionWithClientInfo)
 	if !ok {
-		return true
+		return false
 	}
 	return session.GetClientCapabilities().Elicitation != nil
 }

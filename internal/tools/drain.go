@@ -18,7 +18,6 @@ import (
 )
 
 func registerDrainNode(s *server.MCPServer, pool *kube.ClientPool, cfg *config.Config) {
-	mcpServer := s
 	tool := mcp.NewTool("drain_node",
 		mcp.WithDescription("Drain a Kubernetes node: cordon it and evict all eligible pods. Requires --allow-destructive. "+
 			"WARNING: force=true will delete unmanaged pods (not controlled by a ReplicaSet, Job, DaemonSet, or StatefulSet); those pods will be permanently lost."),
@@ -73,10 +72,10 @@ func registerDrainNode(s *server.MCPServer, pool *kube.ClientPool, cfg *config.C
 
 		// Skip elicitation for dry-run since no real action is taken.
 		if !dryRun {
-			confirmed, confirmErr := confirmDestructiveAction(ctx, mcpServer,
+			confirmed, pending := confirmDestructiveAction(ctx, req,
 				fmt.Sprintf("Are you sure you want to drain node %q? This will cordon the node and evict all eligible pods.", node))
-			if confirmErr != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("elicitation error: %v", confirmErr)), nil
+			if pending != nil {
+				return pending, nil
 			}
 			if !confirmed {
 				return mcp.NewToolResultText("Drain cancelled by user"), nil
