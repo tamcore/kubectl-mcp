@@ -1,6 +1,6 @@
 module github.com/tamcore/kubectl-mcp
 
-go 1.27.1
+go 1.27.2
 
 require (
 	github.com/mark3labs/mcp-go v1.2.0
