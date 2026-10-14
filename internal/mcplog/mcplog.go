@@ -1,7 +1,7 @@
 package mcplog
 
 import (
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/v2/mcp"
 )
 
 // LoggerName is the MCP logger name used in all notifications.

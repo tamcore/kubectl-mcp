@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/v2/mcp"
 )
 
 func diagnosePodHandler(_ context.Context, req mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {

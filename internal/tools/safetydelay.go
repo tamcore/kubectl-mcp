@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/v2/mcp"
 )
 
 // applySafetyDelay pauses for the given duration before a mutating operation,

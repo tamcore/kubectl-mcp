@@ -4,6 +4,7 @@ go 1.27.2
 
 require (
 	github.com/mark3labs/mcp-go v1.2.1
+	github.com/mark3labs/mcp-go/v2 v2.0.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	github.com/yosida95/uritemplate/v3 v3.0.2

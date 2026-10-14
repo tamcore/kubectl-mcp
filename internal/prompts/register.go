@@ -1,8 +1,8 @@
 package prompts
 
 import (
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/mark3labs/mcp-go/v2/mcp"
+	"github.com/mark3labs/mcp-go/v2/server"
 )
 
 // RegisterAll registers all MCP prompts for kubectl diagnostic workflows.
